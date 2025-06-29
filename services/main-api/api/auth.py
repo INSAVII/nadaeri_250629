@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # 시크릿 키 및 토큰 설정
-SECRET_KEY = os.getenv("SECRET_KEY", "qclick_secret_key_change_in_production")
+SECRET_KEY = os.getenv("JWT_SECRET", "qclick_secret_key_change_in_production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7일
 

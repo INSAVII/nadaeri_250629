@@ -1,6 +1,6 @@
 # QClick 배포 준비 진행 상황
 
-## 🎯 현재 상태 (2024-12-29) - 배포환경 설정 완료
+## 🎯 현재 상태 (2024-12-29) - Railway 배포 개선 완료
 
 ### ✅ 완료된 항목
 - [x] 프로젝트 구조 분석
@@ -19,6 +19,12 @@
 - [x] **Railway 배포 설정 완료**
 - [x] **Render 배포 설정 완료**
 - [x] **배포 스크립트 생성 완료**
+- [x] **🚨 Railway 배포 오류 개선 완료**
+  - [x] 환경변수 매핑 수정 (SECRET_KEY → JWT_SECRET)
+  - [x] PostgreSQL 연결 설정 개선
+  - [x] Railway 설정 파일 업데이트
+  - [x] Procfile 생성
+  - [x] 배포 스크립트 생성
 
 ### 🔄 다음 단계 (배포 실행)
 
@@ -56,19 +62,22 @@
 - ✅ `deployment/env.production` - 프로덕션 환경변수
 - ✅ `services/main-api/Dockerfile.production` - 메인 API Docker
 - ✅ `vercel.json` - Vercel 배포 설정
-- ✅ `services/main-api/railway.json` - Railway 배포 설정
+- ✅ `services/main-api/railway.json` - Railway 배포 설정 (개선됨)
+- ✅ `services/main-api/Procfile` - Railway Procfile (신규)
 - ✅ `services/qname-service/render.yaml` - Render 배포 설정
 - ✅ `deployment/deploy_all.bat` - 배포 스크립트
+- ✅ `deployment/deploy_railway.bat` - Railway 전용 배포 스크립트 (신규)
 
 ### 환경변수 설정:
 ```bash
-# 필수 환경변수
+# 필수 환경변수 (Railway에서 설정)
 DATABASE_URL=postgresql://username:password@host:port/database
 JWT_SECRET=your_super_secret_jwt_key_minimum_32_characters
 GEMINI_API_KEY=your_actual_gemini_api_key
 OPENAI_API_KEY=your_actual_openai_api_key
 NAVER_CLIENT_ID=your_actual_naver_client_id
 NAVER_CLIENT_SECRET=your_actual_naver_client_secret
+CORS_ORIGINS=https://your-frontend-domain.vercel.app
 ```
 
 ## 🚀 배포 명령어
@@ -83,6 +92,11 @@ vercel --prod
 ```bash
 cd services/main-api
 railway up
+```
+
+### 또는 배포 스크립트 사용:
+```bash
+deployment/deploy_railway.bat
 ```
 
 ### 마이크로서비스 (Render):
@@ -104,10 +118,12 @@ railway up
 - ✅ 배포 준비 기반 마련
 - ✅ **배포환경 설정 완료**
 - ✅ **모든 배포 설정 파일 생성 완료**
+- ✅ **🚨 Railway 배포 오류 개선 완료**
 
 ## 📋 다음 작업 우선순위
 1. ✅ 배포환경 설정 완료
-2. 🔄 클라우드 서비스 계정 생성
-3. 🔄 API 키 발급 및 설정
-4. 🔄 데이터베이스 설정
-5. 🔄 실제 배포 실행 
+2. ✅ Railway 배포 오류 개선 완료
+3. 🔄 클라우드 서비스 계정 생성
+4. 🔄 API 키 발급 및 설정
+5. 🔄 데이터베이스 설정
+6. 🔄 실제 배포 실행 

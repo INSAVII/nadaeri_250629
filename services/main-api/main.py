@@ -111,4 +111,14 @@ async def debug_login(
 # 서버 실행 (Railway 배포용)
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8001))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    host = os.getenv("HOST", "0.0.0.0")
+    
+    logger.info(f"서버 시작: {host}:{port}")
+    logger.info(f"환경: {os.getenv('ENVIRONMENT', 'development')}")
+    logger.info(f"데이터베이스: {os.getenv('DATABASE_URL', 'sqlite:///./qclick.db')[:50]}...")
+    
+    try:
+        uvicorn.run("main:app", host=host, port=port, log_level="info")
+    except Exception as e:
+        logger.error(f"서버 시작 실패: {str(e)}")
+        raise
