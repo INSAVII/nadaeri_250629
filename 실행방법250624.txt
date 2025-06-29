@@ -1,0 +1,55 @@
+cd D:\250624_cms01\services\main-api
+python main.py
+
+
+
+
+
+
+http://localhost:3002
+
+프런트엔드실행법 
+
+PS C:\Users\PC>
+cd D:\250624_cms01
+cd frontend
+npm run dev
+
+
+
+
+백엔드실행법
+
+PS C:\Users\PC>
+cd D:\250624_cms01
+cd services\qname-service
+python main.py
+
+
+
+
+
+
+
+
+cd D:\250624_cms01
+cd services\qtext-service
+python main.py
+
+
+첫 번째 터미널: 프론트엔드 (npm run dev)
+두 번째 터미널: 메인 API (python main.py)
+세 번째 터미널: QName 서비스 (python main.py)
+네 번째 터미널: QText 서비스 (python main.py)
+
+
+프론트엔드: http://localhost:3000
+메인 API: http://localhost:8001
+QName 서비스: http://localhost:8002
+QText 서비스: http://localhost:8003
+컴포넌트 쇼케이스: http://localhost:3000/components-showcase
+
+
+
+
+

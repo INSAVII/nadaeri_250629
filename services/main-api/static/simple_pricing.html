@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QClick 서비스 가격 관리</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            color: #2563eb;
+            font-weight: 300;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .login-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .login-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .login-input {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .login-input[type="email"] {
+            width: 200px;
+        }
+
+        .login-input[type="password"] {
+            width: 150px;
+        }
+
+        .auth-status {
+            margin-left: auto;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .auth-status.authenticated {
+            color: #065f46;
+        }
+
+        .auth-status.not-authenticated {
+            color: #991b1b;
+        }
+
+        .pricing-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .pricing-header {
+            background: #f8fafc;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .pricing-header h3 {
+            color: #1e293b;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .pricing-header .description {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .pricing-content {
+            padding: 20px;
+        }
+
+        .price-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .current-price {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2563eb;
+        }
+
+        .price-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .price-input {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 16px;
+            width: 100px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .footer {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        .footer h4 {
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+
+        .footer p {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>QClick 서비스 가격 관리</h1>
+            <p>관리자가 서비스 가격을 쉽게 관리할 수 있는 간단한 인터페이스입니다.</p>
+        </div>
+
+        <div class="login-section">
+            <div class="login-form">
+                <input type="email" id="email" class="login-input" placeholder="관리자 이메일" value="admin@qclick.com">
+                <input type="password" id="password" class="login-input" placeholder="비밀번호" value="admin">
+                <button class="btn btn-primary" onclick="login()">로그인</button>
+                <button class="btn btn-secondary" onclick="logout()">로그아웃</button>
+                <div id="auth-status" class="auth-status not-authenticated">인증 필요</div>
+            </div>
+        </div>
+
+        <div id="message-container"></div>
+
+        <div id="pricing-container">
+            <!-- 가격 카드들이 여기에 동적으로 생성됩니다 -->
+        </div>
+
+        <div class="footer">
+            <h4>관리 도구</h4>
+            <p>• 모든 가격을 기본값으로 초기화: <button class="btn btn-danger" onclick="resetAllPrices()" disabled>초기화</button></p>
+            <p>• 현재 설정 새로고침: <button class="btn btn-secondary" onclick="loadPricing()">새로고침</button></p>
+            <p id="last-updated">마지막 업데이트: 로딩 중...</p>
+        </div>
+    </div>
+
+    <script>
+        // API 기본 URL
+        const API_BASE = window.location.origin;
+
+        // 인증 토큰 저장
+        let authToken = localStorage.getItem('authToken');
+        let currentUser = null;
+
+        // 메시지 표시 함수
+        function showMessage(message, type = 'success') {
+            const container = document.getElementById('message-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = message;
+
+            container.innerHTML = '';
+            container.appendChild(messageDiv);
+
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        // 인증 상태 업데이트
+        function updateAuthStatus() {
+            const statusDiv = document.getElementById('auth-status');
+            const resetBtn = document.querySelector('.btn-danger');
+
+            if (authToken && currentUser) {
+                statusDiv.textContent = `인증됨: ${currentUser.email}`;
+                statusDiv.className = 'auth-status authenticated';
+                resetBtn.disabled = false;
+            } else {
+                statusDiv.textContent = '인증 필요';
+                statusDiv.className = 'auth-status not-authenticated';
+                resetBtn.disabled = true;
+            }
+        }
+
+        // 로그인
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                showMessage('이메일과 비밀번호를 입력해주세요.', 'error');
+                return;
+            }
+
+            try {
+                // FormData를 사용하여 OAuth2PasswordRequestForm 형식으로 전송
+                const formData = new FormData();
+                formData.append('username', email);  // OAuth2PasswordRequestForm은 username 필드를 사용
+                formData.append('password', password);
+
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || '로그인에 실패했습니다.');
+                }
+
+                const data = await response.json();
+                authToken = data.access_token;
+
+                // 사용자 정보 가져오기
+                const userResponse = await fetch(`${API_BASE}/api/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (userResponse.ok) {
+                    currentUser = await userResponse.json();
+                }
+
+                localStorage.setItem('authToken', authToken);
+                updateAuthStatus();
+
+                showMessage('로그인 성공!');
+                loadPricing();
+
+            } catch (error) {
+                console.error('로그인 오류:', error);
+                showMessage('로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.', 'error');
+            }
+        }
+
+        // 로그아웃
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            updateAuthStatus();
+            showMessage('로그아웃되었습니다.');
+            loadPricing();
+        }
+
+        // 인증된 요청 헤더 생성
+        function getAuthHeaders() {
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            return headers;
+        }
+
+        // 가격 로드
+        async function loadPricing() {
+            try {
+                const response = await fetch(`${API_BASE}/api/simple-pricing`);
+                if (!response.ok) {
+                    throw new Error('가격 정보를 불러올 수 없습니다.');
+                }
+
+                const data = await response.json();
+                displayPricing(data);
+
+                // 마지막 업데이트 정보 표시
+                const lastUpdated = document.getElementById('last-updated');
+                const updateDate = new Date(data.last_updated).toLocaleString('ko-KR');
+                lastUpdated.textContent = `마지막 업데이트: ${updateDate} (${data.updated_by})`;
+
+            } catch (error) {
+                console.error('가격 로드 오류:', error);
+                showMessage('가격 정보를 불러오는데 실패했습니다.', 'error');
+            }
+        }
+
+        // 가격 표시
+        function displayPricing(data) {
+            const container = document.getElementById('pricing-container');
+            container.innerHTML = '';
+
+            Object.entries(data.services).forEach(([serviceKey, service]) => {
+                const card = document.createElement('div');
+                card.className = 'pricing-card';
+
+                const statusClass = service.is_active ? 'status-active' : 'status-inactive';
+                const statusText = service.is_active ? '활성' : '비활성';
+
+                card.innerHTML = `
+                    <div class="pricing-header">
+                        <h3>${service.name}</h3>
+                        <div class="description">${service.description}</div>
+                    </div>
+                    <div class="pricing-content">
+                        <div class="price-display">
+                            <div>
+                                <div class="current-price">${service.unit_price.toLocaleString()}원/${service.unit}</div>
+                                <span class="status-badge ${statusClass}">${statusText}</span>
+                            </div>
+                            <div class="price-form">
+                                <input type="number" 
+                                       class="price-input" 
+                                       id="price-${serviceKey}" 
+                                       value="${service.unit_price}" 
+                                       min="0" 
+                                       placeholder="새 가격">
+                                <button class="btn btn-primary" onclick="updatePrice('${serviceKey}')" ${!authToken ? 'disabled' : ''}>
+                                    업데이트
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // 가격 업데이트
+        async function updatePrice(serviceKey) {
+            if (!authToken) {
+                showMessage('가격을 업데이트하려면 먼저 로그인해주세요.', 'error');
+                return;
+            }
+
+            const input = document.getElementById(`price-${serviceKey}`);
+            const newPrice = parseInt(input.value);
+
+            if (isNaN(newPrice) || newPrice < 0) {
+                showMessage('유효한 가격을 입력해주세요.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/simple-pricing/${serviceKey}`, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        unit_price: newPrice
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || '가격 업데이트에 실패했습니다.');
+                }
+
+                const result = await response.json();
+                showMessage(result.message);
+
+                // 가격 정보 새로고침
+                loadPricing();
+
+            } catch (error) {
+                console.error('가격 업데이트 오류:', error);
+                showMessage(error.message, 'error');
+            }
+        }
+
+        // 모든 가격 초기화
+        async function resetAllPrices() {
+            if (!authToken) {
+                showMessage('가격을 초기화하려면 먼저 로그인해주세요.', 'error');
+                return;
+            }
+
+            if (!confirm('정말로 모든 가격을 기본값으로 초기화하시겠습니까?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/simple-pricing/reset`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || '가격 초기화에 실패했습니다.');
+                }
+
+                const result = await response.json();
+                showMessage(result.message);
+
+                // 가격 정보 새로고침
+                loadPricing();
+
+            } catch (error) {
+                console.error('가격 초기화 오류:', error);
+                showMessage(error.message, 'error');
+            }
+        }
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', function () {
+            updateAuthStatus();
+            loadPricing();
+        });
+    </script>
+</body>
+
+</html>

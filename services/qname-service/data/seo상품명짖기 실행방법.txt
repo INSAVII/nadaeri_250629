@@ -1,0 +1,49 @@
+seo상품명짖기 실행방법
+
+네이버개발자센터
+https://developers.naver.com/main/
+client ID     uPC6v4xcxGc6aHhdYYEo
+secret  l1pqeGOZ0N
+
+insavi@naver.com
+pw : flyagain&*(77
+
+
+네이버 개발 ID 와 비번으로 이용하기 때문에
+네이버 insavi 개인 로그인 사용하지 않는다.
+
+실행방법은  커서 에서 파이선 파일 product_name_processor.py 가 열려있는상태에서
+파워쉘 을 열고 
+         를 입력한다.
+디렉토리를 바꾸고
+   
+cd D:\250601상품명짖기카워드카테코드
+python product_name_processor.py
+를 넣고 엔터 치면 실행된다
+
+구굴 콘솔에 계정생성함.
+특별히 상품명용 으로 250601에 설정함.
+api 키  AIzaSyC5g8cQks5Blwpazwq0ZyBKgJTne-lOmFs
+
+
+이 코드에는 사용자가 구글 드라이브 에  "naver.xlsx" 카테고리 분류 엑셀 을 참조해서 naver api로부터 추출된 카테고리 분류형식과 일치하는 카테고리 번호 ( A열값) 을 추출해서  "input.xlsx"의 C열에 기입해야 합니다.  이 과정을 수행할 코드를 작성해주세요. 그리고, naver.xlsx 파일을 구글드라이브에 업로드 
+
+
+
+
+
+
+
+
+
+따라서 현재는 로컬 환경에서 개발 중이므로 http://localhost:8080을 사용하는 것이 적절합니다. 나중에 구글 스크립트로 이전하거나 웹사이트에 배포할 때는 해당 환경에 맞는 URL로 변경해야 합니다.
+URL을 변경할 때는 네이버 개발자 센터의 애플리케이션 설정에서도 함께 수정해야 합니다.
+
+
+
+
+   self.NAVER_CLIENT_ID = "YOUR_NAVER_CLIENT_ID"  # 실제 발급받은 ID로 변경
+   self.NAVER_CLIENT_SECRET = "YOUR_NAVER_CLIENT_SECRET"  # 실제 발급받은 Secret으로 변경
+
+
+

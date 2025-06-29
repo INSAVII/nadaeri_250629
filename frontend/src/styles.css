@@ -1,0 +1,489 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================================
+   스타일 우선순위 체계 및 충돌 방지 가이드
+   
+   1. Tailwind Layer 순서: base -> components -> utilities
+   2. CSS Specificity: ID > Class > Element
+   3. 프로젝트 표준 스타일 적용 순서:
+      - 기본 스타일 (base layer)
+      - 컴포넌트 스타일 (components layer)
+      - 유틸리티 확장 (utilities layer)
+      - 커스텀 컴포넌트 클래스 (Tailwind 이후)
+      - 최후 수단 강제 스타일 (!important 최소화)
+
+   ※ 반복적 충돌 방지 원칙:
+     - Tailwind 클래스명 충돌 방지: 프로젝트 전용 prefix 사용
+     - 높은 우선순위: 더 구체적인 선택자 사용
+     - !important 남용 금지: 구조적 해결 우선
+   ============================================================================= */
+
+/* 1. 프로젝트 기본 스타일 - Tailwind base 확장 */
+@layer base {
+
+  /* CSS Reset 보완 */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* 프로젝트 기본 설정 */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    color: #374151;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 300;
+    /* 프로젝트 기본: font-light */
+    line-height: 1.4;
+    /* 프로젝트 기본: 조밀한 행간 */
+    letter-spacing: -0.01em;
+    /* 프로젝트 기본: 조밀한 자간 */
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 프로젝트 기본 요소 스타일 */
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+  }
+
+  /* 링크 기본 스타일 */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: #2563eb;
+    /* primary-600 */
+  }
+}
+
+/* 2. 프로젝트 컴포넌트 스타일 - Tailwind components 확장 */
+@layer components {
+
+  /* === 프로젝트 표준 컨테이너 === */
+  .qc-container {
+    max-width: 1080px;
+    /* 프로젝트 핵심 요구사항 */
+    margin: 0 auto;
+    padding: 0 1rem;
+    font-weight: 300;
+  }
+
+  @media (min-width: 768px) {
+    .qc-container {
+      padding: 0 1.5rem;
+    }
+  }
+
+  /* 기존 page-container 호환성 유지 */
+  .page-container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    font-weight: 300;
+  }
+
+  @media (min-width: 768px) {
+    .page-container {
+      padding: 0 1.5rem;
+    }
+  }
+
+  /* === 프로젝트 버튼 스타일 === */
+  .qc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 300;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    cursor: pointer;
+  }
+
+  .qc-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  }
+
+  .qc-btn-primary {
+    background-color: #2563eb;
+    color: #ffffff;
+  }
+
+  .qc-btn-primary:hover {
+    background-color: #1d4ed8;
+  }
+
+  .qc-btn-secondary {
+    background-color: #e5e7eb;
+    color: #111827;
+  }
+
+  .qc-btn-secondary:hover {
+    background-color: #d1d5db;
+  }
+
+  .qc-btn-text {
+    border: 0;
+    background-color: transparent;
+    color: #374151;
+    padding: 0;
+    /* 패딩 완전 제거 */
+  }
+
+  .qc-btn-text:hover {
+    background-color: #f3f4f6;
+    color: #2563eb;
+  }
+
+  /* === 프로젝트 입력 필드 스타일 === */
+  .qc-input {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 300;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background-color: #ffffff;
+  }
+
+  .qc-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+
+  .qc-input::placeholder {
+    color: #9ca3af;
+  }
+
+  .qc-select {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 300;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    appearance: none;
+  }
+
+  .qc-select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+
+  /* === 프로젝트 테이블 스타일 === */
+  .qc-table {
+    width: 100%;
+    font-size: 0.875rem;
+    font-weight: 300;
+    border-collapse: collapse;
+    border: 1px solid #d1d5db;
+  }
+
+  .qc-table th {
+    background-color: #f9fafb;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #d1d5db;
+    font-weight: 500;
+  }
+
+  .qc-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .qc-table tbody tr:hover {
+    background-color: #f9fafb;
+  }
+
+  /* === 유틸리티 컴포넌트 === */
+  .qc-card {
+    background-color: #ffffff;
+    border-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+    padding: 1.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.2s ease-in-out;
+  }
+
+  .qc-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  .qc-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .qc-badge-primary {
+    background-color: #dbeafe;
+    color: #1e40af;
+  }
+
+  .qc-badge-secondary {
+    background-color: #f3f4f6;
+    color: #1f2937;
+  }
+
+  /* === 텍스트 유틸리티 === */
+  .qc-text-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .qc-text-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* 기존 line-clamp-3 호환성 유지 */
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* 3. 프로젝트 유틸리티 확장 - Tailwind utilities 보완 */
+@layer utilities {
+
+  /* === 프로젝트 표준 폭 유틸리티 === */
+  .qc-w-content {
+    max-width: 1080px;
+  }
+
+  .qc-w-full {
+    width: 100%;
+  }
+
+  /* === 프로젝트 표준 폰트 유틸리티 === */
+  .qc-font-light {
+    font-weight: 300;
+  }
+
+  .qc-font-normal {
+    font-weight: 400;
+  }
+
+  .qc-font-medium {
+    font-weight: 500;
+  }
+
+  /* === 프로젝트 표준 레이아웃 유틸리티 === */
+  .qc-compact {
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
+  .qc-normal {
+    line-height: 1.6;
+    letter-spacing: 0;
+  }
+
+  /* === 프로젝트 표준 간격 유틸리티 === */
+  .qc-gap-xs {
+    gap: 0.25rem;
+  }
+
+  .qc-gap-sm {
+    gap: 0.5rem;
+  }
+
+  .qc-gap-md {
+    gap: 0.75rem;
+  }
+
+  .qc-gap-lg {
+    gap: 1rem;
+  }
+
+  .qc-gap-xl {
+    gap: 1.5rem;
+  }
+}
+
+/* 4. 커스텀 컴포넌트 스타일 (Tailwind 이후 적용) */
+
+/* 헤더 및 네비게이션 */
+.header-nav {
+  height: 60px;
+  /* 고정 높이 */
+}
+
+.mobile-menu {
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+}
+
+/* 서비스 아이콘 */
+.service-icon-wrapper {
+  transition: transform 0.2s ease-in-out;
+}
+
+.service-icon-wrapper:hover {
+  transform: scale(1.05);
+}
+
+/* 반응형 그리드 */
+.responsive-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+@media (min-width: 768px) {
+  .responsive-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+}
+
+/* 5. 최후 수단 강제 스타일 (!important 최소화) */
+
+/* 프로젝트 핵심 요구사항: 1080px 폭 강제 적용 */
+.force-max-width {
+  max-width: 1080px !important;
+}
+
+/* 프로젝트 핵심 요구사항: font-light 강제 적용 */
+.force-font-light {
+  font-weight: 300 !important;
+}
+
+/* 프로젝트 핵심 요구사항: 조밀한 레이아웃 강제 적용 */
+.force-compact-layout {
+  line-height: 1.4 !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* 기존 클래스 호환성 유지 */
+.max-w-\[1080px\] {
+  max-width: 1080px !important;
+}
+
+.font-light {
+  font-weight: 300;
+}
+
+.compact-layout {
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+/* === 드롭다운 메뉴 안정성 보장 스타일 === */
+.admin-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 0.5rem;
+  width: 16rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  z-index: 9999;
+  min-height: fit-content;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.admin-dropdown-menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.admin-dropdown-menu::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.admin-dropdown-menu::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.admin-dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 큐문자관리 메뉴 항목 강제 표시 */
+.qtext-admin-menu-item {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* 드롭다운 메뉴 항목 기본 스타일 */
+.admin-menu-item {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  font-weight: 300;
+  color: #374151;
+  transition: all 0.15s ease-in-out;
+}
+
+.admin-menu-item:hover {
+  color: #2563eb;
+  background-color: #eff6ff;
+}
+
+/* 활성 메뉴 항목 스타일 */
+.admin-menu-item.active {
+  font-weight: 500;
+  color: #2563eb;
+  background-color: #eff6ff;
+  border-left: 4px solid #3b82f6;
+}
