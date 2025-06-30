@@ -3,7 +3,6 @@ import { ServiceIcon, TextButton } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useDownloadService } from '../api/downloadService';
 import { STORAGE_KEYS } from '../config/constants';
-import { getMockUsers } from '../utils/mockUsers';
 
 // 기존 programService 타입 정의
 interface ProgramFile {
@@ -34,6 +33,17 @@ interface ProgramSubscription {
   month1: boolean;
   month3: boolean;
 }
+
+// 실제 API 연동 함수
+const getCurrentUserFromAPI = async (token: string) => {
+  const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/me`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!response.ok) throw new Error('사용자 정보를 불러오지 못했습니다');
+  return await response.json();
+};
 
 // 최종 수정: 2025. 6. 19. 오전 8:20:00
 const QCapture: React.FC = () => {
@@ -207,46 +217,43 @@ const QCapture: React.FC = () => {
 
       // 인증된 사용자인 경우만 구독 정보를 확인
       if (isAuthenticated && user) {
-        // mockUsers에서 직접 현재 사용자 정보 가져오기
-        const mockUsers = getMockUsers();
-        const currentUser = mockUsers.find((mockUser: any) =>
-          mockUser.id === user.id ||
-          mockUser.userId === user.userId ||
-          mockUser.email === user.email
-        );
+        // 실제 API 호출을 통해 사용자 정보 가져오기
+        if (user.token) {
+          getCurrentUserFromAPI(user.token)
+            .then(currentUser => {
+              if (currentUser.programPermissions) {
+                const newSubscription = currentUser.programPermissions;
+                const newSubscriptionString = JSON.stringify(newSubscription);
 
-        if (currentUser && currentUser.programPermissions) {
-          const newSubscription = currentUser.programPermissions;
-          const newSubscriptionString = JSON.stringify(newSubscription);
-
-          // 실제로 구독 정보가 변경된 경우에만 업데이트
-          if (lastSubscriptionRef.current !== newSubscriptionString) {
-            lastSubscriptionRef.current = newSubscriptionString;
-            isUpdatingSubscriptionRef.current = true;
-
-            programSubscriptionRef.current = newSubscription;
-
-            // 업데이트 완료 후 플래그 해제 (지연 실행)
-            setTimeout(() => {
+                if (lastSubscriptionRef.current !== newSubscriptionString) {
+                  lastSubscriptionRef.current = newSubscriptionString;
+                  programSubscriptionRef.current = newSubscription;
+                  console.log('QCapture - 프로그램 구독 정보 업데이트:', newSubscription);
+                }
+              }
+            })
+            .catch(error => {
+              console.error('사용자 정보 로드 실패:', error);
+              // 오류 시 기본값으로 설정
+              programSubscriptionRef.current = {
+                free: true,
+                month1: false,
+                month3: false
+              };
+            })
+            .finally(() => {
               isUpdatingSubscriptionRef.current = false;
-            }, 100);
-            return;
-          }
+            });
+        } else {
+          // 토큰이 없는 경우 기본값 사용
+          console.log('QCapture - 토큰 없음, 기본값 사용');
+          programSubscriptionRef.current = {
+            free: true,
+            month1: false,
+            month3: false
+          };
+          isUpdatingSubscriptionRef.current = false;
         }
-      }
-
-      // Mock 데이터: 실제 환경에서는 API로 대체
-      // 개발환경에서는 무료 버전은 항상 true로 설정
-      const defaultSubscription = {
-        free: true,  // 무료 버전은 기본적으로 활성화
-        month1: false,
-        month3: false
-      };
-
-      const defaultSubscriptionString = JSON.stringify(defaultSubscription);
-      if (lastSubscriptionRef.current !== defaultSubscriptionString) {
-        lastSubscriptionRef.current = defaultSubscriptionString;
-        programSubscriptionRef.current = defaultSubscription;
       }
     } catch (error) {
       console.error('구독 정보 로드 실패:', error);

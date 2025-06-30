@@ -15,6 +15,7 @@ export interface User {
     createdAt: string;            // 가입일
     lastLoginAt?: string;         // 마지막 로그인일
     totalSpent?: number;          // 총 사용금액
+    token?: string;               // API 인증 토큰
     depositHistory?: Array<{      // 예치금 내역
         date: string;
         amount: number;
@@ -36,6 +37,7 @@ export interface AuthUser {
     email?: string;
     role: 'user' | 'admin';
     balance: number;
+    token?: string; // API 인증 토큰
     programPermissions?: {
         free: boolean;
         month1: boolean;

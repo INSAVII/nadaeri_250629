@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { getMockUsers, MockUser, setMockUsers, resetMockUsers } from '../../utils/mockUsers';
 import { User, CMSUser, ensureUserDefaults } from '../../types/user';
 
 type CMSStats = {
@@ -11,6 +10,59 @@ type CMSStats = {
     monthlyRevenue: number;
     newUsersThisMonth: number;
     averageBalance: number;
+};
+
+// 실제 API 연동 함수들
+const fetchUsersFromAPI = async (token: string): Promise<User[]> => {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/deposits/users?skip=0&limit=100`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
+    if (!response.ok) throw new Error('사용자 목록을 불러오지 못했습니다');
+    return await response.json();
+};
+
+const updateUserBalanceAPI = async (token: string, userId: string, amount: number, type: 'add' | 'subtract'): Promise<User> => {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/deposits/users/${userId}/balance`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            amount,
+            type
+        })
+    });
+    if (!response.ok) throw new Error('예치금 업데이트에 실패했습니다');
+    return await response.json();
+};
+
+const updateUserStatusAPI = async (token: string, userId: string, isActive: boolean): Promise<User> => {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/deposits/users/${userId}/status`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isActive })
+    });
+    if (!response.ok) throw new Error('사용자 상태 변경에 실패했습니다');
+    return await response.json();
+};
+
+const updateUserRoleAPI = async (token: string, userId: string, role: string): Promise<User> => {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/deposits/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ role })
+    });
+    if (!response.ok) throw new Error('사용자 역할 변경에 실패했습니다');
+    return await response.json();
 };
 
 export default function CMSPage() {
@@ -87,10 +139,18 @@ export default function CMSPage() {
                 return;
             }
 
-            // 목업 데이터 로드
-            const mockUsers = getMockUsers();
-            const convertedUsers: CMSUser[] = mockUsers.map(mockUser =>
-                ensureUserDefaults(mockUser) as CMSUser
+            // 토큰 체크
+            if (!user?.token) {
+                console.log('인증 토큰 없음');
+                setError('인증 토큰이 필요합니다.');
+                setLoading(false);
+                return;
+            }
+
+            // 실제 API 호출
+            const apiUsers = await fetchUsersFromAPI(user.token);
+            const convertedUsers: CMSUser[] = apiUsers.map(apiUser =>
+                ensureUserDefaults(apiUser) as CMSUser
             );
             setUsers(convertedUsers);
 
@@ -117,12 +177,17 @@ export default function CMSPage() {
         }
     };
 
-    // 목업 데이터 초기화
-    const initializeMockData = () => {
+    // 실제 API 데이터 초기화
+    const initializeMockData = async () => {
         try {
-            const mockUsers = getMockUsers();
-            const convertedUsers: CMSUser[] = mockUsers.map(mockUser =>
-                ensureUserDefaults(mockUser) as CMSUser
+            if (!user?.token) {
+                setError('인증 토큰이 필요합니다.');
+                return;
+            }
+
+            const apiUsers = await fetchUsersFromAPI(user.token);
+            const convertedUsers: CMSUser[] = apiUsers.map(apiUser =>
+                ensureUserDefaults(apiUser) as CMSUser
             );
             setUsers(convertedUsers);
             setStats({
@@ -133,15 +198,15 @@ export default function CMSPage() {
                 newUsersThisMonth: 0,
                 averageBalance: convertedUsers.reduce((sum, u) => sum + u.balance, 0) / convertedUsers.length
             });
-            setSuccessMessage('목업 데이터가 초기화되었습니다.');
+            setSuccessMessage('사용자 데이터가 새로고침되었습니다.');
         } catch (error) {
-            console.error('목업 데이터 초기화 실패:', error);
-            setError('목업 데이터 초기화에 실패했습니다.');
+            console.error('사용자 데이터 새로고침 실패:', error);
+            setError('사용자 데이터 새로고침에 실패했습니다.');
         }
     };
 
     // 통계 업데이트 함수
-    const updateStats = (userList: MockUser[]) => {
+    const updateStats = (userList: User[]) => {
         const totalBalance = userList.reduce((sum, u) => sum + u.balance, 0);
         const activeUsers = userList.filter(u => u.isActive !== false).length;
         const averageBalance = userList.length > 0 ? totalBalance / userList.length : 0;
@@ -168,13 +233,18 @@ export default function CMSPage() {
             return;
         }
 
+        if (!user?.token) {
+            setError('인증 토큰이 필요합니다.');
+            return;
+        }
+
         try {
             setLoading(true);
             setError(null);
 
-            // 목업 데이터에서 사용자 정보 업데이트
-            const mockUsers = getMockUsers();
-            const updatedUsers = mockUsers.map(user => {
+            // 실제 API 호출
+            const apiUsers = await fetchUsersFromAPI(user.token);
+            const updatedUsers = apiUsers.map(user => {
                 if (selectedUsers.includes(user.id)) {
                     // depositType에 따라 충전 또는 차감 처리
                     const newBalance = depositType === 'add'
@@ -189,21 +259,27 @@ export default function CMSPage() {
                 return user;
             });
 
-            // 목업 데이터 저장
-            setMockUsers(updatedUsers);
+            // 실제 API 업데이트
+            const updatedApiUsers = await Promise.all(updatedUsers.map(async (user) => {
+                if (selectedUsers.includes(user.id)) {
+                    const updatedUser = await updateUserBalanceAPI(user.token!, user.id, amount, depositType);
+                    return updatedUser;
+                }
+                return user;
+            }));
 
             // User 타입으로 변환하여 상태 업데이트
-            const convertedUsers: CMSUser[] = updatedUsers.map(mockUser =>
-                ensureUserDefaults(mockUser) as CMSUser
+            const convertedUsers: CMSUser[] = updatedApiUsers.map(apiUser =>
+                ensureUserDefaults(apiUser) as CMSUser
             );
             setUsers(convertedUsers);
 
             // 통계 업데이트
-            updateStats(updatedUsers);
+            updateStats(updatedApiUsers);
 
             // 현재 로그인한 사용자의 예치금이 변경된 경우 이벤트 발생 (안전한 동기화)
             if (user && selectedUsers.includes(user.id)) {
-                const updatedUser = updatedUsers.find(u => u.id === user.id);
+                const updatedUser = updatedApiUsers.find(u => u.id === user.id);
                 if (updatedUser) {
                     console.log('CMS - 현재 사용자 예치금 변경, 안전한 이벤트 발생');
                     // 안전한 예치금 변경 이벤트 발생 (무한루프 방지 로직 포함)
@@ -234,22 +310,25 @@ export default function CMSPage() {
 
     const handleUserStatusToggle = async (userId: string, currentStatus: boolean) => {
         try {
-            // 목업 데이터에서 직접 처리
-            const updatedUsers = users.map(user => {
-                if (user.id === userId) {
-                    return { ...user, isActive: !currentStatus };
-                }
-                return user;
-            });
+            if (!user?.token) {
+                setError('인증 토큰이 필요합니다.');
+                return;
+            }
 
-            setUsers(updatedUsers);
+            // 실제 API 호출
+            const updatedUser = await updateUserStatusAPI(user.token, userId, !currentStatus);
+
+            // User 타입으로 변환하여 상태 업데이트
+            const convertedUser: CMSUser = ensureUserDefaults(updatedUser) as CMSUser;
+            setUsers(prevUsers =>
+                prevUsers.map(user =>
+                    user.id === userId ? convertedUser : user
+                )
+            );
             setStats({
                 ...stats,
-                activeUsers: updatedUsers.filter(u => u.isActive).length
+                activeUsers: updatedUser.isActive ? stats.activeUsers + 1 : stats.activeUsers - 1
             });
-
-            // 목업 데이터 업데이트
-            localStorage.setItem('mockUsers', JSON.stringify(updatedUsers));
 
             setSuccessMessage('사용자 상태가 변경되었습니다.');
         } catch (error) {
@@ -305,12 +384,10 @@ export default function CMSPage() {
     });
 
     const handleProgramPermissionChange = (userId: string, permission: 'free' | 'month1' | 'month3', value: boolean) => {
-        console.log(`CMS - 프로그램 권한 변경: ${userId}, ${permission} = ${value}`);
-
         // 프로그램 권한 변경 중 플래그 설정 (무한루프 방지)
         sessionStorage.setItem('PROGRAM_PERMISSION_CHANGING', 'true');
 
-        // 1. 현재 users 상태 업데이트 (UI용)
+        // 1. 현재 users 상태 업데이트
         setUsers(prevUsers =>
             prevUsers.map(user =>
                 user.id === userId
@@ -326,27 +403,6 @@ export default function CMSPage() {
                     : user
             )
         );
-
-        // 2. mockUsers 데이터 업데이트 (저장용)
-        try {
-            const mockUsers = getMockUsers();
-            const updatedMockUsers = mockUsers.map(user => {
-                if (user.id === userId) {
-                    return {
-                        ...user,
-                        programPermissions: {
-                            ...user.programPermissions,
-                            [permission]: value
-                        }
-                    };
-                }
-                return user;
-            });
-            setMockUsers(updatedMockUsers);
-            console.log('CMS - mockUsers 업데이트 완료');
-        } catch (error) {
-            console.error('mockUsers 업데이트 실패:', error);
-        }
 
         // 5. 성공 메시지 표시
         setSuccessMessage(`${permission} 프로그램 권한이 ${value ? '활성화' : '비활성화'}되었습니다.`);
@@ -365,18 +421,18 @@ export default function CMSPage() {
             return;
         }
 
-        console.log(`CMS - 일괄 프로그램 권한 변경: ${permission} = ${value}, 선택된 사용자: ${selectedUsers.length}명`);
-
-        // 프로그램 권한 변경 중 플래그 설정 (무한루프 방지)
-        sessionStorage.setItem('PROGRAM_PERMISSION_CHANGING', 'true');
+        if (!user?.token) {
+            setError('인증 토큰이 필요합니다.');
+            return;
+        }
 
         try {
             setLoading(true);
             setError(null);
 
-            // 목업 데이터에서 사용자 정보 업데이트
-            const mockUsers = getMockUsers();
-            const updatedUsers = mockUsers.map(user => {
+            // 실제 API 호출
+            const apiUsers = await fetchUsersFromAPI(user.token);
+            const updatedUsers = apiUsers.map(user => {
                 if (selectedUsers.includes(user.id)) {
                     return {
                         ...user,
@@ -389,34 +445,33 @@ export default function CMSPage() {
                 return user;
             });
 
-            // 목업 데이터 저장
-            setMockUsers(updatedUsers);
-            console.log('CMS - 일괄 mockUsers 업데이트 완료');
+            // 실제 API 업데이트
+            const updatedApiUsers = await Promise.all(updatedUsers.map(async (user) => {
+                if (selectedUsers.includes(user.id)) {
+                    const updatedUser = await updateUserRoleAPI(user.token!, user.id, value === 'true' ? 'admin' : 'user');
+                    return updatedUser;
+                }
+                return user;
+            }));
 
             // User 타입으로 변환하여 상태 업데이트
-            const convertedUsers: CMSUser[] = updatedUsers.map(mockUser =>
-                ensureUserDefaults(mockUser) as CMSUser
+            const convertedUsers: CMSUser[] = updatedApiUsers.map(apiUser =>
+                ensureUserDefaults(apiUser) as CMSUser
             );
             setUsers(convertedUsers);
 
             // 통계 업데이트
-            updateStats(updatedUsers);
+            updateStats(updatedApiUsers);
 
             setSuccessMessage(`${selectedUsers.length}명의 사용자에게 ${permission} 프로그램 권한을 ${value === 'true' ? '부여' : '해제'}했습니다.`);
-            // setSelectedUsers([]); // 체크박스 해제하지 않음
+            setSelectedUsers([]);
 
             setTimeout(() => setSuccessMessage(null), 3000);
         } catch (error) {
-            console.error(`${permission} 프로그램 권한 처리 중 오류:`, error);
-            setError(`${permission} 프로그램 권한 처리 중 오류가 발생했습니다.`);
+            console.error('프로그램 권한 처리 중 오류:', error);
+            setError('프로그램 권한 처리 중 오류가 발생했습니다.');
         } finally {
             setLoading(false);
-
-            // 프로그램 권한 변경 완료 후 플래그 해제 (1초 후)
-            setTimeout(() => {
-                sessionStorage.removeItem('PROGRAM_PERMISSION_CHANGING');
-                console.log('CMS - 일괄 프로그램 권한 변경 완료, 플래그 해제');
-            }, 1000);
         }
     };
 
@@ -426,58 +481,56 @@ export default function CMSPage() {
             return;
         }
 
-        // 프로그램 권한 변경 중 플래그 설정 (무한루프 방지)
-        sessionStorage.setItem('PROGRAM_PERMISSION_CHANGING', 'true');
+        if (!user?.token) {
+            setError('인증 토큰이 필요합니다.');
+            return;
+        }
 
         try {
             setLoading(true);
             setError(null);
 
-            // 목업 데이터에서 사용자 정보 업데이트
-            const mockUsers = getMockUsers();
-            const updatedUsers = mockUsers.map(user => {
+            // 실제 API 호출
+            const apiUsers = await fetchUsersFromAPI(user.token);
+            const updatedUsers = apiUsers.map(user => {
                 if (selectedUsers.includes(user.id)) {
                     // 현재 users 상태에서 해당 사용자의 programPermissions를 가져옴
                     const currentUser = users.find(u => u.id === user.id);
                     return {
                         ...user,
-                        programPermissions: currentUser?.programPermissions || {
-                            free: false,
-                            month1: false,
-                            month3: false
-                        }
+                        programPermissions: currentUser?.programPermissions || user.programPermissions
                     };
                 }
                 return user;
             });
 
-            // 목업 데이터 저장
-            setMockUsers(updatedUsers);
+            // 실제 API 업데이트
+            const updatedApiUsers = await Promise.all(updatedUsers.map(async (user) => {
+                if (selectedUsers.includes(user.id)) {
+                    const updatedUser = await updateUserRoleAPI(user.token!, user.id, 'admin');
+                    return updatedUser;
+                }
+                return user;
+            }));
 
             // User 타입으로 변환하여 상태 업데이트
-            const convertedUsers: CMSUser[] = updatedUsers.map(mockUser =>
-                ensureUserDefaults(mockUser) as CMSUser
+            const convertedUsers: CMSUser[] = updatedApiUsers.map(apiUser =>
+                ensureUserDefaults(apiUser) as CMSUser
             );
             setUsers(convertedUsers);
 
             // 통계 업데이트
-            updateStats(updatedUsers);
+            updateStats(updatedApiUsers);
 
             setSuccessMessage('선택된 사용자의 프로그램 권한이 일괄 저장되었습니다.');
-            // setSelectedUsers([]); // 체크박스 해제하지 않음
+            setSelectedUsers([]);
 
             setTimeout(() => setSuccessMessage(null), 3000);
         } catch (error) {
-            console.error('프로그램 권한 일괄 저장 중 오류:', error);
-            setError('프로그램 권한 일괄 저장 중 오류가 발생했습니다.');
+            console.error('프로그램 권한 저장 중 오류:', error);
+            setError('프로그램 권한 저장 중 오류가 발생했습니다.');
         } finally {
             setLoading(false);
-
-            // 프로그램 권한 변경 완료 후 플래그 해제 (1초 후)
-            setTimeout(() => {
-                sessionStorage.removeItem('PROGRAM_PERMISSION_CHANGING');
-                console.log('CMS - 일괄 저장 완료, 플래그 해제');
-            }, 1000);
         }
     };
 
@@ -506,7 +559,7 @@ export default function CMSPage() {
                             onClick={initializeMockData}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                         >
-                            목업 데이터 초기화
+                            데이터 새로고침
                         </button>
                     </div>
                 </div>

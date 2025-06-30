@@ -18,10 +18,8 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { MOCK_ADMIN_USER, MOCK_TEST_USER } from '../utils/mockData';
 import { STORAGE_KEYS } from '../config/constants';
 import { validateUserData } from '../utils/authHelpers';
-import { getMockUsers } from '../utils/mockUsers';
 import { AuthUser, convertToAuthUser, convertFromAuthUser } from '../types/user';
 
 interface AuthContextType {
@@ -38,11 +36,107 @@ interface AuthContextType {
     confirmPassword: string;
   }) => Promise<boolean>;
   // 개발용 디버그 함수들
-  forceAdminLogin?: () => boolean;
+  forceAdminLogin?: () => Promise<boolean>;
   debugAuthState?: () => void;
   // 관리자 권한 체크 함수
   isUserAdmin?: (user: AuthUser | null) => boolean;
 }
+
+// 실제 API 연동 함수들
+const loginAPI = async (userId: string, password: string): Promise<{ user: AuthUser; token: string }> => {
+  const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ userId, password })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || '로그인에 실패했습니다');
+  }
+
+  const data = await response.json();
+  return {
+    user: {
+      id: data.user.id,
+      userId: data.user.userId,
+      name: data.user.name,
+      email: data.user.email,
+      role: data.user.role,
+      balance: data.user.balance,
+      token: data.access_token,
+      programPermissions: data.user.programPermissions
+    },
+    token: data.access_token
+  };
+};
+
+const signupAPI = async (userData: {
+  userId: string;
+  name: string;
+  email?: string;
+  password: string;
+  confirmPassword: string;
+}): Promise<{ user: AuthUser; token: string }> => {
+  const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/signup`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      userId: userData.userId,
+      name: userData.name,
+      email: userData.email,
+      password: userData.password
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || '회원가입에 실패했습니다');
+  }
+
+  const data = await response.json();
+  return {
+    user: {
+      id: data.user.id,
+      userId: data.user.userId,
+      name: data.user.name,
+      email: data.user.email,
+      role: data.user.role,
+      balance: data.user.balance,
+      token: data.access_token,
+      programPermissions: data.user.programPermissions
+    },
+    token: data.access_token
+  };
+};
+
+const getCurrentUserAPI = async (token: string): Promise<AuthUser> => {
+  const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/me`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('사용자 정보를 불러오지 못했습니다');
+  }
+
+  const data = await response.json();
+  return {
+    id: data.id,
+    userId: data.userId,
+    name: data.name,
+    email: data.email,
+    role: data.role,
+    balance: data.balance,
+    token,
+    programPermissions: data.programPermissions
+  };
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -50,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
-  
+
   // 🛡️ 무한루프 재발 방지: 초기화 횟수 제한
   const initCountRef = React.useRef(0);
   const MAX_INIT_ATTEMPTS = 3;
@@ -58,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 초기화 플래그를 사용하여 한 번만 실행
   useEffect(() => {
     if (isInitialized) return;
-    
+
     // 🚨 무한루프 방지: 초기화 횟수 체크
     initCountRef.current += 1;
     if (initCountRef.current > MAX_INIT_ATTEMPTS) {
@@ -68,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const initializeAuth = () => {
+    const initializeAuth = async () => {
       try {
         console.log('AuthContext - 초기화 시작');
 
@@ -98,8 +192,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               parsedUser.name &&
               (parsedUser.role === 'admin' || parsedUser.role === 'user')
             ) {
-              console.log('AuthContext - 유효한 사용자 데이터 설정');
-              setUser(parsedUser);
+              // 토큰이 있는 경우 실제 API로 최신 정보 가져오기
+              if (parsedUser.token) {
+                try {
+                  console.log('AuthContext - 토큰으로 최신 사용자 정보 가져오기');
+                  const currentUser = await getCurrentUserAPI(parsedUser.token);
+                  setUser(currentUser);
+                  console.log('AuthContext - 최신 사용자 정보 설정 완료');
+                } catch (apiError) {
+                  console.warn('AuthContext - API 호출 실패, 저장된 데이터 사용:', apiError);
+                  setUser(parsedUser);
+                }
+              } else {
+                console.log('AuthContext - 토큰 없음, 저장된 데이터 사용');
+                setUser(parsedUser);
+              }
             } else {
               console.log('AuthContext - 유효하지 않은 사용자 데이터, 초기화');
               setUser(null);
@@ -133,20 +240,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleBalanceChanged = (event: CustomEvent) => {
       try {
         const { userId, newBalance, source, timestamp } = event.detail;
-        
+
         // 현재 로그인한 사용자의 예치금만 업데이트
         if (user && user.id === userId && typeof newBalance === 'number') {
           console.log(`💰 AuthContext - 예치금 실시간 업데이트: ${source}에서 ${newBalance}원으로 변경`);
-          
+
           // 사용자 데이터 업데이트 (무한루프 방지)
           const updatedUser = { ...user, balance: newBalance };
-          
+
           // localStorage 업데이트
           localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
-          
+
           // 상태 업데이트
           setUser(updatedUser);
-          
+
           console.log('✅ AuthContext - 예치금 업데이트 완료');
         }
       } catch (error) {
@@ -156,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 이벤트 리스너 등록
     window.addEventListener('balanceChanged', handleBalanceChanged as EventListener);
-    
+
     console.log('🔔 AuthContext - balanceChanged 이벤트 리스너 등록');
 
     // 정리 함수
@@ -192,10 +299,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // 사용자 데이터 제거 함수 (단순화)
+  // 사용자 데이터 제거 함수 (강화된 버전)
   const clearUserData = useCallback(() => {
     try {
-      console.log('AuthContext - clearUserData 호출');
+      console.log('AuthContext - 강화된 clearUserData 호출');
 
       // 강제 로그아웃 플래그 설정
       sessionStorage.setItem('forceLogout', 'true');
@@ -204,10 +311,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.clear();
       sessionStorage.clear();
 
+      // 브라우저 캐시 관련 데이터도 삭제
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => {
+            caches.delete(name);
+          });
+        });
+      }
+
+      // IndexedDB 삭제 (있는 경우)
+      if ('indexedDB' in window) {
+        indexedDB.databases().then(databases => {
+          databases.forEach(db => {
+            if (db.name) {
+              indexedDB.deleteDatabase(db.name);
+            }
+          });
+        });
+      }
+
+      // 쿠키 삭제
+      document.cookie.split(";").forEach(cookie => {
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      });
+
       // 상태 초기화
       setUser(null);
 
-      console.log('AuthContext - 사용자 데이터 완전 제거 완료');
+      console.log('AuthContext - 모든 캐시 및 저장 데이터 완전 제거 완료');
     } catch (error) {
       console.error('AuthContext - clearUserData 오류:', error);
     }
@@ -226,40 +360,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
 
     try {
-      const mockUsers = getMockUsers();
-      console.log('AuthContext - 사용 가능한 mock 사용자들:', mockUsers.map(u => ({ id: u.id, password: u.password })));
-
-      const foundUser = mockUsers.find(user => {
-        const idMatch = user.id === userId;
-        const passwordMatch = user.password === password;
-        console.log(`AuthContext - 사용자 확인: ${user.id} (id일치: ${idMatch}, pw일치: ${passwordMatch})`);
-        return idMatch && passwordMatch;
-      });
-
-      if (foundUser) {
-        console.log('AuthContext - 사용자 찾음:', foundUser);
-        const userData: AuthUser = convertToAuthUser(foundUser);
-
-        console.log('AuthContext - 변환된 사용자 데이터:', userData);
-
-        // 사용자 데이터 저장
-        const saveResult = saveUserData(userData);
-
-        if (saveResult) {
-          console.log('AuthContext - 로그인 성공');
-          setIsLoading(false);
-          return true;
-        } else {
-          console.error('AuthContext - 사용자 데이터 저장 실패');
-          setIsLoading(false);
-          return false;
-        }
-      } else {
-        console.log('AuthContext - 사용자를 찾을 수 없음. 입력값:', { userId, password });
-        console.log('AuthContext - 비교 대상:', mockUsers.map(u => ({ id: u.id, password: u.password })));
-        setIsLoading(false);
-        return false;
-      }
+      const { user: loggedInUser, token } = await loginAPI(userId, password);
+      saveUserData(loggedInUser);
+      console.log('AuthContext - 로그인 성공');
+      setIsLoading(false);
+      return true;
     } catch (error) {
       console.error('AuthContext - 로그인 중 오류:', error);
       setIsLoading(false);
@@ -295,31 +400,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return false;
     }
-    const normalUser: AuthUser = {
-      id: '2',
-      userId: userData.userId,
-      email: userData.email || 'user@qclick.com',
-      name: userData.name,
-      role: 'user',
-      balance: 50000
-    };
-    saveUserData(normalUser);
+    const { user: newUser, token } = await signupAPI(userData);
+    saveUserData(newUser);
     setIsLoading(false);
     return true;
   };
 
   // 개발용 디버그 함수들
-  const forceAdminLogin = (): boolean => {
-    const adminUser: AuthUser = {
-      id: 'admin',
-      userId: 'admin',
-      email: 'admin@qclick.com',
-      name: '관리자',
-      role: 'admin',
-      balance: 100000
-    };
-    saveUserData(adminUser);
-    return true;
+  const forceAdminLogin = async (): Promise<boolean> => {
+    try {
+      // 실제 API로 관리자 로그인 시도
+      const { user: adminUser, token } = await loginAPI('admin', 'admin');
+      saveUserData(adminUser);
+      console.log('AuthContext - 강제 관리자 로그인 성공');
+      return true;
+    } catch (error) {
+      console.error('AuthContext - 강제 관리자 로그인 실패:', error);
+      return false;
+    }
   };
 
   const debugAuthState = () => {

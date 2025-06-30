@@ -22,9 +22,8 @@ import AdminDashboard from './pages/admin/Dashboard';
 import CMS from './pages/admin/CMS';
 import AdminPrograms from './pages/admin/Programs';
 import AdminJobs from './pages/admin/Jobs';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { PriceProvider } from './context/PriceContext';
-import { getMockUsers } from './utils/mockUsers';
 import AdminMenuDebugger from './components/AdminMenuDebugger';
 
 // Public pages
@@ -33,102 +32,97 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Mock data initialization component
 const MockDataInitializer: React.FC = () => {
-  const [message, setMessage] = React.useState('');
-  const [logs, setLogs] = React.useState<string[]>([]);
+  const { forceAdminLogin } = useAuth();
 
   const initializeMockData = () => {
-    try {
-      // 기본 목업 데이터 설정
-      const mockUsers = getMockUsers();
-      localStorage.setItem('mockUsers', JSON.stringify(mockUsers));
+    // localStorage 초기화
+    localStorage.clear();
+    sessionStorage.clear();
 
-      // 성공 메시지 표시
-      setLogs(prev => [...prev, '✅ 목업 데이터 초기화 완료']);
-    } catch (error) {
-      setLogs(prev => [...prev, '❌ 목업 데이터 초기화 실패']);
+    // 브라우저 캐시 삭제
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => {
+          caches.delete(name);
+        });
+      });
     }
+
+    // 쿠키 삭제
+    document.cookie.split(";").forEach(cookie => {
+      const eqPos = cookie.indexOf("=");
+      const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+    });
+
+    console.log('모든 캐시 및 저장 데이터 초기화 완료');
+    window.location.reload(); // 페이지 새로고침
   };
 
+  const forceClearAll = () => {
+    // 모든 저장 데이터 삭제
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // 브라우저 캐시 삭제
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => {
+          caches.delete(name);
+        });
+      });
+    }
+
+    // IndexedDB 삭제
+    if ('indexedDB' in window) {
+      indexedDB.databases().then(databases => {
+        databases.forEach(db => {
+          if (db.name) {
+            indexedDB.deleteDatabase(db.name);
+          }
+        });
+      });
+    }
+
+    // 쿠키 삭제
+    document.cookie.split(";").forEach(cookie => {
+      const eqPos = cookie.indexOf("=");
+      const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+    });
+
+    console.log('🔄 모든 데이터 강제 초기화 완료');
+    alert('모든 캐시와 저장 데이터가 삭제되었습니다. 페이지가 새로고침됩니다.');
+    window.location.reload();
+  };
+
+  // 개발 환경에서만 표시
+  if (process.env.NODE_ENV !== 'development') {
+    return null;
+  }
+
   return (
-    <div style={{
-      fontFamily: 'Arial, sans-serif',
-      maxWidth: '600px',
-      margin: '50px auto',
-      padding: '20px',
-      backgroundColor: '#f5f5f5'
-    }}>
-      <div style={{
-        background: 'white',
-        padding: '30px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-      }}>
-        <h1 style={{
-          color: '#333',
-          textAlign: 'center',
-          marginBottom: '30px'
-        }}>🎯 목업 데이터 초기화</h1>
-
-        <div style={{
-          background: '#f8f9fa',
-          padding: '20px',
-          borderRadius: '5px',
-          margin: '20px 0'
-        }}>
-          <h3>초기화될 목업 회원 정보:</h3>
-          {getMockUsers().map((user: any, index: number) => (
-            <div key={index} style={{
-              borderBottom: '1px solid #dee2e6',
-              padding: '10px 0'
-            }}>
-              <div style={{
-                fontWeight: 'bold',
-                color: '#495057'
-              }}>
-                {user.role === 'admin' ? '👑' : '👤'} {user.name} ({user.id})
-              </div>
-              <div style={{
-                color: '#6c757d',
-                fontSize: '0.9em',
-                marginTop: '5px'
-              }}>
-                이메일: {user.email} | 예치금: {user.balance.toLocaleString()}원 | 역할: {user.role === 'admin' ? '관리자' : '사용자'}
-              </div>
-            </div>
-          ))}
-        </div>
-
+    <div className="fixed top-4 right-4 z-50 bg-yellow-100 border border-yellow-400 rounded-lg p-4 shadow-lg">
+      <h3 className="text-sm font-bold text-yellow-800 mb-2">개발자 도구</h3>
+      <div className="space-y-2">
         <button
           onClick={initializeMockData}
-          style={{
-            background: '#007bff',
-            color: 'white',
-            border: 'none',
-            padding: '12px 24px',
-            borderRadius: '5px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            width: '100%',
-            marginTop: '20px'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.background = '#0056b3'}
-          onMouseOut={(e) => e.currentTarget.style.background = '#007bff'}
+          className="w-full px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
         >
-          목업 데이터 초기화
+          캐시 초기화
         </button>
-
-        {message && (
-          <div style={{
-            background: message.includes('✅') ? '#d4edda' : '#f8d7da',
-            color: message.includes('✅') ? '#155724' : '#721c24',
-            padding: '15px',
-            borderRadius: '5px',
-            marginTop: '20px',
-            textAlign: 'center'
-          }}>
-            {message}
-          </div>
-        )}
+        <button
+          onClick={forceClearAll}
+          className="w-full px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+        >
+          🔄 강제 초기화
+        </button>
+        <button
+          onClick={forceAdminLogin}
+          className="w-full px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
+        >
+          관리자 로그인
+        </button>
       </div>
     </div>
   );
@@ -1057,7 +1051,7 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
-              
+
               <Route
                 path="/board-legacy"
                 element={
