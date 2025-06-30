@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { User, CMSUser, ensureUserDefaults } from '../../types/user';
+import { getApiUrl } from '../../config/constants';
 
 type CMSStats = {
     totalUsers: number;
@@ -14,7 +15,7 @@ type CMSStats = {
 
 // 실제 API 연동 함수들
 const fetchUsersFromAPI = async (token: string): Promise<User[]> => {
-    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/deposits/users?skip=0&limit=100`, {
+    const response = await fetch(`${getApiUrl()}/api/deposits/users?skip=0&limit=100`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -24,7 +25,7 @@ const fetchUsersFromAPI = async (token: string): Promise<User[]> => {
 };
 
 const updateUserBalanceAPI = async (token: string, userId: string, amount: number, type: 'add' | 'subtract'): Promise<User> => {
-    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/deposits/users/${userId}/balance`, {
+    const response = await fetch(`${getApiUrl()}/api/deposits/users/${userId}/balance`, {
         method: 'PATCH',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -40,7 +41,7 @@ const updateUserBalanceAPI = async (token: string, userId: string, amount: numbe
 };
 
 const updateUserStatusAPI = async (token: string, userId: string, isActive: boolean): Promise<User> => {
-    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/deposits/users/${userId}/status`, {
+    const response = await fetch(`${getApiUrl()}/api/deposits/users/${userId}/status`, {
         method: 'PATCH',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -53,7 +54,7 @@ const updateUserStatusAPI = async (token: string, userId: string, isActive: bool
 };
 
 const updateUserRoleAPI = async (token: string, userId: string, role: string): Promise<User> => {
-    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/deposits/users/${userId}/role`, {
+    const response = await fetch(`${getApiUrl()}/api/deposits/users/${userId}/role`, {
         method: 'PATCH',
         headers: {
             'Authorization': `Bearer ${token}`,

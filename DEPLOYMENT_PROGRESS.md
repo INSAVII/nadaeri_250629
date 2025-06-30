@@ -127,3 +127,63 @@ deployment/deploy_railway.bat
 4. 🔄 API 키 발급 및 설정
 5. 🔄 데이터베이스 설정
 6. 🔄 실제 배포 실행 
+
+## 2024-12-29 - Mock → 실제 API 연동 완료
+
+### ✅ 완료된 작업들
+
+#### 1. Mock 데이터를 실제 API 연동으로 완전 교체
+- **AuthContext**: 로그인/회원가입 → 실제 Railway 백엔드 API 연동
+- **CMS 관리자 페이지**: 사용자 목록/예치금/상태 관리 → 실제 API 연동
+- **QCapture 페이지**: 사용자 정보 조회 → 실제 API 연동
+- **utils/mockUsers.ts**: mock 데이터 제거, API 유틸 함수로 교체
+
+#### 2. API 엔드포인트 연동
+- `POST /api/auth/login` - 로그인
+- `POST /api/auth/signup` - 회원가입
+- `GET /api/auth/me` - 사용자 정보 조회
+- `GET /api/deposits/users` - 사용자 목록 조회
+- `PATCH /api/deposits/users/{userId}/balance` - 예치금 관리
+- `PATCH /api/deposits/users/{userId}/status` - 사용자 상태 관리
+- `PATCH /api/deposits/users/{userId}/role` - 사용자 역할 관리
+
+#### 3. 개발 환경 개선
+- **강화된 캐시 초기화**: localStorage, sessionStorage, IndexedDB, 쿠키 완전 삭제
+- **개발자 도구**: 로컬에서만 표시되는 캐시 초기화 버튼 추가
+- **타입 안전성**: User, AuthUser 타입에 token 필드 추가
+
+#### 4. Git 커밋 및 푸시 완료
+- **커밋 메시지**: "feat: mock 데이터를 실제 API 연동으로 완전 교체"
+- **푸시 완료**: GitHub 저장소에 성공적으로 반영
+- **자동 배포**: Vercel에서 자동 배포 시작
+
+### 🔄 현재 진행 중
+- **Vercel 자동 배포**: Git 푸시 후 자동으로 배포 진행 중
+- **배포 확인**: Vercel 대시보드에서 배포 상태 모니터링
+
+### 📋 다음 단계
+1. **Vercel 배포 완료 확인**
+2. **프로덕션 환경 테스트**
+3. **API 연동 검증**
+4. **사용자 테스트**
+
+### 🎯 주요 개선사항
+- 모든 mock 데이터가 실제 Railway 백엔드 API로 교체됨
+- 로컬과 Vercel 모두 동일한 DB 사용
+- 캐시 문제 해결을 위한 강화된 초기화 도구 제공
+- 개발 환경에서 안전한 테스트 가능
+
+### 📊 기술적 변경사항
+- **프론트엔드**: React + TypeScript + Tailwind CSS
+- **백엔드**: Railway (Python FastAPI)
+- **데이터베이스**: Railway PostgreSQL
+- **배포**: Vercel (프론트엔드) + Railway (백엔드)
+- **인증**: JWT 토큰 기반
+- **API**: RESTful API
+
+### 🚀 배포 워크플로우
+1. **로컬 개발** → `npm start`로 테스트
+2. **Git 커밋** → `git add . && git commit -m "message"`
+3. **Git 푸시** → `git push origin main`
+4. **Vercel 자동 배포** → GitHub 연동으로 자동 배포
+5. **프로덕션 확인** → Vercel 도메인에서 최종 테스트 

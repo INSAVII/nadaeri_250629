@@ -3,6 +3,7 @@ import { ServiceIcon, TextButton } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useDownloadService } from '../api/downloadService';
 import { STORAGE_KEYS } from '../config/constants';
+import { getApiUrl } from '../config/constants';
 
 // 기존 programService 타입 정의
 interface ProgramFile {
@@ -36,7 +37,7 @@ interface ProgramSubscription {
 
 // 실제 API 연동 함수
 const getCurrentUserFromAPI = async (token: string) => {
-  const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/me`, {
+  const response = await fetch(`${getApiUrl()}/api/auth/me`, {
     headers: {
       'Authorization': `Bearer ${token}`
     }

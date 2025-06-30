@@ -65,3 +65,23 @@ export const TEST_ACCOUNTS = {
     role: 'user' as const
   }
 } as const;
+
+// API 설정
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://nadaeri-250629-production.up.railway.app';
+
+// 환경 확인
+export const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+export const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
+
+// 로컬 개발 환경에서는 localhost 사용
+export const getApiUrl = () => {
+  const url = IS_DEVELOPMENT ? 'http://localhost:8000' : API_BASE_URL;
+  console.log('API URL 설정:', {
+    NODE_ENV: process.env.NODE_ENV,
+    REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+    IS_DEVELOPMENT,
+    IS_PRODUCTION,
+    finalUrl: url
+  });
+  return url;
+};
