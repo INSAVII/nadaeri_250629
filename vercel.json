@@ -6,22 +6,22 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "frontend/dist"
+        "distDir": "frontend/build"
       }
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://your-main-api.railway.app/api/$1"
+      "dest": "https://nadaeri-250629-production.up.railway.app/api/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "/frontend/$1"
+      "dest": "/$1"
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "https://your-main-api.railway.app",
+    "REACT_APP_API_URL": "https://nadaeri-250629-production.up.railway.app",
     "REACT_APP_ENVIRONMENT": "production"
   },
   "functions": {
