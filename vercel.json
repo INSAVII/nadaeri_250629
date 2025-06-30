@@ -24,11 +24,6 @@
     "REACT_APP_API_URL": "https://nadaeri-250629-production.up.railway.app",
     "REACT_APP_ENVIRONMENT": "production"
   },
-  "functions": {
-    "frontend/**/*.js": {
-      "maxDuration": 10
-    }
-  },
   "headers": [
     {
       "source": "/(.*)",
