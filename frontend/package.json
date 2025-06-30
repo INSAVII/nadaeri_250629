@@ -7,7 +7,7 @@
     "start": "parcel src/index.html --port 3002 --no-cache",
     "dev": "parcel src/index.html --port 3002 --no-cache",
     "dev-clean": "rimraf .parcel-cache dist && parcel src/index.html --port 3002 --no-cache",
-    "build": "parcel build src/index.html --public-url ./",
+    "build": "parcel build src/index.html",
     "clean": "rimraf dist .parcel-cache",
     "preview": "serve dist"
   },
