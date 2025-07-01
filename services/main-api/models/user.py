@@ -24,6 +24,13 @@ class User(Base):
     role = Column(String, default="user")  # 'user' 또는 'admin'
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    phone = Column(String, nullable=True)
+    region = Column(String, nullable=True)
+    age = Column(String, nullable=True)
+    gender = Column(String, nullable=True)
+    work_type = Column(String, nullable=True)
+    has_business = Column(Boolean, default=False)
+    business_number = Column(String, nullable=True)
     
     # 관계 설정
     jobs = relationship("Job", back_populates="user")

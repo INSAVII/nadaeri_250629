@@ -96,36 +96,11 @@ const MockDataInitializer: React.FC = () => {
     window.location.reload();
   };
 
-  // 개발 환경에서만 표시
-  if (process.env.NODE_ENV !== 'development') {
+  // 개발 환경에서만 표시 (임시로 비활성화)
+  if (true) { // process.env.NODE_ENV !== 'development'
     return null;
   }
 
-  return (
-    <div className="fixed top-4 right-4 z-50 bg-yellow-100 border border-yellow-400 rounded-lg p-4 shadow-lg">
-      <h3 className="text-sm font-bold text-yellow-800 mb-2">개발자 도구</h3>
-      <div className="space-y-2">
-        <button
-          onClick={initializeMockData}
-          className="w-full px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-        >
-          캐시 초기화
-        </button>
-        <button
-          onClick={forceClearAll}
-          className="w-full px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
-        >
-          🔄 강제 초기화
-        </button>
-        <button
-          onClick={forceAdminLogin}
-          className="w-full px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
-        >
-          관리자 로그인
-        </button>
-      </div>
-    </div>
-  );
 };
 
 // Cache clear component

@@ -1,33 +1,44 @@
+#!/usr/bin/env python3
+"""
+환경변수 없이 백엔드 서버 실행
+"""
+
+import sys
+import os
 from fastapi import FastAPI, Depends, HTTPException, status, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import os
-import json
 import uvicorn
-from dotenv import load_dotenv
 
-# 환경변수 로드 (안전하게)
-try:
-    load_dotenv()
-    print("환경변수 로드 완료")
-except Exception as e:
-    print(f"환경변수 로드 실패 (기본값 사용): {e}")
+# 환경변수 직접 설정 (환경변수 파일 로딩 우회)
+os.environ.setdefault("DATABASE_URL", "sqlite:///./qclick.db")
+os.environ.setdefault("PORT", "8000")
+os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3003,https://qclick-app.vercel.app")
+os.environ.setdefault("SECRET_KEY", "your-secret-key-here-for-development")
+
+# dotenv 모듈을 monkey patch하여 load_dotenv() 호출을 무시
+import dotenv
+def noop_load_dotenv(*args, **kwargs):
+    pass
+dotenv.load_dotenv = noop_load_dotenv
 
 # 로깅 시스템 초기화
-try:
-    from api.utils.logging import setup_logging
-    logger = setup_logging()
-except ImportError:
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-logger.info("서버 초기화 시작")
+# 데이터베이스 (dotenv 로딩 우회 후)
+from database import engine, get_db
+import models
 
-# API 라우터 임포트 (큐네임, 큐문자 제외)
+# 데이터베이스 테이블 생성
+models.Base.metadata.create_all(bind=engine)
+logger.info("데이터베이스 테이블 초기화 완료")
+
+# API 라우터 임포트
 from api.auth import router as auth_router
 from api.payments import router as payments_router
 from api.deposits import router as deposits_router
@@ -37,14 +48,6 @@ from api.simple_pricing import router as simple_pricing_router
 from api.promotions import router as promotions_router
 from api.boards import router as boards_router
 
-# 데이터베이스
-from database import engine, get_db
-from models import Base
-
-# 데이터베이스 테이블 생성
-Base.metadata.create_all(bind=engine)
-logger.info("데이터베이스 테이블 초기화 완료")
-
 app = FastAPI(
     title="QClick Main API", 
     description="QClick 메인 API 서버 (인증, 사용자 관리, 결제 등)",
@@ -52,20 +55,20 @@ app = FastAPI(
 )
 
 # CORS 미들웨어 설정
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,https://qclick-app.vercel.app").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3003,https://qclick-app.vercel.app").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],  # 모든 HTTP 메소드 허용
-    allow_headers=["*"],  # 모든 헤더 허용
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 logger.info(f"CORS 설정 완료: {cors_origins}")
 
 # 정적 파일 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# API 라우터 등록 (큐네임, 큐문자 제외)
+# API 라우터 등록
 app.include_router(auth_router, prefix="/api/auth", tags=["인증"])
 app.include_router(payments_router, prefix="/api/payments", tags=["결제"])
 app.include_router(deposits_router, prefix="/api/deposits", tags=["예치금"])
@@ -77,11 +80,11 @@ app.include_router(boards_router, tags=["게시판"])
 
 @app.get("/", tags=["루트"])
 async def root():
-    return {"message": "QClick 메인 API 서버에 오신 것을 환영합니다.", "port": "production"}
+    return {"message": "QClick 메인 API 서버에 오신 것을 환영합니다.", "port": "development"}
 
 @app.get("/health", tags=["상태"])
 async def health_check():
-    return {"status": "ok", "message": "메인 API 서버가 정상 작동 중입니다.", "port": "production"}
+    return {"status": "ok", "message": "메인 API 서버가 정상 작동 중입니다.", "port": "development"}
 
 @app.get("/debug/users", tags=["디버그"])
 async def debug_users(db: Session = Depends(get_db)):
@@ -97,38 +100,16 @@ async def debug_users(db: Session = Depends(get_db)):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.post("/debug/test-login", tags=["디버그"])
-async def debug_login(
-    username: str = Form(...), 
-    password: str = Form(...), 
-    db: Session = Depends(get_db)
-):
-    """디버깅용: 로그인을 테스트합니다."""
-    try:
-        from api.auth import authenticate_user
-        user = authenticate_user(db, username, password)
-        if user:
-            return {
-                "status": "success", 
-                "message": "로그인 성공", 
-                "user": {"id": user.id, "email": user.email, "name": user.name, "role": user.role}
-            }
-        else:
-            return {"status": "error", "message": "로그인 실패: 사용자 인증 실패"}
-    except Exception as e:
-        return {"status": "error", "message": f"로그인 처리 중 오류 발생: {str(e)}"}
-
-# 서버 실행 (Railway 배포용)
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8001))
+    port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
     
     logger.info(f"서버 시작: {host}:{port}")
-    logger.info(f"환경: {os.getenv('ENVIRONMENT', 'development')}")
+    logger.info(f"환경: development (환경변수 파일 없이)")
     logger.info(f"데이터베이스: {os.getenv('DATABASE_URL', 'sqlite:///./qclick.db')[:50]}...")
     
     try:
-        uvicorn.run("main:app", host=host, port=port, log_level="info")
+        uvicorn.run("main_no_env:app", host=host, port=port, log_level="info", reload=True)
     except Exception as e:
         logger.error(f"서버 시작 실패: {str(e)}")
-        raise
+        raise 

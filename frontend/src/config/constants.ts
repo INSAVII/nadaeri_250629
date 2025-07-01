@@ -75,7 +75,7 @@ export const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 
 // 로컬 개발 환경에서는 localhost 사용
 export const getApiUrl = () => {
-  const url = IS_DEVELOPMENT ? 'http://localhost:8000' : API_BASE_URL;
+  const url = IS_DEVELOPMENT ? 'http://localhost:8001' : API_BASE_URL;
   console.log('API URL 설정:', {
     NODE_ENV: process.env.NODE_ENV,
     REACT_APP_API_URL: process.env.REACT_APP_API_URL,

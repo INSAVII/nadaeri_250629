@@ -1,5 +1,5 @@
-// Mock data utilities for development and testing
-// 개발 및 테스트용 더미 데이터 유틸리티
+// API 기반 사용자 데이터 유틸리티
+// 모든 mock 데이터 제거 - 실제 백엔드 API만 사용
 
 export interface MockUser {
   id: string;
@@ -20,65 +20,13 @@ export interface MockAdminUser {
   balance: number;
 }
 
-// 관리자 계정 정보 (mockUsers.ts와 일치)
-export const MOCK_ADMIN_USER: MockAdminUser = {
-  id: 'admin',
-  userId: 'admin',
-  email: 'admin@qclick.com',
-  name: '관리자',
-  role: 'admin',
-  balance: 100000
-};
+// 실제 API만 사용하도록 mock 데이터 완전 제거
+// 모든 사용자 데이터는 백엔드 API에서 가져옴
 
-// 일반 사용자 계정 정보 (mockUsers.ts와 일치)
-export const MOCK_TEST_USER: MockAdminUser = {
-  id: 'user',
-  userId: 'user',
-  email: 'user@example.com',
-  name: '일반사용자',
-  role: 'user',
-  balance: 50000
-};
+// API 연결 실패 시 빈 배열 반환 (mock 데이터 사용 안함)
+export const getFallbackUsers = (): MockUser[] => [];
 
-// 사용자 관리 페이지용 더미 데이터 (mockUsers.ts와 일치하는 4명)
-export const getMockUsers = (): MockUser[] => [
-  {
-    id: 'admin',
-    email: 'admin@qclick.com',
-    name: '관리자',
-    role: 'admin',
-    is_active: true,
-    balance: 100000,
-    created_at: '2023-01-01'
-  },
-  {
-    id: 'user',
-    email: 'user@example.com',
-    name: '일반사용자',
-    role: 'user',
-    is_active: true,
-    balance: 50000,
-    created_at: '2023-02-01'
-  },
-  {
-    id: 'user2',
-    email: 'kim@example.com',
-    name: '김철수',
-    role: 'user',
-    is_active: true,
-    balance: 75000,
-    created_at: '2023-03-01'
-  },
-  {
-    id: 'user3',
-    email: 'lee@example.com',
-    name: '이영희',
-    role: 'user',
-    is_active: true,
-    balance: 120000,
-    created_at: '2023-04-01'
-  }
-];
-
-// API 연결 실패 시 사용할 fallback 데이터
-export const getFallbackUsers = (): MockUser[] => getMockUsers();
+// 더 이상 사용하지 않는 mock 함수들 제거
+// export const getMockUsers = () => []; // 삭제됨
+// export const MOCK_ADMIN_USER = {}; // 삭제됨
+// export const MOCK_TEST_USER = {}; // 삭제됨

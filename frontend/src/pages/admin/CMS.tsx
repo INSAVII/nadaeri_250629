@@ -15,13 +15,26 @@ type CMSStats = {
 
 // 실제 API 연동 함수들
 const fetchUsersFromAPI = async (token: string): Promise<User[]> => {
+    console.log('CMS - API 호출 시작:', `${getApiUrl()}/api/deposits/users?skip=0&limit=100`);
+    console.log('CMS - 토큰:', token ? `${token.substring(0, 20)}...` : '토큰 없음');
+
     const response = await fetch(`${getApiUrl()}/api/deposits/users?skip=0&limit=100`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
     });
-    if (!response.ok) throw new Error('사용자 목록을 불러오지 못했습니다');
-    return await response.json();
+
+    console.log('CMS - API 응답 상태:', response.status);
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('CMS - API 오류:', errorText);
+        throw new Error(`사용자 목록을 불러오지 못했습니다: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('CMS - API 응답 데이터:', data);
+    return data;
 };
 
 const updateUserBalanceAPI = async (token: string, userId: string, amount: number, type: 'add' | 'subtract'): Promise<User> => {
@@ -120,6 +133,10 @@ export default function CMSPage() {
     }, []); // 빈 의존성 배열 - 한 번만 실행
 
     const loadData = async () => {
+        // 상태 디버깅용 로그 추가
+        console.log('CMS DEBUG - user:', user);
+        console.log('CMS DEBUG - isAuthenticated:', isAuthenticated);
+
         // 무한루프 방지: 이미 업데이트 중인지 확인
         if (isUpdatingRef.current) {
             console.log('CMS - 이미 데이터 로드 중, 중복 호출 차단');
@@ -178,8 +195,8 @@ export default function CMSPage() {
         }
     };
 
-    // 실제 API 데이터 초기화
-    const initializeMockData = async () => {
+    // 사용자 데이터 새로고침
+    const refreshUserData = async () => {
         try {
             if (!user?.token) {
                 setError('인증 토큰이 필요합니다.');
@@ -557,7 +574,7 @@ export default function CMSPage() {
                             <p className="mt-2 text-gray-600">회원 관리 및 예치금 관리</p>
                         </div>
                         <button
-                            onClick={initializeMockData}
+                            onClick={refreshUserData}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                         >
                             데이터 새로고침

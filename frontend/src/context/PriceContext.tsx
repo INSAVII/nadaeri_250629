@@ -20,51 +20,41 @@ export const usePrice = () => {
 };
 
 export const PriceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [qnamePrice, setQnamePrice] = useState(() => {
-        const saved = localStorage.getItem('qname_price');
-        return saved ? parseInt(saved) : 50;
-    });
+    const [qnamePrice, setQnamePrice] = useState(0);
+    const [qtextPrice, setQtextPrice] = useState(0);
+    const [qcapturePrice, setQcapturePrice] = useState(0);
+    const [loading, setLoading] = useState(true);
 
-    const [qtextPrice, setQtextPrice] = useState(() => {
-        const saved = localStorage.getItem('qtext_price');
-        return saved ? parseInt(saved) : 30;
-    });
-
-    const [qcapturePrice, setQcapturePrice] = useState(() => {
-        const saved = localStorage.getItem('qcapture_price');
-        return saved ? parseInt(saved) : 20;
-    });
-
-    // localStorage에 저장
+    // API에서 가격 정보 로드
     useEffect(() => {
-        localStorage.setItem('qname_price', qnamePrice.toString());
-    }, [qnamePrice]);
-
-    useEffect(() => {
-        localStorage.setItem('qtext_price', qtextPrice.toString());
-    }, [qtextPrice]);
-
-    useEffect(() => {
-        localStorage.setItem('qcapture_price', qcapturePrice.toString());
-    }, [qcapturePrice]);
-
-    // 브라우저 간 동기화를 위한 storage 이벤트 리스너
-    useEffect(() => {
-        const handleStorageChange = (e: StorageEvent) => {
-            if (e.key === 'qname_price' && e.newValue) {
-                setQnamePrice(parseInt(e.newValue));
-            }
-            if (e.key === 'qtext_price' && e.newValue) {
-                setQtextPrice(parseInt(e.newValue));
-            }
-            if (e.key === 'qcapture_price' && e.newValue) {
-                setQcapturePrice(parseInt(e.newValue));
+        const loadPrices = async () => {
+            try {
+                const response = await fetch('/api/pricing');
+                if (response.ok) {
+                    const data = await response.json();
+                    setQnamePrice(data.qname || 0);
+                    setQtextPrice(data.qtext || 0);
+                    setQcapturePrice(data.qcapture || 0);
+                } else {
+                    console.warn('가격 정보 로드 실패, 기본값 사용');
+                    setQnamePrice(50);
+                    setQtextPrice(30);
+                    setQcapturePrice(20);
+                }
+            } catch (error) {
+                console.error('가격 정보 로드 오류:', error);
+                setQnamePrice(50);
+                setQtextPrice(30);
+                setQcapturePrice(20);
+            } finally {
+                setLoading(false);
             }
         };
 
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
+        loadPrices();
     }, []);
+
+    // API 기반 가격 정보만 사용 (localStorage 제거)
 
     const value = {
         qnamePrice,

@@ -227,17 +227,9 @@ const Board: React.FC = () => {
         attachments: [] as File[]
     });
 
-    // 현재 사용자 정보 가져오기
+    // 현재 사용자 정보 가져오기 (AuthContext 사용)
     const getCurrentUser = () => {
-        const savedUserData = localStorage.getItem(STORAGE_KEYS.USER_DATA);
-        if (savedUserData) {
-            try {
-                return JSON.parse(savedUserData);
-            } catch (error) {
-                return null;
-            }
-        }
-        return null;
+        return user; // AuthContext의 user 사용
     };
 
     // 삭제 권한 체크

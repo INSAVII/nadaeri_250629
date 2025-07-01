@@ -16,7 +16,7 @@ interface FileValidation {
 const QTEXT_SERVICE_URL = 'http://localhost:8003';
 
 const QText: React.FC = () => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, updateUserBalance } = useAuth();
   const { qtextPrice, setQtextPrice } = usePrice();
   const [isEditing, setIsEditing] = useState(false);
   const [tempPrice, setTempPrice] = useState(qtextPrice || 100);
@@ -211,18 +211,9 @@ const QText: React.FC = () => {
       const fileCount = fileValidation.totalFiles;
       const newBalance = user.balance - totalCost;
 
-      // 로컬 사용자 데이터 업데이트 (즉시 차감)
-      const updatedUser = { ...user, balance: newBalance };
-      localStorage.setItem('USER_DATA', JSON.stringify(updatedUser));
+      // 사용자 잔액 업데이트 (AuthContext를 통해 실제 API 호출)
+      updateUserBalance(newBalance);
       setBalance(newBalance);
-
-      // mockUsers 업데이트 (즉시 차감)
-      try {
-        const { updateUserBalance } = await import('../utils/mockUsers');
-        updateUserBalance(user.id, newBalance, `큐문자 서비스 사용: ${fileCount}건 처리 (사전 차감)`);
-      } catch (e) {
-        console.warn('mockUsers 업데이트 실패:', e);
-      }
 
       // === 파일 업로드 및 처리 ===
       // FormData 생성
@@ -251,17 +242,9 @@ const QText: React.FC = () => {
       if (!response.ok) {
         const errorText = await response.text();
 
-        // API 오류 시 예치금 환불
-        const refundedUser = { ...user, balance: user.balance }; // 원래 잔액으로 복원
-        localStorage.setItem('USER_DATA', JSON.stringify(refundedUser));
+        // API 오류 시 예치금 환불 (원래 잔액으로 복원)
+        updateUserBalance(user.balance);
         setBalance(user.balance);
-
-        try {
-          const { updateUserBalance } = await import('../utils/mockUsers');
-          updateUserBalance(user.id, user.balance, `큐문자 서비스 오류로 인한 환불: ${fileCount}건`);
-        } catch (e) {
-          console.warn('mockUsers 환불 업데이트 실패:', e);
-        }
 
         throw new Error(`서버 오류: ${response.status} - ${errorText}`);
       }

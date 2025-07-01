@@ -17,7 +17,7 @@ interface FileValidation {
 const QNAME_SERVICE_URL = 'http://localhost:8004';
 
 const QName: React.FC = () => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, updateUserBalance } = useAuth();
   const { qnamePrice, setQnamePrice } = usePrice();
   const [isEditing, setIsEditing] = useState(false);
   const [tempPrice, setTempPrice] = useState(qnamePrice);
@@ -265,19 +265,9 @@ const QName: React.FC = () => {
       console.log('차감 금액:', totalCost);
       console.log('차감 후 잔액:', newBalance);
 
-      // 로컬 사용자 데이터 업데이트 (즉시 차감)
-      const updatedUser = { ...user, balance: newBalance };
-      localStorage.setItem('USER_DATA', JSON.stringify(updatedUser));
+      // 사용자 잔액 업데이트 (AuthContext를 통해 실제 API 호출)
+      updateUserBalance(newBalance);
       setBalance(newBalance);
-
-      // mockUsers 업데이트 (즉시 차감)
-      try {
-        const { updateUserBalance } = await import('../utils/mockUsers');
-        updateUserBalance(user.id, newBalance, `큐네임 서비스 사용: ${rowCount}건 처리 (사전 차감)`);
-      } catch (e) {
-        console.warn('mockUsers 업데이트 실패:', e);
-        // mockUsers가 없어도 기능에는 영향 없음
-      }
 
       console.log('예치금 차감 완료');
 
@@ -317,19 +307,10 @@ const QName: React.FC = () => {
         const errorText = await response.text();
         console.error('API 오류 응답:', errorText);
 
-        // API 오류 시 예치금 환불
+        // API 오류 시 예치금 환불 (원래 잔액으로 복원)
         console.log('=== API 오류로 인한 예치금 환불 ===');
-        const refundedUser = { ...user, balance: user.balance }; // 원래 잔액으로 복원
-        localStorage.setItem('USER_DATA', JSON.stringify(refundedUser));
+        updateUserBalance(user.balance);
         setBalance(user.balance);
-
-        // mockUsers 업데이트 (즉시 차감)
-        try {
-          const { updateUserBalance } = await import('../utils/mockUsers');
-          updateUserBalance(user.id, user.balance, `큐네임 서비스 오류로 인한 환불: ${rowCount}건`);
-        } catch (e) {
-          console.warn('mockUsers 환불 업데이트 실패:', e);
-        }
 
         throw new Error(`서버 오류: ${response.status} - ${errorText}`);
       }

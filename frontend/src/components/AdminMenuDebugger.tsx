@@ -17,12 +17,6 @@ export default function AdminMenuDebugger() {
         } : null,
         isAuthenticated,
         isAdmin: user?.role === 'admin',
-        localStorage: {
-          USER_DATA: localStorage.getItem('USER_DATA'),
-          user: localStorage.getItem('user'),
-          currentUser: localStorage.getItem('currentUser'),
-          authUser: localStorage.getItem('authUser')
-        },
         domElements: {
           adminDropdown: document.querySelector('.admin-dropdown-menu') ? 'found' : 'not found',
           qtextMenuItem: document.querySelector('.qtext-admin-menu-item') ? 'found' : 'not found'
@@ -40,7 +34,7 @@ export default function AdminMenuDebugger() {
   }
 
   return (
-    <div 
+    <div
       style={{
         position: 'fixed',
         bottom: '10px',
@@ -78,16 +72,6 @@ export default function AdminMenuDebugger() {
       <div>
         <strong>QText Menu Item:</strong> {debugInfo.domElements?.qtextMenuItem}
       </div>
-      <details style={{ marginTop: '10px' }}>
-        <summary>LocalStorage Keys</summary>
-        <div style={{ fontSize: '10px', marginTop: '5px' }}>
-          {Object.entries(debugInfo.localStorage || {}).map(([key, value]) => (
-            <div key={key}>
-              <strong>{key}:</strong> {value ? '✅' : '❌'}
-            </div>
-          ))}
-        </div>
-      </details>
     </div>
   );
 }
