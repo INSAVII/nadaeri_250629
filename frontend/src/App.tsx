@@ -10,7 +10,6 @@ import DeleteAccount from './pages/DeleteAccount';
 import Dashboard from './pages/Dashboard';
 import UserProfile from './pages/UserProfile';
 import PaymentHistory from './pages/PaymentHistory';
-import Pricing from './pages/Pricing';
 import Board from './pages/Board2';
 import BoardAPI from './pages/BoardAPI';
 import QCapture from './pages/QCapture';
@@ -30,77 +29,11 @@ import AdminMenuDebugger from './components/AdminMenuDebugger';
 import PublicOnlyRoute from './components/PublicOnlyRoute';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
-// Mock data initialization component
+// Mock data initialization component - 완전 비활성화
 const MockDataInitializer: React.FC = () => {
-  const { forceAdminLogin } = useAuth();
-
-  const initializeMockData = () => {
-    // localStorage 초기화
-    localStorage.clear();
-    sessionStorage.clear();
-
-    // 브라우저 캐시 삭제
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => {
-          caches.delete(name);
-        });
-      });
-    }
-
-    // 쿠키 삭제
-    document.cookie.split(";").forEach(cookie => {
-      const eqPos = cookie.indexOf("=");
-      const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-    });
-
-    console.log('모든 캐시 및 저장 데이터 초기화 완료');
-    window.location.reload(); // 페이지 새로고침
-  };
-
-  const forceClearAll = () => {
-    // 모든 저장 데이터 삭제
-    localStorage.clear();
-    sessionStorage.clear();
-
-    // 브라우저 캐시 삭제
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => {
-          caches.delete(name);
-        });
-      });
-    }
-
-    // IndexedDB 삭제
-    if ('indexedDB' in window) {
-      indexedDB.databases().then(databases => {
-        databases.forEach(db => {
-          if (db.name) {
-            indexedDB.deleteDatabase(db.name);
-          }
-        });
-      });
-    }
-
-    // 쿠키 삭제
-    document.cookie.split(";").forEach(cookie => {
-      const eqPos = cookie.indexOf("=");
-      const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-    });
-
-    console.log('🔄 모든 데이터 강제 초기화 완료');
-    alert('모든 캐시와 저장 데이터가 삭제되었습니다. 페이지가 새로고침됩니다.');
-    window.location.reload();
-  };
-
-  // 개발 환경에서만 표시 (임시로 비활성화)
-  if (true) { // process.env.NODE_ENV !== 'development'
-    return null;
-  }
-
+  // 🚫 자동 로그인 방지: 이 컴포넌트는 더 이상 사용하지 않음
+  console.log('🚫 MockDataInitializer - 비활성화됨 (자동 로그인 방지)');
+  return null;
 };
 
 // Cache clear component
@@ -548,6 +481,105 @@ const ForceCacheClearPage: React.FC = () => {
 };
 
 // 강화된 캐시 삭제 컴포넌트
+const ForceCleanupPage: React.FC = () => {
+  const [message, setMessage] = React.useState('');
+
+  const clearEverything = () => {
+    try {
+      // 로컬스토리지 삭제
+      localStorage.clear();
+
+      // 세션스토리지 삭제
+      sessionStorage.clear();
+
+      // 쿠키 삭제
+      document.cookie.split(";").forEach(cookie => {
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+        if (name) {
+          document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        }
+      });
+
+      setMessage('✅ 모든 데이터가 삭제되었습니다!');
+
+      // 3초 후 홈으로 이동
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 3000);
+
+    } catch (error) {
+      setMessage(`❌ 오류 발생: ${error}`);
+    }
+  };
+
+  return (
+    <div style={{
+      fontFamily: 'Arial, sans-serif',
+      maxWidth: '800px',
+      margin: '0 auto',
+      padding: '20px',
+      textAlign: 'center'
+    }}>
+      <h1 style={{ color: '#dc3545' }}>🧹 완전한 청소 작업</h1>
+      <p style={{ fontSize: '16px', margin: '20px 0' }}>
+        이 페이지는 브라우저의 모든 캐시, 로컬스토리지, 세션스토리지를 완전히 삭제합니다.
+      </p>
+
+      <div style={{ margin: '30px 0' }}>
+        <button
+          onClick={clearEverything}
+          style={{
+            padding: '15px 30px',
+            backgroundColor: '#dc3545',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '18px',
+            fontWeight: 'bold'
+          }}
+        >
+          모든 데이터 완전 삭제
+        </button>
+      </div>
+
+      {message && (
+        <div style={{
+          padding: '15px',
+          margin: '20px 0',
+          borderRadius: '8px',
+          backgroundColor: message.includes('✅') ? '#d4edda' : '#f8d7da',
+          color: message.includes('✅') ? '#155724' : '#721c24',
+          border: '1px solid ' + (message.includes('✅') ? '#c3e6cb' : '#f5c6cb'),
+          fontSize: '16px',
+          fontWeight: 'bold'
+        }}>
+          {message}
+        </div>
+      )}
+
+      <div style={{
+        backgroundColor: '#f8f9fa',
+        border: '1px solid #dee2e6',
+        padding: '20px',
+        borderRadius: '8px',
+        margin: '20px 0',
+        textAlign: 'left'
+      }}>
+        <h3>삭제되는 데이터:</h3>
+        <ul style={{ fontSize: '14px', lineHeight: '1.6' }}>
+          <li>로컬스토리지 (localStorage)</li>
+          <li>세션스토리지 (sessionStorage)</li>
+          <li>쿠키 (cookies)</li>
+          <li>로그인 정보</li>
+          <li>사용자 설정</li>
+        </ul>
+      </div>
+    </div>
+  );
+};
+
 const EnhancedCacheClearPage: React.FC = () => {
   const [message, setMessage] = React.useState('');
   const [log, setLog] = React.useState<string[]>([]);
@@ -931,6 +963,48 @@ const App: React.FC = () => {
                 element={<EnhancedCacheClearPage />}
               />
 
+              {/* Force cleanup route */}
+              <Route
+                path="/force-cleanup"
+                element={<ForceCleanupPage />}
+              />
+
+              {/* Test route */}
+              <Route
+                path="/test-cleanup"
+                element={<div style={{ padding: '20px', textAlign: 'center' }}>
+                  <h1>🧹 테스트 청소 페이지</h1>
+                  <p>이 페이지가 보이면 라우팅이 정상 작동합니다!</p>
+                  <button onClick={() => {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    alert('캐시가 삭제되었습니다!');
+                  }} style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}>
+                    간단한 캐시 삭제
+                  </button>
+                </div>}
+              />
+
+              {/* Simple debug route */}
+              <Route
+                path="/debug"
+                element={<div style={{ padding: '50px', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                  <h1 style={{ color: '#333' }}>🔧 디버그 페이지</h1>
+                  <p style={{ fontSize: '18px', margin: '20px 0' }}>라우팅이 정상 작동합니다!</p>
+                  <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', margin: '20px auto', maxWidth: '500px' }}>
+                    <h3>현재 시간: {new Date().toLocaleString()}</h3>
+                    <p>이 페이지가 보이면 React 라우팅이 정상 작동합니다.</p>
+                  </div>
+                </div>}
+              />
+
               {/* App routes - protected, require login */}
               <Route
                 path="/app/profile"
@@ -948,14 +1022,7 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/app/pricing"
-                element={
-                  <ProtectedRoute>
-                    <Pricing />
-                  </ProtectedRoute>
-                }
-              />
+
 
               {/* Service routes for regular users */}
               <Route
@@ -1100,7 +1167,7 @@ const App: React.FC = () => {
               {/* Legacy route redirects */}
               <Route path="/profile" element={<Navigate to="/app/profile" replace />} />
               <Route path="/payment-history" element={<Navigate to="/app/payment-history" replace />} />
-              <Route path="/pricing" element={<Navigate to="/app/pricing" replace />} />
+
 
               {/* 기존 회원관리/예치금관리 페이지를 CMS로 리다이렉트 */}
               <Route path="/admin/users" element={<Navigate to="/admin/cms" replace />} />

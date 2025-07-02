@@ -1,43 +1,65 @@
-// 전역 사용자 타입 정의
-// 모든 컴포넌트에서 공통으로 사용할 통일된 User 인터페이스
-
+// 표준 User 타입 정의 (DB/백엔드/프론트엔드 완전 일치)
 export interface User {
+    // 필수 필드 (핵심 정합성)
     id: string;                    // 시스템 내부 ID
-    userId: string;               // 사용자 로그인 ID (필수, 고유값)
-    password: string;             // 비밀번호
-    name: string;                 // 실명
-    email: string;                // 이메일
-    phone: string;                // 전화번호 (필수)
-    role: 'user' | 'admin';       // 사용자 역할
-    balance: number;              // 예치금
-    isActive: boolean;            // 활성 상태
-    businessNumber?: string;      // 사업자번호 (선택)
-    createdAt: string;            // 가입일
-    lastLoginAt?: string;         // 마지막 로그인일
-    totalSpent?: number;          // 총 사용금액
-    token?: string;               // API 인증 토큰
-    depositHistory?: Array<{      // 예치금 내역
+    userId: string;                // 사용자 ID (id와 동일)
+    name: string;                  // 이름
+    email: string;                 // 이메일
+    phone: string;                 // 전화번호 (필수)
+    role: 'user' | 'admin';        // 사용자 역할
+    balance: number;               // 예치금
+    is_active: boolean;            // 활성/비활성
+    created_at: string;            // 가입일
+
+    // 선택적 필드
+    last_login_at?: string;        // 마지막 로그인
+    token?: string;                // API 인증 토큰
+
+    // 부가 정보 (선택적)
+    region?: string;               // 지역
+    age?: string;                  // 나이
+    gender?: string;               // 성별
+    work_type?: string;            // 직업
+    has_business?: boolean;        // 사업자 여부
+    business_number?: string;      // 사업자 번호
+
+    // 레거시 호환용 (점진적 제거 예정)
+    isActive?: boolean;            // is_active와 동일
+    createdAt?: string;            // created_at과 동일
+    lastLoginAt?: string;          // last_login_at과 동일
+    totalSpent?: number;           // 총 사용금액
+    depositHistory?: Array<{       // 예치금 내역
         date: string;
         amount: number;
         type: 'deposit' | 'withdraw';
         memo: string;
     }>;
-    programPermissions: {         // 프로그램 권한 (필수)
+    programPermissions?: {         // 프로그램 권한
         free: boolean;
         month1: boolean;
         month3: boolean;
     };
+    programs?: any[];              // 백엔드 API 응답 호환용
 }
 
-// AuthContext에서 사용할 간소화된 User 타입
+// AuthContext에서 사용할 간소화된 User 타입 (표준 구조와 일치)
 export interface AuthUser {
+    // 필수 필드 (표준 User와 동일)
     id: string;
     userId: string;
     name: string;
-    email?: string;
+    email: string;
+    phone: string;
     role: 'user' | 'admin';
     balance: number;
-    token?: string; // API 인증 토큰
+    is_active: boolean;
+    created_at: string;
+
+    // 선택적 필드
+    last_login_at?: string;
+    token?: string;
+
+    // 프로그램 권한 (선택적)
     programPermissions?: {
         free: boolean;
         month1: boolean;
@@ -60,15 +82,19 @@ export const DEFAULT_PROGRAM_PERMISSIONS = {
     month3: false
 };
 
-// 타입 변환 헬퍼 함수들
+// 타입 변환 헬퍼 함수들 (표준 구조 기반)
 export function convertToAuthUser(user: User): AuthUser {
     return {
         id: user.id,
         userId: user.userId,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
         balance: user.balance,
+        is_active: user.is_active,
+        created_at: user.created_at,
+        last_login_at: user.last_login_at,
         programPermissions: user.programPermissions
     };
 }
@@ -81,36 +107,49 @@ export function convertFromAuthUser(authUser: AuthUser): User {
     return {
         id: authUser.id,
         userId: authUser.userId,
-        password: 'unknown', // 기본값
         name: authUser.name,
-        email: authUser.email || `${authUser.userId}@example.com`,
-        phone: '010-0000-0000', // 기본값
+        email: authUser.email,
+        phone: authUser.phone,
         role: authUser.role,
         balance: authUser.balance,
-        isActive: true,
-        createdAt: new Date().toISOString().split('T')[0],
-        lastLoginAt: new Date().toISOString().split('T')[0],
+        is_active: authUser.is_active,
+        created_at: authUser.created_at,
+        last_login_at: authUser.last_login_at,
         programPermissions: authUser.programPermissions || DEFAULT_PROGRAM_PERMISSIONS
     };
 }
 
-// User 객체에 기본값을 제공하는 헬퍼 함수
+// User 객체에 기본값을 제공하는 헬퍼 함수 (표준 구조 기반)
 export function ensureUserDefaults(user: Partial<User>): User {
+    const perms: any = user.programPermissions || {};
     return {
         id: user.id || 'unknown',
         userId: user.userId || user.id || 'unknown',
-        password: user.password || 'unknown',
         name: user.name || 'Unknown User',
         email: user.email || 'unknown@example.com',
         phone: user.phone || '010-0000-0000',
         role: user.role || 'user',
         balance: user.balance || 0,
-        isActive: user.isActive ?? true,
-        businessNumber: user.businessNumber,
-        createdAt: user.createdAt || new Date().toISOString().split('T')[0],
-        lastLoginAt: user.lastLoginAt,
+        is_active: user.is_active ?? user.isActive ?? true,
+        created_at: user.created_at || user.createdAt || new Date().toISOString().split('T')[0],
+        last_login_at: user.last_login_at || user.lastLoginAt,
+        region: user.region,
+        age: user.age,
+        gender: user.gender,
+        work_type: user.work_type,
+        has_business: user.has_business,
+        business_number: user.business_number,
+        // 레거시 호환용
+        isActive: user.is_active ?? user.isActive ?? true,
+        createdAt: user.created_at || user.createdAt || new Date().toISOString().split('T')[0],
+        lastLoginAt: user.last_login_at || user.lastLoginAt,
         totalSpent: user.totalSpent || 0,
         depositHistory: user.depositHistory || [],
-        programPermissions: user.programPermissions || DEFAULT_PROGRAM_PERMISSIONS
+        programPermissions: {
+            free: perms.free ?? false,
+            month1: perms.month1 ?? false,
+            month3: perms.month3 ?? false
+        },
+        programs: user.programs || []
     };
 } 

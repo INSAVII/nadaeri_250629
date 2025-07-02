@@ -31,9 +31,7 @@ logger.info("서버 초기화 시작")
 from api.auth import router as auth_router
 from api.payments import router as payments_router
 from api.deposits import router as deposits_router
-from api.manuals import router as manuals_router
-from api.pricing import router as pricing_router
-from api.simple_pricing import router as simple_pricing_router
+#from api.manuals import router as manuals_router  # 삭제
 from api.promotions import router as promotions_router
 from api.boards import router as boards_router
 
@@ -52,7 +50,7 @@ app = FastAPI(
 )
 
 # CORS 미들웨어 설정
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,https://qclick-app.vercel.app").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:3005").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -69,9 +67,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth_router, prefix="/api/auth", tags=["인증"])
 app.include_router(payments_router, prefix="/api/payments", tags=["결제"])
 app.include_router(deposits_router, prefix="/api/deposits", tags=["예치금"])
-app.include_router(manuals_router, prefix="/api/manuals", tags=["사용설명서"])
-app.include_router(pricing_router, prefix="/api/pricing", tags=["가격"])
-app.include_router(simple_pricing_router, prefix="/api", tags=["간단가격관리"])
+#app.include_router(manuals_router, prefix="/api/manuals", tags=["사용설명서"])  # 삭제
 app.include_router(promotions_router, prefix="/api/promotion", tags=["홍보문구"])
 app.include_router(boards_router, tags=["게시판"])
 

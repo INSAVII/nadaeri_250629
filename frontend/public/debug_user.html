@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사용자 상태 디버그</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .data-display {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔍 사용자 상태 디버그</h1>
+
+        <div id="status" class="status info">
+            상태 확인 중...
+        </div>
+
+        <div>
+            <h3>사용자 데이터:</h3>
+            <div id="userData" class="data-display">
+                로딩 중...
+            </div>
+        </div>
+
+        <div>
+            <h3>localStorage 데이터:</h3>
+            <div id="localStorageData" class="data-display">
+                로딩 중...
+            </div>
+        </div>
+
+        <div>
+            <h3>세션 스토리지 데이터:</h3>
+            <div id="sessionStorageData" class="data-display">
+                로딩 중...
+            </div>
+        </div>
+
+        <div>
+            <h3>작업:</h3>
+            <button onclick="refreshData()">데이터 새로고침</button>
+            <button onclick="clearAllData()">모든 데이터 삭제</button>
+            <button onclick="clearUserData()">사용자 데이터만 삭제</button>
+            <button onclick="reloadPage()">페이지 새로고침</button>
+        </div>
+
+        <div>
+            <h3>로그:</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const logElement = document.getElementById('log');
+        const statusElement = document.getElementById('status');
+        const userDataElement = document.getElementById('userData');
+        const localStorageElement = document.getElementById('localStorageData');
+        const sessionStorageElement = document.getElementById('sessionStorageData');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logElement.innerHTML += logEntry + '\n';
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(logEntry);
+        }
+
+        function updateStatus(message, type = 'info') {
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function displayUserData() {
+            try {
+                // localStorage에서 사용자 데이터 확인
+                const userData = localStorage.getItem('USER_DATA');
+                let userInfo = '사용자 데이터 없음';
+
+                if (userData) {
+                    const parsed = JSON.parse(userData);
+                    userInfo = JSON.stringify(parsed, null, 2);
+                    log('사용자 데이터 발견: ' + parsed.role);
+                } else {
+                    log('사용자 데이터 없음');
+                }
+
+                userDataElement.innerHTML = `<pre>${userInfo}</pre>`;
+
+                // localStorage 전체 데이터
+                const allLocalStorage = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key) {
+                        allLocalStorage[key] = localStorage.getItem(key);
+                    }
+                }
+                localStorageElement.innerHTML = `<pre>${JSON.stringify(allLocalStorage, null, 2)}</pre>`;
+
+                // sessionStorage 전체 데이터
+                const allSessionStorage = {};
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    if (key) {
+                        allSessionStorage[key] = sessionStorage.getItem(key);
+                    }
+                }
+                sessionStorageElement.innerHTML = `<pre>${JSON.stringify(allSessionStorage, null, 2)}</pre>`;
+
+                updateStatus('데이터 로드 완료', 'success');
+            } catch (error) {
+                log('오류 발생: ' + error.message);
+                updateStatus('데이터 로드 중 오류 발생', 'error');
+            }
+        }
+
+        function clearAllData() {
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                log('모든 데이터 삭제 완료');
+                updateStatus('모든 데이터가 삭제되었습니다', 'warning');
+                displayUserData();
+            } catch (error) {
+                log('데이터 삭제 오류: ' + error.message);
+                updateStatus('데이터 삭제 중 오류 발생', 'error');
+            }
+        }
+
+        function clearUserData() {
+            try {
+                localStorage.removeItem('USER_DATA');
+                localStorage.removeItem('user');
+                localStorage.removeItem('mockUsers');
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('authUser');
+                localStorage.removeItem('userToken');
+                localStorage.removeItem('accessToken');
+                sessionStorage.removeItem('userData');
+                sessionStorage.removeItem('authToken');
+                sessionStorage.removeItem('forceLogout');
+                log('사용자 데이터 삭제 완료');
+                updateStatus('사용자 데이터가 삭제되었습니다', 'warning');
+                displayUserData();
+            } catch (error) {
+                log('사용자 데이터 삭제 오류: ' + error.message);
+                updateStatus('사용자 데이터 삭제 중 오류 발생', 'error');
+            }
+        }
+
+        function refreshData() {
+            log('데이터 새로고침 시작');
+            displayUserData();
+        }
+
+        function reloadPage() {
+            log('페이지 새로고침 실행');
+            window.location.reload();
+        }
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', () => {
+            log('사용자 상태 디버그 페이지 로드됨');
+            displayUserData();
+        });
+
+        // 에러 처리
+        window.addEventListener('error', (event) => {
+            log(`❌ 오류 발생: ${event.error}`);
+            updateStatus('오류가 발생했습니다', 'error');
+        });
+    </script>
+</body>
+
+</html>

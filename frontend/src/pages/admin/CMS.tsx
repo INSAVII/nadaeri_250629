@@ -15,7 +15,7 @@ type CMSStats = {
 
 // 실제 API 연동 함수들
 const fetchUsersFromAPI = async (token: string): Promise<User[]> => {
-    console.log('CMS - API 호출 시작:', `${getApiUrl()}/api/deposits/users?skip=0&limit=100`);
+    console.log('CMS - API 호출 시작:', `/api/deposits/users?skip=0&limit=100`);
     console.log('CMS - 토큰:', token ? `${token.substring(0, 20)}...` : '토큰 없음');
 
     const response = await fetch(`${getApiUrl()}/api/deposits/users?skip=0&limit=100`, {
@@ -37,21 +37,7 @@ const fetchUsersFromAPI = async (token: string): Promise<User[]> => {
     return data;
 };
 
-const updateUserBalanceAPI = async (token: string, userId: string, amount: number, type: 'add' | 'subtract'): Promise<User> => {
-    const response = await fetch(`${getApiUrl()}/api/deposits/users/${userId}/balance`, {
-        method: 'PATCH',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            amount,
-            type
-        })
-    });
-    if (!response.ok) throw new Error('예치금 업데이트에 실패했습니다');
-    return await response.json();
-};
+
 
 const updateUserStatusAPI = async (token: string, userId: string, isActive: boolean): Promise<User> => {
     const response = await fetch(`${getApiUrl()}/api/deposits/users/${userId}/status`, {
@@ -80,7 +66,7 @@ const updateUserRoleAPI = async (token: string, userId: string, role: string): P
 };
 
 export default function CMSPage() {
-    const { user, isAuthenticated, isLoading } = useAuth();
+    const { user, isAuthenticated, isLoading, updateBalance } = useAuth();
     const navigate = useNavigate();
     const [users, setUsers] = useState<CMSUser[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -167,14 +153,36 @@ export default function CMSPage() {
 
             // 실제 API 호출
             const apiUsers = await fetchUsersFromAPI(user.token);
-            const convertedUsers: CMSUser[] = apiUsers.map(apiUser =>
-                ensureUserDefaults(apiUser) as CMSUser
-            );
+            console.log('CMS - API 응답 원본:', apiUsers);
+
+            const convertedUsers: CMSUser[] = apiUsers.map(apiUser => {
+                // 백엔드 API 응답을 프론트엔드 User 타입으로 변환
+                const convertedUser = {
+                    id: apiUser.id,
+                    userId: apiUser.id, // 백엔드에서는 id가 사용자 ID
+                    name: apiUser.name,
+                    email: apiUser.email,
+                    role: apiUser.role,
+                    balance: apiUser.balance,
+                    is_active: apiUser.is_active, // 백엔드: is_active -> 프론트엔드: is_active
+                    created_at: apiUser.created_at || new Date().toISOString().split('T')[0], // 백엔드: created_at -> 프론트엔드: created_at
+                    programs: apiUser.programs || [],
+                    // 프로그램 권한을 programs 배열에서 추출
+                    programPermissions: {
+                        free: apiUser.programs?.some(p => p.program_name === 'free' && p.is_allowed) || false,
+                        month1: apiUser.programs?.some(p => p.program_name === 'month1' && p.is_allowed) || false,
+                        month3: apiUser.programs?.some(p => p.program_name === 'month3' && p.is_allowed) || false
+                    }
+                };
+
+                console.log('CMS - 변환된 사용자:', convertedUser);
+                return convertedUser as CMSUser;
+            });
             setUsers(convertedUsers);
 
             const mockStats: CMSStats = {
                 totalUsers: convertedUsers.length,
-                activeUsers: convertedUsers.filter(u => u.isActive).length,
+                activeUsers: convertedUsers.filter(u => u.is_active).length,
                 totalBalance: convertedUsers.reduce((sum, u) => sum + u.balance, 0),
                 monthlyRevenue: 0,
                 newUsersThisMonth: 0,
@@ -210,7 +218,7 @@ export default function CMSPage() {
             setUsers(convertedUsers);
             setStats({
                 totalUsers: convertedUsers.length,
-                activeUsers: convertedUsers.filter(u => u.isActive).length,
+                activeUsers: convertedUsers.filter(u => u.is_active).length,
                 totalBalance: convertedUsers.reduce((sum, u) => sum + u.balance, 0),
                 monthlyRevenue: 0,
                 newUsersThisMonth: 0,
@@ -226,7 +234,7 @@ export default function CMSPage() {
     // 통계 업데이트 함수
     const updateStats = (userList: User[]) => {
         const totalBalance = userList.reduce((sum, u) => sum + u.balance, 0);
-        const activeUsers = userList.filter(u => u.isActive !== false).length;
+        const activeUsers = userList.filter(u => u.is_active !== false).length;
         const averageBalance = userList.length > 0 ? totalBalance / userList.length : 0;
 
         setStats({
@@ -260,30 +268,130 @@ export default function CMSPage() {
             setLoading(true);
             setError(null);
 
-            // 실제 API 호출
-            const apiUsers = await fetchUsersFromAPI(user.token);
-            const updatedUsers = apiUsers.map(user => {
-                if (selectedUsers.includes(user.id)) {
-                    // depositType에 따라 충전 또는 차감 처리
-                    const newBalance = depositType === 'add'
-                        ? user.balance + amount
-                        : Math.max(0, user.balance - amount); // 차감 시 최소 0원 보장
-
-                    return {
-                        ...user,
-                        balance: newBalance
-                    };
+            // 현재 표시된 사용자 목록을 그대로 사용 (예치금 계산은 API 호출 시에만)
+            const updatedUsers = users.map(cmsUser => {
+                if (selectedUsers.includes(cmsUser.id)) {
+                    console.log(`CMS - 사용자 ${cmsUser.id} 예치금 업데이트 대상 선택`);
+                    return cmsUser; // 원본 정보 그대로 유지
                 }
-                return user;
+                return cmsUser;
             });
 
-            // 실제 API 업데이트
-            const updatedApiUsers = await Promise.all(updatedUsers.map(async (user) => {
-                if (selectedUsers.includes(user.id)) {
-                    const updatedUser = await updateUserBalanceAPI(user.token!, user.id, amount, depositType);
-                    return updatedUser;
+            // 실제 API 업데이트 - 예치금 전용 API 사용
+            console.log('CMS - 예치금 업데이트 시작:', {
+                selectedUsers,
+                amount,
+                depositType,
+                apiUrl: getApiUrl()
+            });
+
+            const updatedApiUsers = await Promise.all(updatedUsers.map(async (apiUser) => {
+                if (selectedUsers.includes(apiUser.id)) {
+                    console.log(`CMS - 사용자 ${apiUser.id} 예치금 업데이트 시작`);
+
+                    // 입력된 금액을 그대로 사용 (API에서 현재 잔액에 추가/차감)
+                    const amountToChange = depositType === 'add' ? amount : -amount;
+
+                    console.log(`CMS - 사용자 ${apiUser.id} 예치금 계산 상세:`, {
+                        currentBalance: apiUser.balance || 0,
+                        amountToChange,
+                        depositType,
+                        inputAmount: amount
+                    });
+
+                    // 예치금 전용 API 호출 (deposits API 사용)
+                    const requestBody = {
+                        amount: amountToChange, // 실제 변경할 금액
+                        description: `관리자 ${depositType === 'add' ? '충전' : '차감'}: ${amount.toLocaleString()}원`
+                    };
+
+                    console.log('CMS - API 요청 정보:', {
+                        url: `/api/deposits/users/${apiUser.id}/balance`,
+                        method: 'PATCH',
+                        body: requestBody,
+                        token: user?.token ? '토큰 있음' : '토큰 없음'
+                    });
+
+                    const response = await fetch(`${getApiUrl()}/api/deposits/users/${apiUser.id}/balance`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${user?.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    console.log('CMS - API 응답 정보:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        ok: response.ok
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('CMS - 예치금 업데이트 API 오류:', {
+                            status: response.status,
+                            statusText: response.statusText,
+                            errorText,
+                            requestBody,
+                            userId: apiUser.id,
+                            url: `/api/deposits/users/${apiUser.id}/balance`,
+                            method: 'PATCH'
+                        });
+                        throw new Error(`예치금 업데이트에 실패했습니다: ${response.status} ${response.statusText} - ${errorText}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('CMS - 예치금 업데이트 API 성공:', result);
+                    console.log('CMS - 응답 구조 확인:', {
+                        success: result.success,
+                        hasData: !!result.data,
+                        dataKeys: result.data ? Object.keys(result.data) : 'no data',
+                        newBalance: result.data?.new_balance,
+                        oldBalance: result.data?.old_balance
+                    });
+
+                    // 성공 응답에서 새로운 잔액을 사용하여 사용자 정보 업데이트
+                    if (result.success && result.data) {
+                        console.log(`CMS - 예치금 업데이트 성공, 새로운 잔액: ${result.data.new_balance}`);
+
+                        // 🎯 새로운 단순 방식: 현재 로그인한 사용자인 경우만 즉시 업데이트
+                        const currentUserIdForEvent = user?.userId || user?.id;
+                        if (user && currentUserIdForEvent && apiUser.id === currentUserIdForEvent) {
+                            console.log('💰 CMS - 현재 로그인 사용자 예치금 변경, 즉시 업데이트');
+                            console.log('💰 CMS - updateBalance 호출 전 사용자 상태:', {
+                                userId: user.userId,
+                                role: user.role,
+                                isAdmin: user.role === 'admin',
+                                oldBalance: user.balance,
+                                newBalance: result.data.new_balance,
+                                userObject: user
+                            });
+
+                            // AuthContext의 updateBalance 사용 (role 보존하며 예치금만 업데이트)
+                            if (updateBalance) {
+                                await updateBalance(user, result.data.new_balance);
+                                console.log('💰 CMS - updateBalance 호출 후 완료, 업데이트된 잔액:', result.data.new_balance);
+                            }
+                        } else {
+                            console.log('💰 CMS - 다른 사용자 예치금 변경, 페이지 새로고침 안내');
+                        }
+
+                        // 원본 사용자 정보에 새로운 잔액만 업데이트 (UI 반영용)
+                        const updatedUser = {
+                            ...apiUser,
+                            balance: result.data.new_balance
+                        };
+                        console.log(`CMS - 사용자 ${apiUser.id} 잔액 업데이트:`, updatedUser);
+                        return updatedUser;
+                    } else {
+                        console.warn(`CMS - 예치금 업데이트 응답 형식 오류:`, result);
+                        // 응답 형식이 예상과 다르면 원본 정보 반환
+                        return apiUser;
+                    }
+
                 }
-                return user;
+                return apiUser;
             }));
 
             // User 타입으로 변환하여 상태 업데이트
@@ -295,32 +403,48 @@ export default function CMSPage() {
             // 통계 업데이트
             updateStats(updatedApiUsers);
 
-            // 현재 로그인한 사용자의 예치금이 변경된 경우 이벤트 발생 (안전한 동기화)
-            if (user && selectedUsers.includes(user.id)) {
-                const updatedUser = updatedApiUsers.find(u => u.id === user.id);
-                if (updatedUser) {
-                    console.log('CMS - 현재 사용자 예치금 변경, 안전한 이벤트 발생');
-                    // 안전한 예치금 변경 이벤트 발생 (무한루프 방지 로직 포함)
-                    window.dispatchEvent(new CustomEvent('balanceChanged', {
-                        detail: {
-                            userId: user.id,
-                            newBalance: updatedUser.balance,
-                            source: 'CMS',
-                            timestamp: Date.now()
-                        }
-                    }));
-                }
-            }
+            // 예치금 업데이트 완료 로그
+            console.log('CMS - 예치금 업데이트 완료:', {
+                selectedUsers,
+                totalUpdated: selectedUsers.length,
+                action: depositType === 'add' ? '충전' : '차감',
+                amount: amount.toLocaleString()
+            });
 
             const actionText = depositType === 'add' ? '충전' : '차감';
             setSuccessMessage(`${selectedUsers.length}명의 사용자에게 ${amount.toLocaleString()}원을 ${actionText}했습니다.`);
             setSelectedUsers([]);
             setDepositAmount('');
 
+            // 디버깅: 최종 결과 로그
+            console.log('🎉 CMS - 예치금 일괄 처리 완료:', {
+                processedUsers: selectedUsers.length,
+                action: actionText,
+                amount: amount.toLocaleString(),
+                finalUsersState: convertedUsers.map(u => ({ id: u.id, name: u.name, balance: u.balance }))
+            });
+
             setTimeout(() => setSuccessMessage(null), 3000);
         } catch (error) {
             console.error('예치금 처리 중 오류:', error);
-            setError('예치금 처리 중 오류가 발생했습니다.');
+
+            // 더 자세한 에러 메시지 제공
+            let errorMessage = '예치금 처리 중 오류가 발생했습니다.';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+
+            setError(errorMessage);
+
+            // 백엔드 서버 연결 상태 확인
+            try {
+                const healthCheck = await fetch(`/health`);
+                if (!healthCheck.ok) {
+                    setError('백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.');
+                }
+            } catch (healthError) {
+                setError('백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.');
+            }
         } finally {
             setLoading(false);
         }
@@ -345,7 +469,7 @@ export default function CMSPage() {
             );
             setStats({
                 ...stats,
-                activeUsers: updatedUser.isActive ? stats.activeUsers + 1 : stats.activeUsers - 1
+                activeUsers: updatedUser.is_active ? stats.activeUsers + 1 : stats.activeUsers - 1
             });
 
             setSuccessMessage('사용자 상태가 변경되었습니다.');
@@ -376,8 +500,8 @@ export default function CMSPage() {
             user.email.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesRole = selectedRole === 'all' || user.role === selectedRole;
         const matchesStatus = selectedStatus === 'all' ||
-            (selectedStatus === 'active' && user.isActive) ||
-            (selectedStatus === 'inactive' && !user.isActive);
+            (selectedStatus === 'active' && user.is_active) ||
+            (selectedStatus === 'inactive' && !user.is_active);
 
         return matchesSearch && matchesRole && matchesStatus;
     });
@@ -393,9 +517,9 @@ export default function CMSPage() {
             case 'name-desc':
                 return b.name.localeCompare(a.name);
             case 'date-asc':
-                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                return new Date(a.created_at || new Date()).getTime() - new Date(b.created_at || new Date()).getTime();
             case 'date-desc':
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                return new Date(b.created_at || new Date()).getTime() - new Date(a.created_at || new Date()).getTime();
             default:
                 return 0;
         }
@@ -473,9 +597,17 @@ export default function CMSPage() {
             }));
 
             // User 타입으로 변환하여 상태 업데이트
-            const convertedUsers: CMSUser[] = updatedApiUsers.map(apiUser =>
-                ensureUserDefaults(apiUser) as CMSUser
-            );
+            const convertedUsers: CMSUser[] = updatedApiUsers.map(apiUser => {
+                const userWithDefaults = ensureUserDefaults(apiUser);
+                return {
+                    ...userWithDefaults,
+                    programPermissions: {
+                        free: userWithDefaults.programPermissions?.free || false,
+                        month1: userWithDefaults.programPermissions?.month1 || false,
+                        month3: userWithDefaults.programPermissions?.month3 || false
+                    }
+                } as CMSUser;
+            });
             setUsers(convertedUsers);
 
             // 통계 업데이트
@@ -798,28 +930,28 @@ export default function CMSPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.isActive
+                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.is_active
                                                         ? 'bg-green-100 text-green-800'
                                                         : 'bg-red-100 text-red-800'
                                                         }`}>
-                                                        {user.isActive ? '활성' : '비활성'}
+                                                        {user.is_active ? '활성' : '비활성'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {new Date(user.createdAt).toLocaleDateString()}
+                                                    {new Date(user.created_at || new Date()).toLocaleDateString()}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : '-'}
+                                                    {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : '-'}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                     <button
-                                                        onClick={() => handleUserStatusToggle(user.id, user.isActive)}
-                                                        className={`text-sm px-3 py-1 rounded-md ${user.isActive
+                                                        onClick={() => handleUserStatusToggle(user.id, user.is_active || false)}
+                                                        className={`text-sm px-3 py-1 rounded-md ${user.is_active
                                                             ? 'bg-red-100 text-red-700 hover:bg-red-200'
                                                             : 'bg-green-100 text-green-700 hover:bg-green-200'
                                                             }`}
                                                     >
-                                                        {user.isActive ? '비활성화' : '활성화'}
+                                                        {user.is_active ? '비활성화' : '활성화'}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -927,18 +1059,18 @@ export default function CMSPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.isActive
+                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.is_active
                                                         ? 'bg-green-100 text-green-800'
                                                         : 'bg-red-100 text-red-800'
                                                         }`}>
-                                                        {user.isActive ? '활성' : '비활성'}
+                                                        {user.is_active ? '활성' : '비활성'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {new Date(user.createdAt).toLocaleDateString()}
+                                                    {new Date(user.created_at || new Date()).toLocaleDateString()}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : '-'}
+                                                    {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : '-'}
                                                 </td>
                                             </tr>
                                         ))}
@@ -1197,11 +1329,11 @@ export default function CMSPage() {
                                                     />
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.isActive
+                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.is_active
                                                         ? 'bg-green-100 text-green-800'
                                                         : 'bg-red-100 text-red-800'
                                                         }`}>
-                                                        {user.isActive ? '활성' : '비활성'}
+                                                        {user.is_active ? '활성' : '비활성'}
                                                     </span>
                                                 </td>
                                             </tr>

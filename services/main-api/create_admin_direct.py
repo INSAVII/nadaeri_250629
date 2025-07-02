@@ -24,8 +24,7 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, unique=True, index=True)
+    id = Column(String, primary_key=True)  # userId가 직접 id로 저장됨
     email = Column(String, unique=True, index=True)
     name = Column(String)
     hashed_password = Column(String)
@@ -60,7 +59,7 @@ def create_admin_user():
     try:
         # 기존 관리자 계정 확인
         existing_admin = db.query(User).filter(
-            (User.email == "admin@qclick.com") | (User.user_id == "admin")
+            (User.email == "admin@qclick.com") | (User.id == "admin")
         ).first()
         
         if existing_admin:
@@ -73,10 +72,10 @@ def create_admin_user():
         
         # 관리자 계정 생성
         admin_user = User(
+            id="admin",  # userId가 직접 id로 저장됨
             email="admin@qclick.com",
             hashed_password=User.get_password_hash("admin"),
             name="관리자",
-            user_id="admin",
             role="admin",
             balance=100000.0,  # 관리자는 10만원 잔액
             is_active=True
@@ -89,7 +88,7 @@ def create_admin_user():
         print(f"✅ 관리자 계정이 성공적으로 생성되었습니다:")
         print(f"   - ID: {admin_user.id}")
         print(f"   - Email: {admin_user.email}")
-        print(f"   - User ID: {admin_user.user_id}")
+        print(f"   - User ID: {admin_user.id}")
         print(f"   - Name: {admin_user.name}")
         print(f"   - Role: {admin_user.role}")
         print(f"   - Balance: {admin_user.balance:,}원")
@@ -123,7 +122,7 @@ def list_all_users():
         for user in users:
             print(f"ID: {user.id}")
             print(f"  - Email: {user.email}")
-            print(f"  - User ID: {user.user_id}")
+            print(f"  - User ID: {user.id}")
             print(f"  - Name: {user.name}")
             print(f"  - Role: {user.role}")
             print(f"  - Balance: {user.balance:,}원")
@@ -142,14 +141,14 @@ def test_admin_login():
     db = SessionLocal()
     
     try:
-        admin_user = db.query(User).filter(User.user_id == "admin").first()
+        admin_user = db.query(User).filter(User.id == "admin").first()
         if not admin_user:
             print("❌ 관리자 계정을 찾을 수 없습니다.")
             return False
         
         if admin_user.verify_password("admin"):
             print("✅ 관리자 로그인 테스트 성공!")
-            print(f"   - User ID: {admin_user.user_id}")
+            print(f"   - User ID: {admin_user.id}")
             print(f"   - Email: {admin_user.email}")
             print(f"   - Role: {admin_user.role}")
             return True

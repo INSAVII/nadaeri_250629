@@ -8,14 +8,10 @@ from database import Base
 # 비밀번호 해싱
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def generate_uuid():
-    return str(uuid.uuid4())
-
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(String, primary_key=True, default=generate_uuid, index=True)
-    user_id = Column(String, unique=True, index=True, nullable=True)  # 사용자 아이디 추가
+    id = Column(String, primary_key=True, index=True)  # userId가 직접 id로 저장됨
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     name = Column(String)
@@ -32,13 +28,11 @@ class User(Base):
     has_business = Column(Boolean, default=False)
     business_number = Column(String, nullable=True)
     
-    # 관계 설정
-    jobs = relationship("Job", back_populates="user")
-    payments = relationship("Payment", back_populates="user")
-    user_programs = relationship("UserProgram", back_populates="user")
-    programs = relationship("Program", back_populates="creator")  # 생성한 프로그램과의 관계 추가
-    service_usages = relationship("ServiceUsage", back_populates="user")
-    transactions = relationship("Transaction", back_populates="user")
+    # 활성화된 관계 설정
+    transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
+    user_programs = relationship("UserProgram", back_populates="user", cascade="all, delete-orphan")
+    programs = relationship("Program", back_populates="creator")
+    service_usages = relationship("ServiceUsage", back_populates="user", cascade="all, delete-orphan")
     
     @property
     def is_admin(self):
@@ -50,3 +44,34 @@ class User(Base):
     @staticmethod
     def get_password_hash(password):
         return pwd_context.hash(password)
+    
+    def update_balance(self, amount: float, db_session=None):
+        """잔액 업데이트 (트랜잭션과 함께 사용)"""
+        self.balance += amount
+        self.updated_at = func.now()
+        
+        if db_session:
+            db_session.add(self)
+            db_session.commit()
+        
+        return self.balance
+    
+    def to_dict(self):
+        """사용자 정보를 딕셔너리로 변환"""
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "balance": self.balance,
+            "is_active": self.is_active,
+            "role": self.role,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "phone": self.phone,
+            "region": self.region,
+            "age": self.age,
+            "gender": self.gender,
+            "work_type": self.work_type,
+            "has_business": self.has_business,
+            "business_number": self.business_number
+        }

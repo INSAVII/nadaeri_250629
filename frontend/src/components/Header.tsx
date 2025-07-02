@@ -4,6 +4,56 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
+
+  // 🔍 강화된 디버깅: 인증 상태 로그 출력
+  console.log('🔍 Header.tsx - 현재 인증 상태:', {
+    isAuthenticated,
+    user,
+    userId: user?.userId,
+    role: user?.role,
+    balance: user?.balance,
+    userType: typeof user,
+    isUserNull: user === null,
+    isUserUndefined: user === undefined,
+    isAdmin: user?.role === 'admin',
+    roleCheck: {
+      roleValue: user?.role,
+      roleType: typeof user?.role,
+      roleLength: user?.role?.length,
+      adminComparison: user?.role === 'admin'
+    }
+  });
+
+  // 🔍 실시간 감지: user 상태 변경 시마다 로그
+  useEffect(() => {
+    console.log('🔄 Header.tsx - user 상태 변경 감지:', {
+      isAuthenticated,
+      user,
+      roleCheck: {
+        role: user?.role,
+        isAdmin: user?.role === 'admin',
+        roleString: JSON.stringify(user?.role),
+        userId: user?.userId
+      },
+      timestamp: new Date().toISOString()
+    });
+
+    // 🚨 관리자 역할 특별 감지
+    if (user?.role === 'admin') {
+      console.log('✅ Header.tsx - 관리자 역할 감지됨!', {
+        role: user.role,
+        userId: user.userId,
+        name: user.name
+      });
+    } else if (user?.role) {
+      console.log('⚠️ Header.tsx - 관리자가 아닌 역할:', {
+        role: user.role,
+        expected: 'admin',
+        userId: user.userId
+      });
+    }
+  }, [user, isAuthenticated]);
+
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -367,7 +417,7 @@ export default function Header() {
                   </Link>
                   <Link
                     to="/signup"
-                    className="block px-3 py-2 rounded-md text-base font-light text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                    className="block px-3 py-2 rounded-md textBase font-light text-gray-700 hover:text-blue-600 hover:bg-blue-50"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     회원가입

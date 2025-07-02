@@ -61,20 +61,34 @@ const Login: React.FC = () => {
     };
   }, []);
 
-  // 로그인 성공 시 리디렉션 처리
+  // 로그인 성공 시 역할별 리디렉션 처리 (강화됨)
   useEffect(() => {
     if (auth.isAuthenticated && auth.user && !isLoading) {
-      console.log('Login - 인증됨, 리디렉션 시작:', auth.user);
+      console.log('🔍 Login - 인증됨, 역할별 리디렉션 시작:', {
+        user: auth.user,
+        role: auth.user.role,
+        isAdmin: auth.user.role === 'admin',
+        isAuthenticated: auth.isAuthenticated,
+        isLoading: isLoading,
+        currentPath: location.pathname
+      });
 
+      // 역할별 리디렉션 (강화된 로직)
       if (auth.user.role === 'admin') {
-        console.log('Login - 관리자로 리디렉션: /admin');
-        navigate('/admin', { replace: true });
+        console.log('🔍 Login - 관리자로 리디렉션: /admin');
+        // 강제로 관리자 페이지로 이동
+        setTimeout(() => {
+          navigate('/admin', { replace: true });
+        }, 100);
       } else {
-        console.log('Login - 일반 사용자로 리디렉션: /');
-        navigate('/', { replace: true });
+        console.log('🔍 Login - 일반 사용자로 리디렉션: /');
+        // 강제로 홈 페이지로 이동
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 100);
       }
     }
-  }, [auth.isAuthenticated, auth.user, isLoading, navigate]);
+  }, [auth.isAuthenticated, auth.user, isLoading, navigate, location.pathname]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('Login - 폼 제출');
@@ -89,7 +103,7 @@ const Login: React.FC = () => {
 
       if (success) {
         console.log('Login - 로그인 성공');
-        // useEffect에서 리디렉션 처리
+        // useEffect에서 역할별 리디렉션 처리
       } else {
         console.log('Login - 로그인 실패');
         setError('아이디 또는 비밀번호가 올바르지 않습니다.');

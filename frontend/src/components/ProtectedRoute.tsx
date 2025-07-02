@@ -44,8 +44,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // 관리자 권한이 필요한 페이지인데 일반 사용자인 경우
   if (requireAdmin && user?.role !== 'admin') {
-    console.log('ProtectedRoute: 관리자 권한 부족, 홈으로 리다이렉트');
-    return <Navigate to="/" replace />;
+    console.log('ProtectedRoute: 관리자 권한 부족, 관리자 홈으로 리다이렉트');
+    return <Navigate to="/admin" replace />;
   }
 
   console.log('ProtectedRoute: 접근 허용');
@@ -64,10 +64,15 @@ export const PublicOnlyRoute: React.FC<PublicOnlyRouteProps> = ({ children }) =>
   console.log('PublicOnlyRoute 상태:', {
     isAuthenticated,
     user: user ? { userId: user.userId, role: user.role } : null
-  });  // 로그인된 경우 홈으로 리다이렉트
+  });  // 로그인된 경우 역할별로 리다이렉트
   if (isAuthenticated) {
-    console.log('PublicOnlyRoute: 이미 로그인됨, 홈으로 리다이렉트');
-    return <Navigate to="/" replace />;
+    if (user?.role === 'admin') {
+      console.log('PublicOnlyRoute: 관리자 로그인됨, 관리자 홈으로 리다이렉트');
+      return <Navigate to="/admin" replace />;
+    } else {
+      console.log('PublicOnlyRoute: 일반 사용자 로그인됨, 홈으로 리다이렉트');
+      return <Navigate to="/" replace />;
+    }
   }
 
   console.log('PublicOnlyRoute: 비로그인 상태, 공개 페이지 접근 허용');

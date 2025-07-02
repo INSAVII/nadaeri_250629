@@ -1,26 +1,23 @@
 # 패키지 초기화
 from database import Base
-from models.user import User
-from models.payment import Payment
-from models.program import Program, UserProgram
-from models.job import Job
-from models.transaction import Transaction
-from models.service_usage import ServiceUsage
-from models.pricing import PricingPolicy
-from models.manual import Manual
-from models.board import Board, BoardFile
+
+# 사용 중인 모델들만 import
+from .user import User
+from .transaction import Transaction, TransactionType
+from .program import Program, UserProgram
+from .service_usage import ServiceUsage
+from .board import Board
 
 # 모델 목록
 __all__ = [
+    "Base",
     "User",
-    "Payment",
+    "Transaction", 
+    "TransactionType",
     "Program",
     "UserProgram", 
-    "Job",
-    "Transaction",
     "ServiceUsage",
-    "PricingPolicy",
-    "Manual",
-    "Board",
-    "BoardFile"
+    "Board"
 ]
+
+# from .payment import Payment  # 결제 기능 미사용, payment.py 삭제 대응

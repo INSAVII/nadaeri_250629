@@ -34,6 +34,7 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     role: Optional[str] = None
     business_number: Optional[str] = None
+    balance: Optional[float] = None
 
 class CMSStatsResponse(BaseModel):
     total_users: int
@@ -118,6 +119,25 @@ async def update_user(
     
     if user_data.business_number:
         user.business_number = user_data.business_number
+    
+    # 예치금 업데이트 (관리자만 가능)
+    if user_data.balance is not None:
+        old_balance = user.balance
+        user.balance = user_data.balance
+        
+        # 거래 내역 기록 (예치금 변경이 있는 경우)
+        if old_balance != user.balance:
+            from models.transaction import Transaction
+            amount_change = user.balance - old_balance
+            description = f"관리자 예치금 조정: {amount_change:+,}원"
+            transaction = Transaction(
+                user_id=user.id,
+                amount=amount_change,
+                balance_after=user.balance,
+                transaction_type="admin_adjustment",
+                description=description
+            )
+            db.add(transaction)
     
     db.commit()
     db.refresh(user)

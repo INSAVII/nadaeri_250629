@@ -63,6 +63,6 @@ echo.
 echo 서비스를 중지하려면 Ctrl+C를 누르세요
 echo.
 
-python main.py
+uvicorn main:app --host 0.0.0.0 --port 8004 --reload
 
 pause 

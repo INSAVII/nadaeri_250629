@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>인증 상태 디버깅</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .debug-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .debug-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .debug-content {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .error {
+            color: #dc3545;
+        }
+
+        .success {
+            color: #28a745;
+        }
+
+        .warning {
+            color: #ffc107;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔍 인증 상태 디버깅</h1>
+
+    <div class="debug-section">
+        <div class="debug-title">localStorage 내용</div>
+        <div id="localStorageContent" class="debug-content"></div>
+        <button onclick="refreshLocalStorage()">새로고침</button>
+    </div>
+
+    <div class="debug-section">
+        <div class="debug-title">sessionStorage 내용</div>
+        <div id="sessionStorageContent" class="debug-content"></div>
+        <button onclick="refreshSessionStorage()">새로고침</button>
+    </div>
+
+    <div class="debug-section">
+        <div class="debug-title">쿠키 내용</div>
+        <div id="cookieContent" class="debug-content"></div>
+        <button onclick="refreshCookies()">새로고침</button>
+    </div>
+
+    <div class="debug-section">
+        <div class="debug-title">인증 데이터 분석</div>
+        <div id="authAnalysis" class="debug-content"></div>
+        <button onclick="analyzeAuth()">분석</button>
+    </div>
+
+    <div class="debug-section">
+        <div class="debug-title">작업</div>
+        <button onclick="clearAuthData()">인증 데이터 삭제</button>
+        <button onclick="goToLogin()">로그인 페이지로</button>
+        <button onclick="goToHome()">홈으로</button>
+        <button onclick="goToAdmin()">관리자 페이지로</button>
+    </div>
+
+    <script>
+        function refreshLocalStorage() {
+            const content = document.getElementById('localStorageContent');
+            let html = '';
+
+            if (localStorage.length === 0) {
+                html = '<span class="warning">localStorage가 비어있습니다.</span>';
+            } else {
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    const value = localStorage.getItem(key);
+                    html += `<div><strong>${key}:</strong> ${value}</div>`;
+                }
+            }
+
+            content.innerHTML = html;
+        }
+
+        function refreshSessionStorage() {
+            const content = document.getElementById('sessionStorageContent');
+            let html = '';
+
+            if (sessionStorage.length === 0) {
+                html = '<span class="warning">sessionStorage가 비어있습니다.</span>';
+            } else {
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    const value = sessionStorage.getItem(key);
+                    html += `<div><strong>${key}:</strong> ${value}</div>`;
+                }
+            }
+
+            content.innerHTML = html;
+        }
+
+        function refreshCookies() {
+            const content = document.getElementById('cookieContent');
+            const cookies = document.cookie;
+
+            if (!cookies) {
+                content.innerHTML = '<span class="warning">쿠키가 없습니다.</span>';
+            } else {
+                content.innerHTML = `<div>${cookies}</div>`;
+            }
+        }
+
+        function analyzeAuth() {
+            const content = document.getElementById('authAnalysis');
+            let html = '';
+
+            // USER_DATA 분석
+            const userData = localStorage.getItem('USER_DATA');
+            if (userData) {
+                try {
+                    const parsed = JSON.parse(userData);
+                    html += '<h4>USER_DATA 분석:</h4>';
+                    html += `<div><strong>ID:</strong> ${parsed.id || 'N/A'}</div>`;
+                    html += `<div><strong>UserID:</strong> ${parsed.userId || 'N/A'}</div>`;
+                    html += `<div><strong>Name:</strong> ${parsed.name || 'N/A'}</div>`;
+                    html += `<div><strong>Email:</strong> ${parsed.email || 'N/A'}</div>`;
+                    html += `<div><strong>Role:</strong> <span class="${parsed.role === 'admin' ? 'success' : 'warning'}">${parsed.role || 'N/A'}</span></div>`;
+                    html += `<div><strong>Balance:</strong> ${parsed.balance || 'N/A'}</div>`;
+                    html += `<div><strong>Is Active:</strong> ${parsed.is_active || 'N/A'}</div>`;
+                    html += `<div><strong>Token:</strong> ${parsed.token ? '있음' : '없음'}</div>`;
+
+                    // 유효성 검사
+                    const isValid = parsed.userId && parsed.name && parsed.role && typeof parsed.balance === 'number';
+                    html += `<div><strong>유효성:</strong> <span class="${isValid ? 'success' : 'error'}">${isValid ? '유효' : '무효'}</span></div>`;
+                } catch (e) {
+                    html += `<div class="error">JSON 파싱 오류: ${e.message}</div>`;
+                }
+            } else {
+                html += '<div class="warning">USER_DATA가 없습니다.</div>';
+            }
+
+            // forceLogout 플래그 확인
+            const forceLogout = sessionStorage.getItem('forceLogout');
+            html += `<h4>forceLogout 플래그:</h4>`;
+            html += `<div>${forceLogout ? `<span class="warning">설정됨: ${forceLogout}</span>` : '<span class="success">설정되지 않음</span>'}</div>`;
+
+            content.innerHTML = html;
+        }
+
+        function clearAuthData() {
+            if (confirm('모든 인증 데이터를 삭제하시겠습니까?')) {
+                localStorage.removeItem('USER_DATA');
+                localStorage.removeItem('user');
+                localStorage.removeItem('mockUsers');
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('authUser');
+                localStorage.removeItem('userToken');
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('AUTH_TOKEN');
+                localStorage.removeItem('PROGRAM_PERMISSION_CHANGING');
+
+                sessionStorage.removeItem('userData');
+                sessionStorage.removeItem('authToken');
+                sessionStorage.removeItem('forceLogout');
+
+                alert('인증 데이터가 삭제되었습니다.');
+                refreshAll();
+            }
+        }
+
+        function goToLogin() {
+            window.location.href = 'http://localhost:3003/login';
+        }
+
+        function goToHome() {
+            window.location.href = 'http://localhost:3003/';
+        }
+
+        function goToAdmin() {
+            window.location.href = 'http://localhost:3003/admin';
+        }
+
+        function refreshAll() {
+            refreshLocalStorage();
+            refreshSessionStorage();
+            refreshCookies();
+            analyzeAuth();
+        }
+
+        // 페이지 로드 시 초기화
+        window.onload = function () {
+            refreshAll();
+        };
+    </script>
+</body>
+
+</html>

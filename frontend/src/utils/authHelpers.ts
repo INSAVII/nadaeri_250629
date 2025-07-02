@@ -1,5 +1,5 @@
 // authHelpers.ts
-// 인증 관련 헬퍼 함수 모음
+// 인증 관련 헬퍼 함수 모음 - localStorage 완전 비활성화
 
 import { STORAGE_KEYS } from '../config/constants';
 
@@ -12,18 +12,10 @@ interface User {
   balance: number;
 }
 
-// localStorage에서 사용자 정보 가져오기
+// 🚫 localStorage에서 사용자 정보 가져오기 - 완전 비활성화
 export const getUserFromStorage = (): User | null => {
-  try {
-    const savedUser = localStorage.getItem(STORAGE_KEYS.USER_DATA);
-    if (!savedUser) return null;
-    
-    const parsedUser = JSON.parse(savedUser);
-    return validateUserData(parsedUser) ? parsedUser : null;
-  } catch (error) {
-    console.error('사용자 정보 파싱 실패:', error);
-    return null;
-  }
+  console.log('🚫 authHelpers - getUserFromStorage 호출됨 (localStorage 사용 금지)');
+  return null; // 항상 null 반환하여 자동 로그인 방지
 };
 
 // 사용자 데이터가 올바른 형식인지 검증
@@ -39,18 +31,20 @@ export const validateUserData = (userData: any): boolean => {
   );
 };
 
-// 사용자 인증 여부 확인
+// 🚫 사용자 인증 여부 확인 - localStorage 사용 금지
 export const isUserAuthenticated = (): boolean => {
-  return !!getUserFromStorage();
+  console.log('🚫 authHelpers - isUserAuthenticated 호출됨 (localStorage 사용 금지)');
+  return false; // 항상 false 반환하여 자동 로그인 방지
 };
 
-// 사용자가 관리자인지 확인
+// 🚫 사용자가 관리자인지 확인 - localStorage 사용 금지
 export const isUserAdmin = (): boolean => {
-  const user = getUserFromStorage();
-  return !!user && user.role === 'admin';
+  console.log('🚫 authHelpers - isUserAdmin 호출됨 (localStorage 사용 금지)');
+  return false; // 항상 false 반환하여 자동 로그인 방지
 };
 
-// 인증 토큰 가져오기
+// 🚫 인증 토큰 가져오기 - localStorage 사용 금지
 export const getAuthToken = (): string | null => {
-  return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  console.log('🚫 authHelpers - getAuthToken 호출됨 (localStorage 사용 금지)');
+  return null; // 항상 null 반환하여 토큰 기반 자동 로그인 방지
 };

@@ -173,10 +173,10 @@ const getNextFileId = (): number => {
     return files.length > 0 ? Math.max(...files.map(f => f.id)) + 1 : 1;
 };
 
-// 모든 파일 조회 함수
+// 🚫 모든 파일 조회 함수 - localStorage 사용 금지
 const getAllFiles = (): BoardFile[] => {
-    const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
-    return posts.flatMap(post => post.files);
+    console.log('🚫 boardService - getAllFiles 호출됨 (localStorage 사용 금지)');
+    return []; // 빈 배열 반환하여 localStorage 접근 차단
 };
 
 // API 서비스 클래스
@@ -187,17 +187,14 @@ class BoardService {
     }
 
     private initializeData() {
-        const existingData = localStorage.getItem(STORAGE_KEY);
-        if (!existingData) {
-            const sampleData = createSampleData();
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(sampleData));
-        }
+        console.log('🚫 boardService - initializeData 호출됨 (localStorage 사용 금지)');
+        // localStorage 사용 완전 금지 - 자동 데이터 초기화 방지
     }
 
     private getAuthHeaders() {
-        // TODO: db 기반으로 전환시 구축 - 실제 JWT 토큰 사용
-        const token = localStorage.getItem('token') || 'dummy-token';
-        return { Authorization: `Bearer ${token}` };
+        console.log('🚫 boardService - getAuthHeaders 호출됨 (localStorage 사용 금지)');
+        // localStorage에서 토큰을 가져오지 않음 - 자동 인증 방지
+        return { 'Content-Type': 'application/json' };
     }
 
     private getCurrentUser(): { id: number; name: string } {
@@ -207,9 +204,9 @@ class BoardService {
         if (userDataStr) {
             try {
                 const userData = JSON.parse(userDataStr);
-                return { 
-                    id: parseInt(userData.id) || 1, 
-                    name: userData.name || userData.userId || '사용자' 
+                return {
+                    id: parseInt(userData.id) || 1,
+                    name: userData.name || userData.userId || '사용자'
                 };
             } catch (error) {
                 console.error('사용자 데이터 파싱 오류:', error);
@@ -244,7 +241,7 @@ class BoardService {
             // 검색 필터링
             if (params?.search) {
                 const searchTerm = params.search.toLowerCase();
-                filteredPosts = filteredPosts.filter(post => 
+                filteredPosts = filteredPosts.filter(post =>
                     post.title.toLowerCase().includes(searchTerm) ||
                     post.content.toLowerCase().includes(searchTerm) ||
                     post.author.toLowerCase().includes(searchTerm)
@@ -280,7 +277,7 @@ class BoardService {
 
             const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
             const post = posts.find(p => p.id === boardId);
-            
+
             if (!post) {
                 throw new Error('게시글을 찾을 수 없습니다.');
             }
@@ -396,13 +393,13 @@ class BoardService {
 
             const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
             const postIndex = posts.findIndex(p => p.id === boardId);
-            
+
             if (postIndex === -1) {
                 throw new Error('게시글을 찾을 수 없습니다.');
             }
 
             const now = new Date().toISOString();
-            
+
             // 새 파일 처리 (Mock)
             const uploadedFiles: BoardFile[] = [];
             if (data.files) {
@@ -453,7 +450,7 @@ class BoardService {
 
             const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
             const filteredPosts = posts.filter(p => p.id !== boardId);
-            
+
             if (posts.length === filteredPosts.length) {
                 throw new Error('게시글을 찾을 수 없습니다.');
             }
@@ -488,14 +485,14 @@ class BoardService {
             // Mock 파일 다운로드 (실제 파일 없이 알림만)
             const files = getAllFiles();
             const file = files.find(f => f.id === fileId);
-            
+
             if (!file) {
                 throw new Error('파일을 찾을 수 없습니다.');
             }
 
             // 실제 파일 다운로드 대신 알림 표시
             alert(`파일 다운로드: ${filename}\n(Mock 환경에서는 실제 파일이 다운로드되지 않습니다)`);
-            
+
         } catch (error) {
             console.error('파일 다운로드 실패:', error);
             throw error;

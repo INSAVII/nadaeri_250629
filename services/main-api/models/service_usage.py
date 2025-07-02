@@ -12,7 +12,6 @@ class ServiceUsage(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    job_id = Column(String, ForeignKey("jobs.id"), nullable=False)
     service_type = Column(String, nullable=False)  # qname, qtext, qcapture
     item_count = Column(Integer, default=0)  # 처리한 항목 수
     unit_price = Column(Float, nullable=False)  # 항목당 가격
@@ -22,7 +21,6 @@ class ServiceUsage(Base):
     
     # 관계 설정
     user = relationship("User", back_populates="service_usages")
-    job = relationship("Job")
     
     @staticmethod
     def create_from_job(job, unit_price, details=None):
@@ -31,7 +29,6 @@ class ServiceUsage(Base):
         
         return ServiceUsage(
             user_id=job.user_id,
-            job_id=job.id,
             service_type=job.service_type,
             item_count=job.item_count,
             unit_price=unit_price,

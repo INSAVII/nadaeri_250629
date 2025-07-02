@@ -20,49 +20,53 @@ export const usePrice = () => {
 };
 
 export const PriceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [qnamePrice, setQnamePrice] = useState(0);
-    const [qtextPrice, setQtextPrice] = useState(0);
-    const [qcapturePrice, setQcapturePrice] = useState(0);
-    const [loading, setLoading] = useState(true);
+    // 기본 가격 설정
+    const [qnamePrice, setQnamePrice] = useState(50);
+    const [qtextPrice, setQtextPrice] = useState(30);
+    const [qcapturePrice, setQcapturePrice] = useState(20);
 
-    // API에서 가격 정보 로드
+    // localStorage에서 가격 정보 로드 (초기화 시)
     useEffect(() => {
-        const loadPrices = async () => {
+        const loadPricesFromStorage = () => {
             try {
-                const response = await fetch('/api/pricing');
-                if (response.ok) {
-                    const data = await response.json();
-                    setQnamePrice(data.qname || 0);
-                    setQtextPrice(data.qtext || 0);
-                    setQcapturePrice(data.qcapture || 0);
-                } else {
-                    console.warn('가격 정보 로드 실패, 기본값 사용');
-                    setQnamePrice(50);
-                    setQtextPrice(30);
-                    setQcapturePrice(20);
-                }
+                const storedQnamePrice = localStorage.getItem('qnamePrice');
+                const storedQtextPrice = localStorage.getItem('qtextPrice');
+                const storedQcapturePrice = localStorage.getItem('qcapturePrice');
+
+                if (storedQnamePrice) setQnamePrice(Number(storedQnamePrice));
+                if (storedQtextPrice) setQtextPrice(Number(storedQtextPrice));
+                if (storedQcapturePrice) setQcapturePrice(Number(storedQcapturePrice));
             } catch (error) {
                 console.error('가격 정보 로드 오류:', error);
-                setQnamePrice(50);
-                setQtextPrice(30);
-                setQcapturePrice(20);
-            } finally {
-                setLoading(false);
             }
         };
 
-        loadPrices();
+        loadPricesFromStorage();
     }, []);
 
-    // API 기반 가격 정보만 사용 (localStorage 제거)
+    // 가격 변경 시 localStorage에 저장
+    const handleQnamePriceChange = (price: number) => {
+        setQnamePrice(price);
+        localStorage.setItem('qnamePrice', price.toString());
+    };
+
+    const handleQtextPriceChange = (price: number) => {
+        setQtextPrice(price);
+        localStorage.setItem('qtextPrice', price.toString());
+    };
+
+    const handleQcapturePriceChange = (price: number) => {
+        setQcapturePrice(price);
+        localStorage.setItem('qcapturePrice', price.toString());
+    };
 
     const value = {
         qnamePrice,
-        setQnamePrice,
+        setQnamePrice: handleQnamePriceChange,
         qtextPrice,
-        setQtextPrice,
+        setQtextPrice: handleQtextPriceChange,
         qcapturePrice,
-        setQcapturePrice,
+        setQcapturePrice: handleQcapturePriceChange,
     };
 
     return (

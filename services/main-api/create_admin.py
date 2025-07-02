@@ -21,23 +21,22 @@ def create_admin_user():
     try:
         # 기존 관리자 계정 확인
         existing_admin = db.query(User).filter(
-            (User.email == "admin@qclick.com") | (User.user_id == "admin")
+            (User.email == "admin@qclick.com") | (User.id == "admin")
         ).first()
         
         if existing_admin:
             print(f"❌ 관리자 계정이 이미 존재합니다:")
             print(f"   - ID: {existing_admin.id}")
             print(f"   - Email: {existing_admin.email}")
-            print(f"   - User ID: {existing_admin.user_id}")
             print(f"   - Role: {existing_admin.role}")
             return False
         
         # 관리자 계정 생성
         admin_user = User(
+            id="admin",  # 직접 admin으로 설정
             email="admin@qclick.com",
             hashed_password=User.get_password_hash("admin"),
             name="관리자",
-            user_id="admin",
             role="admin",
             balance=100000.0,  # 관리자는 10만원 잔액
             is_active=True
@@ -50,7 +49,6 @@ def create_admin_user():
         print(f"✅ 관리자 계정이 성공적으로 생성되었습니다:")
         print(f"   - ID: {admin_user.id}")
         print(f"   - Email: {admin_user.email}")
-        print(f"   - User ID: {admin_user.user_id}")
         print(f"   - Name: {admin_user.name}")
         print(f"   - Role: {admin_user.role}")
         print(f"   - Balance: {admin_user.balance:,}원")
@@ -101,7 +99,6 @@ def list_all_users():
         for user in users:
             print(f"ID: {user.id}")
             print(f"  - Email: {user.email}")
-            print(f"  - User ID: {user.user_id}")
             print(f"  - Name: {user.name}")
             print(f"  - Role: {user.role}")
             print(f"  - Balance: {user.balance:,}원")

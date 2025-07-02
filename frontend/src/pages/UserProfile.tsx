@@ -21,27 +21,35 @@ const UserProfile: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700">이메일</label>
                     <div className="mt-1 text-sm text-gray-900">{user.email}</div>
                   </div>
-                    <div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700">사용자명</label>
                     <div className="mt-1 text-sm text-gray-900">{user.email?.split('@')[0] || '정보 없음'}</div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700">역할</label>
                     <div className="mt-1">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.role === 'admin' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-green-100 text-green-800'
+                        }`}>
                         {user.role === 'admin' ? '관리자' : '일반 사용자'}
                       </span>
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700">가입일</label>
                     <div className="mt-1 text-sm text-gray-900">정보 없음</div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">예치금 잔액</label>
+                    <div className="mt-1 text-sm text-gray-900">
+                      <span className="text-green-600 font-semibold">
+                        {user.balance?.toLocaleString() || '0'}원
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

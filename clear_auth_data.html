@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>인증 데이터 초기화</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔐 인증 데이터 초기화</h1>
+    <p>이 페이지는 localStorage와 sessionStorage의 모든 인증 관련 데이터를 삭제합니다.</p>
+
+    <button onclick="clearAllAuthData()">모든 인증 데이터 삭제</button>
+    <button onclick="checkCurrentData()">현재 데이터 확인</button>
+    <button onclick="goToHome()">홈으로 이동</button>
+
+    <div id="result"></div>
+
+    <script>
+        function clearAllAuthData() {
+            try {
+                // localStorage에서 인증 관련 데이터 삭제
+                const authKeys = [
+                    'USER_DATA',
+                    'user',
+                    'mockUsers',
+                    'currentUser',
+                    'authUser',
+                    'userToken',
+                    'accessToken',
+                    'AUTH_TOKEN',
+                    'PROGRAM_PERMISSION_CHANGING'
+                ];
+
+                authKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    console.log(`localStorage에서 ${key} 삭제됨`);
+                });
+
+                // sessionStorage에서 인증 관련 데이터 삭제
+                const sessionKeys = [
+                    'userData',
+                    'authToken',
+                    'forceLogout'
+                ];
+
+                sessionKeys.forEach(key => {
+                    sessionStorage.removeItem(key);
+                    console.log(`sessionStorage에서 ${key} 삭제됨`);
+                });
+
+                // 모든 쿠키 삭제
+                document.cookie.split(";").forEach(cookie => {
+                    const eqPos = cookie.indexOf("=");
+                    const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+                    document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+                });
+
+                showResult('✅ 모든 인증 데이터가 성공적으로 삭제되었습니다!', 'success');
+
+                // 3초 후 홈으로 이동
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:3003/';
+                }, 3000);
+
+            } catch (error) {
+                showResult('❌ 오류 발생: ' + error.message, 'error');
+            }
+        }
+
+        function checkCurrentData() {
+            const result = [];
+
+            // localStorage 확인
+            result.push('<h3>localStorage 내용:</h3>');
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                result.push(`<div><strong>${key}:</strong> ${value}</div>`);
+            }
+
+            // sessionStorage 확인
+            result.push('<h3>sessionStorage 내용:</h3>');
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                const value = sessionStorage.getItem(key);
+                result.push(`<div><strong>${key}:</strong> ${value}</div>`);
+            }
+
+            // 쿠키 확인
+            result.push('<h3>쿠키 내용:</h3>');
+            result.push(`<div>${document.cookie || '쿠키 없음'}</div>`);
+
+            document.getElementById('result').innerHTML = result.join('');
+        }
+
+        function goToHome() {
+            window.location.href = 'http://localhost:3003/';
+        }
+
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        // 페이지 로드 시 현재 데이터 확인
+        window.onload = function () {
+            checkCurrentData();
+        };
+    </script>
+</body>
+
+</html>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,12 +8,15 @@ interface PublicOnlyRouteProps {
 
 export const PublicOnlyRoute: React.FC<PublicOnlyRouteProps> = ({ children }) => {
   const { isAuthenticated, user, isLoading } = useAuth();
+  const redirectCountRef = useRef(0);
+  const MAX_REDIRECTS = 2;
 
-  // 디버깅 로그
+  // 디버깅 로그 (단순화)
   console.log('PublicOnlyRoute:', {
     isAuthenticated,
     user: user ? { userId: user.userId, role: user.role } : null,
-    isLoading
+    isLoading,
+    redirectCount: redirectCountRef.current
   });
 
   // 로딩 중일 때는 로딩 화면 표시
@@ -28,10 +31,16 @@ export const PublicOnlyRoute: React.FC<PublicOnlyRouteProps> = ({ children }) =>
     );
   }
 
-  // 로그인된 경우 홈으로 리다이렉트
-  if (isAuthenticated) {
-    console.log('PublicOnlyRoute: 이미 로그인됨, 홈으로 리다이렉트');
+  // 로그인된 경우 홈으로 리다이렉트 (무한루프 방지)
+  if (isAuthenticated && redirectCountRef.current < MAX_REDIRECTS) {
+    redirectCountRef.current += 1;
+    console.log('PublicOnlyRoute: 이미 로그인됨, 홈으로 리다이렉트 (count:', redirectCountRef.current, ')');
     return <Navigate to="/" replace />;
+  }
+
+  // 무한루프 방지: 최대 리다이렉트 횟수 초과 시 현재 페이지 유지
+  if (redirectCountRef.current >= MAX_REDIRECTS) {
+    console.warn('PublicOnlyRoute: 최대 리다이렉트 횟수 초과, 현재 페이지 유지');
   }
 
   console.log('PublicOnlyRoute: 비로그인 상태, 공개 페이지 접근 허용');

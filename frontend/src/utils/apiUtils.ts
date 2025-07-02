@@ -4,13 +4,14 @@
 import { API_CONFIG, STORAGE_KEYS } from '../config/constants';
 
 /**
- * 인증 토큰을 포함한 기본 헤더 반환
+ * 🚫 인증 토큰을 포함한 기본 헤더 반환 - localStorage 사용 금지
  */
 export const getAuthHeaders = (): HeadersInit => {
-  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  console.log('🚫 apiUtils - getAuthHeaders 호출됨 (localStorage 사용 금지)');
+  // localStorage에서 토큰을 가져오지 않음 - 자동 로그인 방지
   return {
-    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json'
+    // Authorization 헤더 제거하여 토큰 기반 자동 로그인 방지
   };
 };
 
@@ -19,11 +20,11 @@ export const getAuthHeaders = (): HeadersInit => {
  */
 export const buildApiUrl = (endpoint: string, params?: Record<string, string>): string => {
   const baseUrl = `${API_CONFIG.BASE_URL}${endpoint}`;
-  
+
   if (!params) {
     return baseUrl;
   }
-  
+
   const searchParams = new URLSearchParams(params);
   return `${baseUrl}?${searchParams.toString()}`;
 };
@@ -62,11 +63,11 @@ export const apiRequest = async <T>(
 
   try {
     const response = await fetch(url, defaultOptions);
-    
+
     if (!response.ok) {
       throw new Error(handleApiError(response));
     }
-    
+
     return await response.json() as T;
   } catch (error) {
     console.error('API 요청 실패:', error);

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>예치금 동기화 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>💰 예치금 동기화 테스트</h1>
+
+        <div id="status" class="status info">
+            테스트 준비 중...
+        </div>
+
+        <div>
+            <h3>테스트 방법:</h3>
+            <ol>
+                <li>이 페이지를 열어둔 상태에서 CMS 페이지로 이동</li>
+                <li>CMS에서 현재 로그인한 사용자의 예치금을 변경</li>
+                <li>이 페이지로 돌아와서 동기화 상태 확인</li>
+            </ol>
+        </div>
+
+        <div>
+            <h3>수동 테스트:</h3>
+            <button onclick="testBalanceEvent()">예치금 변경 이벤트 테스트</button>
+            <button onclick="clearLog()">로그 지우기</button>
+        </div>
+
+        <div>
+            <h3>이벤트 로그:</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let eventCount = 0;
+        const logElement = document.getElementById('log');
+        const statusElement = document.getElementById('status');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logElement.innerHTML += logEntry + '\n';
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(logEntry);
+        }
+
+        function updateStatus(message, type = 'info') {
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function testBalanceEvent() {
+            eventCount++;
+            const testEvent = new CustomEvent('balanceChanged', {
+                detail: {
+                    userId: 'test-user',
+                    newBalance: 50000 + (eventCount * 1000),
+                    source: 'TestPage',
+                    timestamp: new Date().toISOString()
+                }
+            });
+
+            log(`🧪 테스트 이벤트 발생: ${testEvent.detail.newBalance}원`);
+            window.dispatchEvent(testEvent);
+        }
+
+        function clearLog() {
+            logElement.innerHTML = '';
+            log('로그가 지워졌습니다.');
+        }
+
+        // 예치금 변경 이벤트 리스너
+        window.addEventListener('balanceChanged', (event) => {
+            const { userId, newBalance, source, timestamp } = event.detail;
+            log(`💰 예치금 변경 이벤트 수신:`);
+            log(`   사용자 ID: ${userId}`);
+            log(`   새로운 잔액: ${newBalance.toLocaleString()}원`);
+            log(`   출처: ${source}`);
+            log(`   시간: ${new Date(timestamp).toLocaleString()}`);
+            log('---');
+
+            updateStatus(`예치금 변경 감지: ${newBalance.toLocaleString()}원 (${source})`, 'success');
+        });
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', () => {
+            log('🚀 예치금 동기화 테스트 페이지 로드됨');
+            log('📡 balanceChanged 이벤트 리스너 등록됨');
+            updateStatus('테스트 준비 완료 - CMS에서 예치금 변경을 시도해보세요', 'success');
+        });
+
+        // 에러 처리
+        window.addEventListener('error', (event) => {
+            log(`❌ 오류 발생: ${event.error}`);
+            updateStatus('오류가 발생했습니다', 'error');
+        });
+    </script>
+</body>
+
+</html>
