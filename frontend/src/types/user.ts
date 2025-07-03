@@ -122,6 +122,23 @@ export function convertFromAuthUser(authUser: AuthUser): User {
 // User 객체에 기본값을 제공하는 헬퍼 함수 (표준 구조 기반)
 export function ensureUserDefaults(user: Partial<User>): User {
     const perms: any = user.programPermissions || {};
+
+    // programs 배열에서 programPermissions 추출 (program_id 사용)
+    let extractedPerms = {
+        free: perms.free ?? false,
+        month1: perms.month1 ?? false,
+        month3: perms.month3 ?? false
+    };
+
+    // programs 배열이 있으면 거기서 권한 정보 추출
+    if (user.programs && Array.isArray(user.programs)) {
+        extractedPerms = {
+            free: user.programs.some((p: any) => p.program_id === 'free' && p.is_allowed) || false,
+            month1: user.programs.some((p: any) => p.program_id === 'month1' && p.is_allowed) || false,
+            month3: user.programs.some((p: any) => p.program_id === 'month3' && p.is_allowed) || false
+        };
+    }
+
     return {
         id: user.id || 'unknown',
         userId: user.userId || user.id || 'unknown',
@@ -145,11 +162,7 @@ export function ensureUserDefaults(user: Partial<User>): User {
         lastLoginAt: user.last_login_at || user.lastLoginAt,
         totalSpent: user.totalSpent || 0,
         depositHistory: user.depositHistory || [],
-        programPermissions: {
-            free: perms.free ?? false,
-            month1: perms.month1 ?? false,
-            month3: perms.month3 ?? false
-        },
+        programPermissions: extractedPerms,
         programs: user.programs || []
     };
 } 

@@ -1,15 +1,36 @@
 // Application constants
 // 애플리케이션 상수 정의
 
+// 환경 변수 감지
+export const IS_DEVELOPMENT = process.env.NODE_ENV === 'development' || 
+  window.location.hostname === 'localhost' || 
+  window.location.hostname === '127.0.0.1';
+
+export const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// API URL 동적 결정 함수
+export const getApiUrl = (): string => {
+  // 프로덕션 환경
+  if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
+    // Vercel 등 배포 환경에서는 환경변수나 고정 URL 사용
+    return process.env.REACT_APP_API_URL || 'https://api.qclick.com';
+  }
+  
+  // 개발 환경 - 로컬 서버
+  return 'http://localhost:8001';
+};
+
 // API 관련 상수
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8001',
+  get BASE_URL() { return getApiUrl(); },
   ENDPOINTS: {
     USERS: '/api/users/',
     PAYMENTS: '/api/payments',
     AUTH: '/api/auth',
     BALANCE: '/api/payments/balance',
-    TRANSACTIONS: '/api/payments/admin/transactions'
+    TRANSACTIONS: '/api/payments/admin/transactions',
+    PROGRAMS: '/api/programs',
+    DEPOSITS: '/api/deposits'
   }
 } as const;
 
@@ -48,7 +69,7 @@ export const ADMIN_ACCOUNT = {
   ROLE: 'admin' as const
 } as const;
 
-// 개발용 테스트 계정
+// 테스트 사용자 계정
 export const TEST_ACCOUNTS = {
   ADMIN: {
     userId: 'admin',
@@ -66,23 +87,40 @@ export const TEST_ACCOUNTS = {
   }
 } as const;
 
-// API 설정
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://nadaeri-250629-production.up.railway.app';
+// 서비스 타입
+export const SERVICE_TYPES = {
+  QNAME: 'qname',
+  QTEXT: 'qtext',
+  QCAPTURE: 'qcapture'
+} as const;
 
-// 환경 확인
-export const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-export const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
+// 프로그램 라이센스 타입
+export const LICENSE_TYPES = {
+  FREE: 'free',
+  MONTH1: 'month1',
+  MONTH3: 'month3'
+} as const;
 
-// 로컬 개발 환경에서는 localhost 사용
-export const getApiUrl = () => {
-  const url = IS_DEVELOPMENT ? 'http://localhost:8001' : API_BASE_URL;
-  console.log('🔍 API URL 설정 디버깅:', {
-    NODE_ENV: process.env.NODE_ENV,
-    REACT_APP_API_URL: process.env.REACT_APP_API_URL,
-    IS_DEVELOPMENT,
-    IS_PRODUCTION,
-    finalUrl: url,
-    timestamp: new Date().toISOString()
-  });
-  return url;
-};
+// 기본 서비스 가격
+export const DEFAULT_PRICES = {
+  QNAME: 50,
+  QTEXT: 30,
+  QCAPTURE: 100
+} as const;
+
+// 오류 메시지
+export const ERROR_MESSAGES = {
+  NETWORK_ERROR: '네트워크 연결을 확인해주세요.',
+  UNAUTHORIZED: '인증이 필요합니다.',
+  FORBIDDEN: '권한이 없습니다.',
+  NOT_FOUND: '요청한 리소스를 찾을 수 없습니다.',
+  INTERNAL_ERROR: '서버 오류가 발생했습니다.'
+} as const;
+
+// 성공 메시지
+export const SUCCESS_MESSAGES = {
+  LOGIN_SUCCESS: '로그인되었습니다.',
+  LOGOUT_SUCCESS: '로그아웃되었습니다.',
+  UPDATE_SUCCESS: '업데이트되었습니다.',
+  DELETE_SUCCESS: '삭제되었습니다.'
+} as const;

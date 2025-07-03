@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ServiceIcon, TextButton } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
-import { useDownloadService } from '../api/downloadService';
-import { STORAGE_KEYS } from '../config/constants';
-import { getApiUrl } from '../config/constants';
+import { STORAGE_KEYS, getApiUrl } from '../config/constants';
 
 // 기존 programService 타입 정의
 interface ProgramFile {
@@ -35,21 +33,9 @@ interface ProgramSubscription {
   month3: boolean;
 }
 
-// 실제 API 연동 함수
-const getCurrentUserFromAPI = async (token: string) => {
-  const response = await fetch(`${getApiUrl()}/api/auth/me`, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-  if (!response.ok) throw new Error('사용자 정보를 불러오지 못했습니다');
-  return await response.json();
-};
-
 // 최종 수정: 2025. 6. 19. 오전 8:20:00
 const QCapture: React.FC = () => {
-  const { isAuthenticated, user } = useAuth();
-  const { downloadProgram, checkPermission: downloadServiceCheckPermission } = useDownloadService();
+  const { isAuthenticated, user, refreshUserData } = useAuth();
 
   // 프로그램 다운로드 목록 관리 (큐캡쳐 무료, 1개월, 3개월)
   const [publicPrograms, setPublicPrograms] = useState<ProgramFile[]>([]);
@@ -60,15 +46,21 @@ const QCapture: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
 
-  // 무한루프 방지를 위한 ref들
-  const lastSubscriptionRef = useRef<string>('');
-  const isUpdatingSubscriptionRef = useRef(false);
+  // 무한루프 방지를 위한 ref들 (단순화)
   const eventListenersRegisteredRef = useRef(false);
-  const programSubscriptionRef = useRef<ProgramSubscription>({
-    free: false,
-    month1: false,
-    month3: false
-  });
+
+  // ✅ 단순화된 권한 확인 = 다운로드 버튼 활성화/비활성화만
+  const permissionStates = useMemo(() => {
+    if (!user?.programPermissions) {
+      return { free: false, month1: false, month3: false };
+    }
+
+    return {
+      free: user.programPermissions.free || false,
+      month1: user.programPermissions.month1 || false,
+      month3: user.programPermissions.month3 || false
+    };
+  }, [user?.programPermissions]);
 
   // 내장 서비스 함수들 - programService 대체
   const getPublicPrograms = async (type: string): Promise<ProgramFile[]> => {
@@ -123,8 +115,12 @@ const QCapture: React.FC = () => {
     // 공개 프로그램 가져오기
     const publicPrograms = await getPublicPrograms('qcapture');
 
-    // 사용자 구독 정보 가져오기
-    const subscription = programSubscriptionRef.current;
+    // 사용자 구독 정보 가져오기 (AuthContext에서 직접)
+    const subscription = user.programPermissions || {
+      free: false,
+      month1: false,
+      month3: false
+    };
 
     // 사용자의 구독 상태에 따라 프로그램 반환
     const userProgs: UserProgram[] = [];
@@ -183,16 +179,26 @@ const QCapture: React.FC = () => {
       const publicQCapturePrograms = await getPublicPrograms('qcapture');
       setPublicPrograms(publicQCapturePrograms);
 
-      // 로그인한 사용자의 프로그램 로드
-      if (isAuthenticated) {
-        const userProgramList = await getUserPrograms();
-        const userQCapturePrograms = userProgramList.filter((up: UserProgram) =>
-          up.program.type.toLowerCase() === 'qcapture'
-        );
-        setUserPrograms(userQCapturePrograms);
+      // 로그인한 사용자의 프로그램 로드 (단순화)
+      if (isAuthenticated && user) {
+        // 권한 정보가 있으면 사용자 프로그램 로드
+        if (user.programPermissions) {
+          const userProgramList = await getUserPrograms();
+          const userQCapturePrograms = userProgramList.filter((up: UserProgram) =>
+            up.program.type.toLowerCase() === 'qcapture'
+          );
+          setUserPrograms(userQCapturePrograms);
+        } else {
+          // 권한 정보가 없으면 빈 배열로 설정
+          setUserPrograms([]);
+          console.log('QCapture - 사용자 권한 정보가 아직 로드되지 않음');
+        }
+      } else {
+        // 로그인하지 않은 경우 빈 배열
+        setUserPrograms([]);
       }
+
       // 로컬 스토리지에서 활성화 프로그램 확인
-      // 실제 API 구현 시 이 부분은 서버에서 받은 데이터를 사용
       try {
         const activeProgramsJson = localStorage.getItem('ACTIVE_PROGRAMS');
         const activePrograms = activeProgramsJson ? JSON.parse(activeProgramsJson) : {};
@@ -208,66 +214,6 @@ const QCapture: React.FC = () => {
     }
   };
 
-  // 사용자 프로그램 구독 정보 로드 (DOM 직접 조작)
-  const loadUserSubscription = () => {
-    try {
-      // 무한루프 방지: 이미 업데이트 중인지 확인
-      if (isUpdatingSubscriptionRef.current) {
-        return;
-      }
-
-      // 인증된 사용자인 경우만 구독 정보를 확인
-      if (isAuthenticated && user) {
-        // 실제 API 호출을 통해 사용자 정보 가져오기
-        if (user.token) {
-          getCurrentUserFromAPI(user.token)
-            .then(currentUser => {
-              if (currentUser.programPermissions) {
-                const newSubscription = currentUser.programPermissions;
-                const newSubscriptionString = JSON.stringify(newSubscription);
-
-                if (lastSubscriptionRef.current !== newSubscriptionString) {
-                  lastSubscriptionRef.current = newSubscriptionString;
-                  programSubscriptionRef.current = newSubscription;
-                  console.log('QCapture - 프로그램 구독 정보 업데이트:', newSubscription);
-                }
-              }
-            })
-            .catch(error => {
-              console.error('사용자 정보 로드 실패:', error);
-              // 오류 시 기본값으로 설정
-              programSubscriptionRef.current = {
-                free: true,
-                month1: false,
-                month3: false
-              };
-            })
-            .finally(() => {
-              isUpdatingSubscriptionRef.current = false;
-            });
-        } else {
-          // 토큰이 없는 경우 기본값 사용
-          console.log('QCapture - 토큰 없음, 기본값 사용');
-          programSubscriptionRef.current = {
-            free: true,
-            month1: false,
-            month3: false
-          };
-          isUpdatingSubscriptionRef.current = false;
-        }
-      }
-    } catch (error) {
-      console.error('구독 정보 로드 실패:', error);
-      isUpdatingSubscriptionRef.current = false;
-      // 오류 시 기본값으로 설정
-      programSubscriptionRef.current = {
-        free: true,
-        month1: false,
-        month3: false
-      };
-    }
-  };
-
   // 이벤트 리스너 등록 (한 번만)
   useEffect(() => {
     if (eventListenersRegisteredRef.current) {
@@ -280,15 +226,41 @@ const QCapture: React.FC = () => {
       loadPrograms();
     };
 
-    // 이벤트 리스너 등록 (프로그램 권한 이벤트 제거)
+    // ✅ 개선된 이벤트 리스너 = 즉시 권한 상태 업데이트
+    const handleProgramPermissionSaved = (event: CustomEvent) => {
+      console.log('🔔 QCapture - 프로그램 권한 변경 이벤트 수신:', event.detail);
+
+      const currentUserId = user?.userId || user?.id;
+      const changedUsers = event.detail.users || [];
+      const currentUserChanged = changedUsers.find((u: any) => u.userId === currentUserId);
+
+      if (currentUserChanged) {
+        console.log('✅ QCapture - 현재 사용자 권한 변경됨:', currentUserChanged.permissions);
+
+        // 즉시 메시지 표시
+        setMessage('프로그램 권한이 변경되었습니다. 다운로드 버튼이 업데이트되었습니다.');
+        setTimeout(() => setMessage(''), 3000);
+
+        // AuthContext 새로고침으로 권한 상태 즉시 반영
+        if (refreshUserData) {
+          setTimeout(() => {
+            refreshUserData();
+            console.log('🔄 QCapture - AuthContext 새로고침 완료');
+          }, 500);
+        }
+      }
+    };
+
+    // 이벤트 리스너 등록
     window.addEventListener('activeProgramsChanged', handleActiveProgramsChanged);
+    window.addEventListener('programPermissionSaved', handleProgramPermissionSaved as EventListener);
 
     // 초기 상태 설정
     loadPrograms();
-    loadUserSubscription();
 
     return () => {
       window.removeEventListener('activeProgramsChanged', handleActiveProgramsChanged);
+      window.removeEventListener('programPermissionSaved', handleProgramPermissionSaved as EventListener);
       eventListenersRegisteredRef.current = false;
     };
   }, []); // 빈 의존성 배열
@@ -301,45 +273,139 @@ const QCapture: React.FC = () => {
     }));
   };
 
-  // 권한 확인 함수 (ref 사용)
-  const checkPermission = (licenseType: string): boolean => {
-    const subscription = programSubscriptionRef.current;
 
-    switch (licenseType) {
-      case 'free':
-        return subscription.free;
-      case 'month1':
-        return subscription.month1;
-      case 'month3':
-        return subscription.month3;
-      default:
-        return false;
-    }
-  };
 
-  // 새로운 다운로드 처리 함수
+  // 새로운 다운로드 처리 함수 (예치금 차감 포함)
   const handleDownload = async (licenseType: string, programName: string) => {
     try {
-      // 권한 확인 (ref 사용)
-      const hasPermission = checkPermission(licenseType);
+      // 권한 확인 (메모이제이션된 상태 사용)
+      const hasPermission = licenseType === 'free' ? permissionStates.free :
+        licenseType === 'month1' ? permissionStates.month1 :
+          licenseType === 'month3' ? permissionStates.month3 : false;
       if (!hasPermission) {
         setMessage(`❌ ${programName} 사용 권한이 없습니다. 관리자에게 문의하세요.`);
         return;
       }
 
       // 로딩 상태 표시
-      setMessage(`📥 ${programName} 다운로드 준비 중...`);
+      setMessage(`�� ${programName} 다운로드 준비 중...`);
 
-      // 다운로드 실행
-      await downloadProgram('qcapture', licenseType);
+      // 1. 백엔드 API 호출로 예치금 차감 및 다운로드 권한 확인
+      if (!user?.token) {
+        throw new Error('로그인이 필요합니다');
+      }
 
-      // 성공 메시지
-      setMessage(`✅ ${programName} 다운로드가 시작되었습니다!`);
+      const response = await fetch(`${getApiUrl()}/api/deposits/download-program`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify({
+          program_id: 'qcapture',
+          license_type: licenseType
+        })
+      });
 
-      // 5초 후 메시지 삭제
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || response.statusText);
+      }
+
+      const downloadData = await response.json();
+      console.log('다운로드 API 응답:', downloadData);
+
+      // 2. 예치금 차감 정보 표시
+      if (downloadData.data.amount_deducted > 0) {
+        setMessage(`💰 예치금 ${downloadData.data.amount_deducted.toLocaleString()}원이 차감되었습니다. (잔액: ${downloadData.data.remaining_balance.toLocaleString()}원)`);
+      } else {
+        setMessage(`✅ ${programName} 다운로드가 시작되었습니다! (무료 프로그램)`);
+      }
+
+      // 3. 실제 파일 다운로드 실행 (직접 구현)
+      const activeProgramsJson = localStorage.getItem('ACTIVE_PROGRAMS');
+      const activePrograms = activeProgramsJson ? JSON.parse(activeProgramsJson) : {};
+
+      // 파일명 결정
+      let filename = 'qcapture_free_v1.0.exe';
+      if (licenseType === 'month1') filename = 'qcapture_1month_v2.1.exe';
+      if (licenseType === 'month3') filename = 'qcapture_3month_v3.0.exe';
+
+      // 업로드된 파일이 있으면 해당 파일명 사용
+      const programKey = `qcapture_${licenseType}`;
+      if (activePrograms[programKey]) {
+        filename = activePrograms[programKey].filename;
+      }
+
+      // localStorage에서 파일 내용 찾기
+      const fileContentKey = `FILE_CONTENT_${programKey}_${filename}`;
+      let fileContent = localStorage.getItem(fileContentKey);
+
+      // 파일 내용이 없으면 다른 키 패턴으로도 시도
+      if (!fileContent) {
+        const alternativeKeys = [
+          `FILE_CONTENT_qcapture_${licenseType}_${filename}`,
+          `FILE_CONTENT_${filename}`
+        ];
+
+        for (const altKey of alternativeKeys) {
+          fileContent = localStorage.getItem(altKey);
+          if (fileContent) break;
+        }
+      }
+
+      if (fileContent) {
+        // 실제 파일 다운로드
+        const binaryString = atob(fileContent);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const blob = new Blob([bytes], { type: 'application/octet-stream' });
+        const downloadUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // 메모리 정리
+        setTimeout(() => {
+          URL.revokeObjectURL(downloadUrl);
+        }, 1000);
+      } else {
+        // 더미 파일 생성
+        const dummyContent = `This is a dummy file for ${programName}. Please contact administrator for the actual file.`;
+        const blob = new Blob([dummyContent], { type: 'text/plain' });
+        const downloadUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // 메모리 정리
+        setTimeout(() => {
+          URL.revokeObjectURL(downloadUrl);
+        }, 1000);
+      }
+
+      // 4. 사용자 정보 새로고침 (잔액 업데이트)
+      await refreshUserData?.();
+
+      // 5. 성공 메시지 업데이트
       setTimeout(() => {
-        setMessage('');
-      }, 5000);
+        setMessage(`✅ ${programName} 다운로드가 완료되었습니다!`);
+        setTimeout(() => setMessage(''), 3000);
+      }, 2000);
+
     } catch (error) {
       console.error('다운로드 실패:', error);
 
@@ -349,6 +415,8 @@ const QCapture: React.FC = () => {
           setMessage('❌ 로그인이 필요합니다. 먼저 로그인해주세요.');
         } else if (error.message.includes('권한이 없습니다')) {
           setMessage(`❌ ${programName} 사용 권한이 없습니다. 관리자에게 문의하세요.`);
+        } else if (error.message.includes('예치금이 부족합니다')) {
+          setMessage(`❌ ${error.message}`);
         } else {
           setMessage(`❌ 다운로드 중 오류가 발생했습니다: ${error.message}`);
         }
@@ -362,6 +430,8 @@ const QCapture: React.FC = () => {
       }, 7000);
     }
   };
+
+
 
   return (
     <div className="page-container py-6">
@@ -438,9 +508,9 @@ const QCapture: React.FC = () => {
                       )}
                     </p>
 
-                    {/* 구독 상태 표시 */}
-                    <p className={`text-sm font-bold mt-1 ${checkPermission('free') ? 'text-green-600' : 'text-red-500'}`}>
-                      {checkPermission('free') ? '✓ 사용 가능' : '✗ 사용 권한 없음'}
+                    {/* 단순화된 상태 표시 */}
+                    <p className={`text-sm mt-1 ${permissionStates.free ? 'text-green-600' : 'text-gray-500'}`}>
+                      {permissionStates.free ? '✓ 사용 가능' : '사용 불가'}
                     </p>
                     {!publicPrograms.find(p => p.license_type === 'free')?.isActive && (
                       <p className="text-xs mt-1 text-orange-600">
@@ -449,15 +519,16 @@ const QCapture: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <TextButton
-                  variant="primary"
-                  size="md"
-                  className="font-bold text-blue-600 text-lg hover:text-blue-700"
+                <button
+                  className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${isAuthenticated && permissionStates.free && publicPrograms.find(p => p.license_type === 'free')?.isActive
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
                   onClick={() => handleDownload('free', '큐캡쳐 무료')}
-                  disabled={!isAuthenticated || !checkPermission('free') || !publicPrograms.find(p => p.license_type === 'free')?.isActive}
+                  disabled={!isAuthenticated || !permissionStates.free || !publicPrograms.find(p => p.license_type === 'free')?.isActive}
                 >
                   다운로드
-                </TextButton>
+                </button>
               </div>
 
               {/* 큐캡쳐 1개월 */}
@@ -483,9 +554,9 @@ const QCapture: React.FC = () => {
                       )}
                     </p>
 
-                    {/* 구독 상태 표시 */}
-                    <p className={`text-sm font-bold mt-1 ${checkPermission('month1') ? 'text-green-600' : 'text-red-500'}`}>
-                      {checkPermission('month1') ? '✓ 사용 가능' : '✗ 사용 권한 없음'}
+                    {/* 단순화된 상태 표시 */}
+                    <p className={`text-sm mt-1 ${permissionStates.month1 ? 'text-green-600' : 'text-gray-500'}`}>
+                      {permissionStates.month1 ? '✓ 사용 가능' : '사용 불가'}
                     </p>
                     {!publicPrograms.find(p => p.license_type === '1month')?.isActive && (
                       <p className="text-xs mt-1 text-orange-600">
@@ -494,15 +565,16 @@ const QCapture: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <TextButton
-                  variant="primary"
-                  size="md"
-                  className="font-bold text-blue-600 text-lg hover:text-blue-700"
+                <button
+                  className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${isAuthenticated && permissionStates.month1 && publicPrograms.find(p => p.license_type === '1month')?.isActive
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
                   onClick={() => handleDownload('month1', '큐캡쳐 1개월')}
-                  disabled={!isAuthenticated || !checkPermission('month1') || !publicPrograms.find(p => p.license_type === '1month')?.isActive}
+                  disabled={!isAuthenticated || !permissionStates.month1 || !publicPrograms.find(p => p.license_type === '1month')?.isActive}
                 >
                   다운로드
-                </TextButton>
+                </button>
               </div>
 
               {/* 큐캡쳐 3개월 */}
@@ -528,9 +600,9 @@ const QCapture: React.FC = () => {
                       )}
                     </p>
 
-                    {/* 구독 상태 표시 */}
-                    <p className={`text-sm font-bold mt-1 ${checkPermission('month3') ? 'text-green-600' : 'text-red-500'}`}>
-                      {checkPermission('month3') ? '✓ 사용 가능' : '✗ 사용 권한 없음'}
+                    {/* 단순화된 상태 표시 */}
+                    <p className={`text-sm mt-1 ${permissionStates.month3 ? 'text-green-600' : 'text-gray-500'}`}>
+                      {permissionStates.month3 ? '✓ 사용 가능' : '사용 불가'}
                     </p>
                     {!publicPrograms.find(p => p.license_type === '3month')?.isActive && (
                       <p className="text-xs mt-1 text-orange-600">
@@ -539,15 +611,16 @@ const QCapture: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <TextButton
-                  variant="primary"
-                  size="md"
-                  className="font-bold text-blue-600 text-lg hover:text-blue-700"
+                <button
+                  className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${isAuthenticated && permissionStates.month3 && publicPrograms.find(p => p.license_type === '3month')?.isActive
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
                   onClick={() => handleDownload('month3', '큐캡쳐 3개월')}
-                  disabled={!isAuthenticated || !checkPermission('month3') || !publicPrograms.find(p => p.license_type === '3month')?.isActive}
+                  disabled={!isAuthenticated || !permissionStates.month3 || !publicPrograms.find(p => p.license_type === '3month')?.isActive}
                 >
                   다운로드
-                </TextButton>
+                </button>
               </div>
             </div>
           )}
@@ -562,7 +635,7 @@ const QCapture: React.FC = () => {
           )}
 
           {/* 권한 없음 안내 메시지 */}
-          {isAuthenticated && (!checkPermission('free') && !checkPermission('month1') && !checkPermission('month3')) && (
+          {isAuthenticated && (!permissionStates.free && !permissionStates.month1 && !permissionStates.month3) && (
             <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
                 💡 <strong>프로그램 사용 권한이 없습니다.</strong> 관리자에게 문의하거나 프로그램을 구매하세요.

@@ -4,7 +4,7 @@
 - ✅ **메인 API 서버**: http://localhost:8001
 - ✅ **큐네임 서비스**: http://localhost:8002  
 - ✅ **큐문자 서비스**: http://localhost:8003
-- ✅ **프론트엔드**: http://localhost:3000
+- ✅ **프론트엔드**: http://localhost:3003
 
 ## 📋 수동으로 서버 실행하는 방법
 
@@ -29,7 +29,7 @@ cd services\qtext-service
 python main.py
 ```
 
-### 4. 프론트엔드 (포트 3000)
+### 4. 프론트엔드 (포트 3003)
 ```powershell
 # 프로젝트 루트에서
 cd frontend
@@ -58,7 +58,7 @@ npm run dev
 - **큐문자 API**: http://localhost:8003
 
 ### 웹사이트 (프론트엔드)
-- **메인 사이트**: http://localhost:3000
+- **메인 사이트**: http://localhost:3003
 
 ## 📊 서버 상태 확인
 
@@ -67,11 +67,11 @@ npm run dev
 # 모든 8000번대 포트 확인
 netstat -ano | findstr ":800"
 
-# 3000번 포트 확인
-netstat -ano | findstr ":3000"
+# 3003번 포트 확인
+netstat -ano | findstr ":3003"
 
 # 모든 포트 확인
-netstat -ano | findstr ":800\|:3000"
+netstat -ano | findstr ":800\|:3003"
 ```
 
 ### 프로세스 종료
@@ -120,7 +120,7 @@ npm install
 GEMINI_API_KEY=your_gemini_api_key
 NAVER_CLIENT_ID=your_naver_client_id
 NAVER_CLIENT_SECRET=your_naver_client_secret
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001,https://qclick-app.vercel.app
+CORS_ORIGINS=http://localhost:3003,http://localhost:3001,https://qclick-app.vercel.app
 ```
 
 ## 📝 실행 순서 권장사항
@@ -139,7 +139,7 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:3001,https://qclick-app.verc
    ```
 
 3. **브라우저에서 확인**
-   - http://localhost:3000 (메인 사이트)
+   - http://localhost:3003 (메인 사이트)
    - http://localhost:8001 (API 문서)
 
 ### 프로덕션 배포 시
@@ -158,5 +158,5 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:3001,https://qclick-app.verc
 - http://localhost:8003/docs
 
 ### 프론트엔드 개발
-- http://localhost:3000 에서 실시간으로 변경사항 확인
+- http://localhost:3003 에서 실시간으로 변경사항 확인
 - 개발자 도구(F12)에서 네트워크 탭으로 API 호출 확인 

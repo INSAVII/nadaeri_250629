@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -10,6 +10,8 @@ import logging
 from dotenv import load_dotenv
 import re
 from passlib.context import CryptContext
+import uuid
+from sqlalchemy import or_
 
 from database import get_db
 from models.user import User
@@ -89,6 +91,9 @@ class UserResponse(BaseModel):
     has_business: Optional[bool] = False
     business_number: Optional[str] = None
     
+    # 프로그램 권한 정보 추가
+    programPermissions: Optional[dict] = None
+    
     @classmethod
     def from_orm(cls, user):
         """User 모델에서 UserResponse 생성 (표준 구조)"""
@@ -108,7 +113,13 @@ class UserResponse(BaseModel):
             gender=user.gender,
             work_type=user.work_type,
             has_business=user.has_business,
-            business_number=user.business_number
+            business_number=user.business_number,
+            # 프로그램 권한 정보 추가
+            programPermissions={
+                'free': user.program_permissions_free or False,
+                'month1': user.program_permissions_month1 or False,
+                'month3': user.program_permissions_month3 or False
+            }
         )
     
     class Config:
@@ -177,15 +188,39 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    logger.debug(f"토큰 인증: {token[:10]}...")
+    # 토큰 형식 검증 강화
+    logger.info(f"토큰 검증 시작: 길이={len(token)}, 시작={token[:20]}...")
+    
+    # 토큰 형식 기본 검증
+    if not token or len(token.strip()) == 0:
+        logger.error("토큰이 비어있음")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 토큰입니다",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # JWT 토큰 형식 검증 (3개 세그먼트: header.payload.signature)
+    token_parts = token.split('.')
+    if len(token_parts) != 3:
+        logger.error(f"JWT 토큰 형식 오류: 세그먼트 수={len(token_parts)}, 토큰={token[:50]}...")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="토큰 형식이 올바르지 않습니다",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="토큰 인증에 실패했습니다",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
     try:
+        logger.info(f"JWT 디코드 시도: SECRET_KEY 길이={len(SECRET_KEY)}, ALGORITHM={ALGORITHM}")
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        logger.info(f"JWT 디코드 성공: payload={payload}")
+        
         email: str = payload.get("sub")
         
         if email is None:
@@ -193,8 +228,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             raise credentials_exception
             
         token_data = TokenData(email=email)
+        logger.info(f"토큰 데이터 생성 완료: email={email}")
+        
     except JWTError as e:
-        logger.error(f"JWT 디코드 오류: {str(e)}")
+        logger.error(f"JWT 디코드 오류 상세: {str(e)}, 토큰 길이={len(token)}, 토큰 시작={token[:30]}...")
+        logger.error(f"SECRET_KEY 정보: 길이={len(SECRET_KEY)}, 시작={SECRET_KEY[:10]}...")
         raise credentials_exception
         
     user = get_user(db, email=token_data.email)
@@ -382,9 +420,21 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         raise HTTPException(status_code=500, detail="로그인 처리 중 오류가 발생했습니다")
 
 @router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
-    """현재 로그인한 사용자 정보 조회"""
-    return UserResponse.from_orm(current_user)
+async def read_users_me(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+    """현재 로그인한 사용자 정보 조회 (프로그램 권한 포함)"""
+    try:
+        logger.info(f"사용자 정보 조회 시작: user_id={current_user.id}")
+        
+        # UserResponse.from_orm에서 자동으로 프로그램 권한 정보 포함
+        user_response = UserResponse.from_orm(current_user)
+        
+        logger.info(f"사용자 정보 조회 완료: programPermissions={user_response.programPermissions}")
+        return user_response
+        
+    except Exception as e:
+        logger.error(f"사용자 정보 조회 중 오류: {str(e)}")
+        # 오류 시 기본 사용자 정보만 반환
+        return UserResponse.from_orm(current_user)
 
 @router.get("/check-admin")
 async def check_admin_status(current_user: User = Depends(get_current_active_user)):
@@ -394,3 +444,233 @@ async def check_admin_status(current_user: User = Depends(get_current_active_use
         "user_id": current_user.id,
         "email": current_user.email
     }
+
+@router.get("/program-permissions")
+async def get_user_program_permissions(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+    """사용자의 프로그램 권한 조회 (User 테이블에서 직접 읽기)"""
+    try:
+        logger.info(f"프로그램 권한 조회 시작: user_id={current_user.id}")
+        
+        # User 테이블에서 직접 읽기 (예치금 방식)
+        program_permissions = {
+            'free': current_user.program_permissions_free or False,
+            'month1': current_user.program_permissions_month1 or False,
+            'month3': current_user.program_permissions_month3 or False
+        }
+        
+        logger.info(f"프로그램 권한 조회 완료: {program_permissions}")
+        
+        return {
+            "success": True,
+            "programPermissions": program_permissions,
+            "user_id": current_user.id
+        }
+        
+    except Exception as e:
+        logger.error(f"프로그램 권한 조회 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail="프로그램 권한 조회 중 오류가 발생했습니다")
+
+@router.post("/update-program-permissions")
+async def update_user_program_permissions(
+    request: dict = Body(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """사용자 자신의 프로그램 권한을 업데이트합니다 (예치금 방식으로 단순화)"""
+    try:
+        permissions = request.get("permissions", {})
+        
+        # User 테이블에 직접 저장 (예치금 방식)
+        current_user.program_permissions_free = permissions.get('free', False)
+        current_user.program_permissions_month1 = permissions.get('month1', False)
+        current_user.program_permissions_month3 = permissions.get('month3', False)
+        
+        db.commit()
+        db.refresh(current_user)
+        
+        # 업데이트된 권한 정보 반환
+        program_permissions = {
+            'free': current_user.program_permissions_free,
+            'month1': current_user.program_permissions_month1,
+            'month3': current_user.program_permissions_month3
+        }
+        
+        return {
+            "success": True,
+            "message": "프로그램 권한이 성공적으로 업데이트되었습니다",
+            "programPermissions": program_permissions
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"프로그램 권한 업데이트 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"프로그램 권한 업데이트 중 오류 발생: {str(e)}")
+
+@router.post("/update-program-permissions-bulk")
+async def update_user_program_permissions_bulk(
+    request: dict = Body(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """사용자의 모든 프로그램 권한을 한 번에 업데이트합니다 (1회성 처리)"""
+    try:
+        permissions = request.get("permissions", {})
+        
+        # User 테이블에 직접 저장 (예치금 방식)
+        current_user.program_permissions_free = permissions.get('free', False)
+        current_user.program_permissions_month1 = permissions.get('month1', False)
+        current_user.program_permissions_month3 = permissions.get('month3', False)
+        
+        db.commit()
+        db.refresh(current_user)
+        
+        # 업데이트된 권한 정보 반환
+        program_permissions = {
+            'free': current_user.program_permissions_free,
+            'month1': current_user.program_permissions_month1,
+            'month3': current_user.program_permissions_month3
+        }
+        
+        logger.info(f"프로그램 권한 일괄 업데이트 완료: user_id={current_user.id}, permissions={program_permissions}")
+        
+        return {
+            "success": True,
+            "message": "프로그램 권한이 성공적으로 업데이트되었습니다",
+            "programPermissions": program_permissions,
+            "type": "bulk_update"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"프로그램 권한 일괄 업데이트 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"프로그램 권한 업데이트 중 오류 발생: {str(e)}")
+
+@router.post("/admin/update-user-program-permissions")
+async def admin_update_user_program_permissions(
+    request: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """관리자가 특정 사용자의 프로그램 권한을 업데이트합니다."""
+    try:
+        user_id = request.get("user_id")
+        permissions = request.get("permissions", {})
+        if not user_id:
+            raise HTTPException(status_code=400, detail="user_id가 필요합니다.")
+        
+        logger.info(f"[ADMIN 권한 업데이트] 시작: user_id={user_id}, permissions={permissions}")
+        
+        # 타겟 사용자 조회
+        target_user = db.query(User).filter(User.id == user_id).first()
+        if not target_user:
+            raise HTTPException(status_code=404, detail="해당 사용자를 찾을 수 없습니다.")
+        
+        # 권한 업데이트 전 상태 로깅
+        before_permissions = {
+            'free': target_user.program_permissions_free,
+            'month1': target_user.program_permissions_month1,
+            'month3': target_user.program_permissions_month3
+        }
+        logger.info(f"[ADMIN 권한 업데이트] 업데이트 전: {before_permissions}")
+        
+        # 권한 업데이트
+        target_user.program_permissions_free = permissions.get('free', False)
+        target_user.program_permissions_month1 = permissions.get('month1', False)
+        target_user.program_permissions_month3 = permissions.get('month3', False)
+        
+        # 업데이트 후 상태 로깅
+        after_permissions = {
+            'free': target_user.program_permissions_free,
+            'month1': target_user.program_permissions_month1,
+            'month3': target_user.program_permissions_month3
+        }
+        logger.info(f"[ADMIN 권한 업데이트] 업데이트 후: {after_permissions}")
+        
+        # 커밋 전 로깅
+        logger.info(f"[ADMIN 권한 업데이트] 커밋 시작: user_id={user_id}")
+        db.commit()
+        logger.info(f"[ADMIN 권한 업데이트] 커밋 성공: user_id={user_id}")
+        
+        # refresh 후 최종 상태 확인
+        db.refresh(target_user)
+        final_permissions = {
+            'free': target_user.program_permissions_free,
+            'month1': target_user.program_permissions_month1,
+            'month3': target_user.program_permissions_month3
+        }
+        logger.info(f"[ADMIN 권한 업데이트] refresh 후 최종 상태: {final_permissions}")
+        
+        program_permissions = {
+            'free': target_user.program_permissions_free,
+            'month1': target_user.program_permissions_month1,
+            'month3': target_user.program_permissions_month3
+        }
+        
+        logger.info(f"[ADMIN 권한 업데이트] 완료: user_id={user_id}, final_permissions={program_permissions}")
+        
+        return {
+            "success": True,
+            "message": "프로그램 권한이 성공적으로 업데이트되었습니다.",
+            "user_id": user_id,
+            "programPermissions": program_permissions
+        }
+    except HTTPException:
+        # HTTPException은 그대로 재발생
+        raise
+    except Exception as e:
+        logger.error(f"[ADMIN 권한 업데이트] 예외 발생: {str(e)}")
+        db.rollback()
+        logger.error(f"[ADMIN 권한 업데이트] 롤백 완료")
+        raise HTTPException(status_code=500, detail=f"관리자 프로그램 권한 업데이트 중 오류 발생: {str(e)}")
+
+@router.get("/users")
+async def get_users(
+    skip: int = 0,
+    limit: int = 100,
+    search: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """관리자가 사용자 목록을 조회합니다."""
+    try:
+        query = db.query(User)
+        
+        # 검색 필터 적용
+        if search:
+            query = query.filter(
+                or_(
+                    User.name.contains(search),
+                    User.email.contains(search)
+                )
+            )
+        
+        # 페이지네이션 적용
+        users = query.offset(skip).limit(limit).all()
+        total = query.count()
+        
+        # 응답 데이터 구성
+        user_list = []
+        for user in users:
+            user_data = {
+                "id": user.id,
+                "username": user.name,  # username 대신 name 사용
+                "email": user.email,
+                "role": user.role,
+                "is_active": user.is_active,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "program_permissions_free": user.program_permissions_free,
+                "program_permissions_month1": user.program_permissions_month1,
+                "program_permissions_month3": user.program_permissions_month3
+            }
+            user_list.append(user_data)
+        
+        return {
+            "users": user_list,
+            "total": total,
+            "skip": skip,
+            "limit": limit
+        }
+        
+    except Exception as e:
+        logger.error(f"사용자 목록 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail="사용자 목록 조회 중 오류가 발생했습니다.")

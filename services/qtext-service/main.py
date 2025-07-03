@@ -24,7 +24,7 @@ app = FastAPI(
 )
 
 # CORS 미들웨어 설정
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,https://qclick-app.vercel.app").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3003,http://localhost:3001,https://qclick-app.vercel.app").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

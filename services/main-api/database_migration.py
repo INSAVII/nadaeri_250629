@@ -291,6 +291,107 @@ def cleanup_backup_tables():
         logger.error(f"❌ 백업 테이블 정리 실패: {e}")
         return False
 
+def migrate_program_permissions():
+    """User 테이블에 프로그램 권한 필드를 추가하고 기존 UserProgram 데이터를 마이그레이션"""
+    
+    db = sessionmaker(autocommit=False, autoflush=False, bind=engine)()
+    
+    try:
+        logger.info("=== 프로그램 권한 마이그레이션 시작 ===")
+        
+        # 1. User 테이블에 프로그램 권한 필드 추가
+        logger.info("1. User 테이블에 프로그램 권한 필드 추가 중...")
+        
+        try:
+            # ALTER TABLE 명령 실행
+            with engine.connect() as conn:
+                conn.execute(text("""
+                    ALTER TABLE users 
+                    ADD COLUMN program_permissions_free BOOLEAN DEFAULT FALSE
+                """))
+                conn.commit()
+            logger.info("   - program_permissions_free 필드 추가 완료")
+        except Exception as e:
+            if "duplicate column name" in str(e).lower():
+                logger.info("   - program_permissions_free 필드가 이미 존재함")
+            else:
+                logger.error(f"   - program_permissions_free 필드 추가 실패: {e}")
+        
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("""
+                    ALTER TABLE users 
+                    ADD COLUMN program_permissions_month1 BOOLEAN DEFAULT FALSE
+                """))
+                conn.commit()
+            logger.info("   - program_permissions_month1 필드 추가 완료")
+        except Exception as e:
+            if "duplicate column name" in str(e).lower():
+                logger.info("   - program_permissions_month1 필드가 이미 존재함")
+            else:
+                logger.error(f"   - program_permissions_month1 필드 추가 실패: {e}")
+        
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("""
+                    ALTER TABLE users 
+                    ADD COLUMN program_permissions_month3 BOOLEAN DEFAULT FALSE
+                """))
+                conn.commit()
+            logger.info("   - program_permissions_month3 필드 추가 완료")
+        except Exception as e:
+            if "duplicate column name" in str(e).lower():
+                logger.info("   - program_permissions_month3 필드가 이미 존재함")
+            else:
+                logger.error(f"   - program_permissions_month3 필드 추가 실패: {e}")
+        
+        # 2. 기존 UserProgram 데이터를 User 테이블로 마이그레이션
+        logger.info("2. 기존 UserProgram 데이터 마이그레이션 중...")
+        
+        # 모든 사용자 조회
+        users = db.query(User).all()
+        logger.info(f"   - 총 {len(users)}명의 사용자 발견")
+        
+        migrated_count = 0
+        
+        for user in users:
+            # 해당 사용자의 UserProgram 데이터 조회
+            user_programs = db.query(UserProgram).filter(UserProgram.user_id == user.id).all()
+            
+            if user_programs:
+                logger.info(f"   - 사용자 {user.email}의 프로그램 권한 마이그레이션 중...")
+                
+                # 각 프로그램 권한을 User 테이블에 설정
+                for user_program in user_programs:
+                    if user_program.program_id == 'free':
+                        user.program_permissions_free = user_program.is_allowed
+                    elif user_program.program_id == 'month1':
+                        user.program_permissions_month1 = user_program.is_allowed
+                    elif user_program.program_id == 'month3':
+                        user.program_permissions_month3 = user_program.is_allowed
+                
+                migrated_count += 1
+                logger.info(f"     - {len(user_programs)}개 프로그램 권한 마이그레이션 완료")
+        
+        # 변경사항 저장
+        db.commit()
+        logger.info(f"3. 마이그레이션 완료: {migrated_count}명의 사용자 권한 업데이트됨")
+        
+        # 4. 마이그레이션 결과 확인
+        logger.info("4. 마이그레이션 결과 확인 중...")
+        
+        for user in users[:5]:  # 처음 5명만 확인
+            logger.info(f"   - {user.email}: free={user.program_permissions_free}, month1={user.program_permissions_month1}, month3={user.program_permissions_month3}")
+        
+        logger.info("=== 프로그램 권한 마이그레이션 완료 ===")
+        
+    except Exception as e:
+        logger.error(f"마이그레이션 중 오류 발생: {e}")
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
 def run_migration():
     """전체 마이그레이션 실행"""
     logger.info("🚀 데이터베이스 마이그레이션 시작")
@@ -326,6 +427,9 @@ def run_migration():
     
     # 6. 백업 테이블 정리 (선택사항)
     cleanup_backup_tables()
+    
+    # 7. 프로그램 권한 마이그레이션
+    migrate_program_permissions()
     
     logger.info("🎉 데이터베이스 마이그레이션 완료!")
     return True

@@ -14,7 +14,7 @@ interface FileValidation {
 }
 
 // API 설정
-const QNAME_SERVICE_URL = 'http://localhost:8004';
+const QNAME_SERVICE_URL = 'http://localhost:8002';
 
 const QName: React.FC = () => {
   const { user, isAuthenticated, isLoading, updateUserBalance } = useAuth();

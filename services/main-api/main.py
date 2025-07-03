@@ -16,6 +16,21 @@ try:
 except Exception as e:
     print(f"환경변수 로드 실패 (기본값 사용): {e}")
 
+# 프로덕션 보안 설정 임포트
+try:
+    from config.production_security import (
+        setup_production_security, 
+        setup_production_logging,
+        validate_production_env
+    )
+    # 환경 변수 검증
+    validate_production_env()
+    # 프로덕션 로깅 설정
+    setup_production_logging()
+    print("프로덕션 보안 설정 완료")
+except Exception as e:
+    print(f"프로덕션 보안 설정 실패 (기본 설정 사용): {e}")
+
 # 로깅 시스템 초기화
 try:
     from api.utils.logging import setup_logging
@@ -49,19 +64,29 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS 미들웨어 설정
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:3005").split(",")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],  # 모든 HTTP 메소드 허용
-    allow_headers=["*"],  # 모든 헤더 허용
-)
-logger.info(f"CORS 설정 완료: {cors_origins}")
+# 프로덕션 보안 설정 적용
+try:
+    setup_production_security(app)
+    logger.info("프로덕션 보안 미들웨어 적용 완료")
+except Exception as e:
+    logger.warning(f"프로덕션 보안 설정 실패, 기본 CORS 사용: {e}")
+    # 기본 CORS 설정 (백업)
+    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3003,http://localhost:3001,http://localhost:3002,http://localhost:3004,http://localhost:3005").split(",")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    logger.info(f"기본 CORS 설정 완료: {cors_origins}")
 
-# 정적 파일 설정
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# 정적 파일 설정 (디렉토리가 존재하는 경우에만)
+import os
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+else:
+    logger.warning("static 디렉토리가 존재하지 않습니다. 정적 파일 서빙을 건너뜁니다.")
 
 # API 라우터 등록 (큐네임, 큐문자 제외)
 app.include_router(auth_router, prefix="/api/auth", tags=["인증"])

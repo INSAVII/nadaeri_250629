@@ -1,146 +1,178 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 
 <head>
-    <title>인증 데이터 초기화</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인증 데이터 정리</title>
     <style>
         body {
             font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
             padding: 20px;
+            background-color: #f5f5f5;
         }
 
-        button {
-            padding: 10px 20px;
-            margin: 10px;
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .button {
             background: #007bff;
             color: white;
             border: none;
+            padding: 12px 24px;
             border-radius: 5px;
             cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
         }
 
-        button:hover {
+        .button:hover {
             background: #0056b3;
         }
 
-        .result {
-            margin: 10px 0;
-            padding: 10px;
+        .button.danger {
+            background: #dc3545;
+        }
+
+        .button.danger:hover {
+            background: #c82333;
+        }
+
+        .status {
+            margin: 20px 0;
+            padding: 15px;
             border-radius: 5px;
+            background: #e9ecef;
         }
 
         .success {
             background: #d4edda;
             color: #155724;
+            border: 1px solid #c3e6cb;
         }
 
         .error {
             background: #f8d7da;
             color: #721c24;
+            border: 1px solid #f5c6cb;
         }
     </style>
 </head>
 
 <body>
-    <h1>🔐 인증 데이터 초기화</h1>
-    <p>이 페이지는 localStorage와 sessionStorage의 모든 인증 관련 데이터를 삭제합니다.</p>
+    <div class="container">
+        <h1>🔧 인증 데이터 정리 도구</h1>
+        <p>QCapture 페이지 접속 해제 문제를 해결하기 위한 도구입니다.</p>
 
-    <button onclick="clearAllAuthData()">모든 인증 데이터 삭제</button>
-    <button onclick="checkCurrentData()">현재 데이터 확인</button>
-    <button onclick="goToHome()">홈으로 이동</button>
+        <div class="status" id="status">
+            현재 상태: 대기 중
+        </div>
 
-    <div id="result"></div>
+        <button class="button" onclick="clearAuthData()">인증 데이터 정리</button>
+        <button class="button" onclick="clearAllData()">모든 데이터 정리</button>
+        <button class="button" onclick="checkCurrentState()">현재 상태 확인</button>
+        <button class="button danger" onclick="forceLogout()">강제 로그아웃</button>
+
+        <hr style="margin: 30px 0;">
+
+        <h3>문제 해결 가이드:</h3>
+        <ol>
+            <li><strong>1단계:</strong> "현재 상태 확인" 버튼을 클릭하여 현재 상황을 파악</li>
+            <li><strong>2단계:</strong> "인증 데이터 정리" 버튼을 클릭하여 인증 관련 데이터만 정리</li>
+            <li><strong>3단계:</strong> 여전히 문제가 있다면 "모든 데이터 정리" 버튼 클릭</li>
+            <li><strong>4단계:</strong> 브라우저를 새로고침하고 다시 로그인</li>
+        </ol>
+    </div>
 
     <script>
-        function clearAllAuthData() {
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+
+        function clearAuthData() {
             try {
-                // localStorage에서 인증 관련 데이터 삭제
-                const authKeys = [
-                    'USER_DATA',
-                    'user',
-                    'mockUsers',
-                    'currentUser',
-                    'authUser',
-                    'userToken',
-                    'accessToken',
-                    'AUTH_TOKEN',
-                    'PROGRAM_PERMISSION_CHANGING'
-                ];
+                // 인증 관련 데이터만 정리
+                localStorage.removeItem('USER_DATA');
+                localStorage.removeItem('token');
+                localStorage.removeItem('authUser');
+                localStorage.removeItem('currentUser');
 
-                authKeys.forEach(key => {
-                    localStorage.removeItem(key);
-                    console.log(`localStorage에서 ${key} 삭제됨`);
-                });
+                sessionStorage.removeItem('forceLogout');
+                sessionStorage.removeItem('forceInit');
 
-                // sessionStorage에서 인증 관련 데이터 삭제
-                const sessionKeys = [
-                    'userData',
-                    'authToken',
-                    'forceLogout'
-                ];
-
-                sessionKeys.forEach(key => {
-                    sessionStorage.removeItem(key);
-                    console.log(`sessionStorage에서 ${key} 삭제됨`);
-                });
-
-                // 모든 쿠키 삭제
-                document.cookie.split(";").forEach(cookie => {
-                    const eqPos = cookie.indexOf("=");
-                    const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-                    document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-                });
-
-                showResult('✅ 모든 인증 데이터가 성공적으로 삭제되었습니다!', 'success');
-
-                // 3초 후 홈으로 이동
-                setTimeout(() => {
-                    window.location.href = 'http://localhost:3003/';
-                }, 3000);
-
+                updateStatus('✅ 인증 데이터가 정리되었습니다. 브라우저를 새로고침하세요.', 'success');
             } catch (error) {
-                showResult('❌ 오류 발생: ' + error.message, 'error');
+                updateStatus('❌ 인증 데이터 정리 중 오류: ' + error.message, 'error');
             }
         }
 
-        function checkCurrentData() {
-            const result = [];
+        function clearAllData() {
+            try {
+                // 모든 데이터 정리
+                localStorage.clear();
+                sessionStorage.clear();
 
-            // localStorage 확인
-            result.push('<h3>localStorage 내용:</h3>');
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                const value = localStorage.getItem(key);
-                result.push(`<div><strong>${key}:</strong> ${value}</div>`);
+                updateStatus('✅ 모든 데이터가 정리되었습니다. 브라우저를 새로고침하세요.', 'success');
+            } catch (error) {
+                updateStatus('❌ 데이터 정리 중 오류: ' + error.message, 'error');
             }
+        }
 
-            // sessionStorage 확인
-            result.push('<h3>sessionStorage 내용:</h3>');
-            for (let i = 0; i < sessionStorage.length; i++) {
-                const key = sessionStorage.key(i);
-                const value = sessionStorage.getItem(key);
-                result.push(`<div><strong>${key}:</strong> ${value}</div>`);
+        function checkCurrentState() {
+            try {
+                const userData = localStorage.getItem('USER_DATA');
+                const token = localStorage.getItem('token');
+                const forceLogout = sessionStorage.getItem('forceLogout');
+                const forceInit = sessionStorage.getItem('forceInit');
+
+                let status = '현재 상태:\n';
+                status += `• USER_DATA: ${userData ? '있음' : '없음'}\n`;
+                status += `• token: ${token ? '있음' : '없음'}\n`;
+                status += `• forceLogout: ${forceLogout || '없음'}\n`;
+                status += `• forceInit: ${forceInit || '없음'}\n`;
+
+                if (userData) {
+                    try {
+                        const user = JSON.parse(userData);
+                        status += `• 사용자 ID: ${user.userId || user.id || '알 수 없음'}\n`;
+                        status += `• 역할: ${user.role || '알 수 없음'}\n`;
+                        status += `• 권한 정보: ${user.programPermissions ? '있음' : '없음'}\n`;
+                    } catch (e) {
+                        status += `• 사용자 데이터 파싱 오류: ${e.message}\n`;
+                    }
+                }
+
+                updateStatus(status, 'info');
+            } catch (error) {
+                updateStatus('❌ 상태 확인 중 오류: ' + error.message, 'error');
             }
-
-            // 쿠키 확인
-            result.push('<h3>쿠키 내용:</h3>');
-            result.push(`<div>${document.cookie || '쿠키 없음'}</div>`);
-
-            document.getElementById('result').innerHTML = result.join('');
         }
 
-        function goToHome() {
-            window.location.href = 'http://localhost:3003/';
+        function forceLogout() {
+            try {
+                // 강제 로그아웃 플래그 설정
+                sessionStorage.setItem('forceLogout', 'true');
+
+                // 모든 인증 데이터 정리
+                clearAuthData();
+
+                updateStatus('✅ 강제 로그아웃이 설정되었습니다. 브라우저를 새로고침하세요.', 'success');
+            } catch (error) {
+                updateStatus('❌ 강제 로그아웃 설정 중 오류: ' + error.message, 'error');
+            }
         }
 
-        function showResult(message, type) {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
-        }
-
-        // 페이지 로드 시 현재 데이터 확인
+        // 페이지 로드 시 현재 상태 확인
         window.onload = function () {
-            checkCurrentData();
+            checkCurrentState();
         };
     </script>
 </body>

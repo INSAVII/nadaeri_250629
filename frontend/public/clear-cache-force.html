@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>캐시 강제 클리어</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+</head>
+<body>
+    <h1>캐시 강제 클리어</h1>
+    <p>브라우저 캐시를 강제로 클리어합니다...</p>
+    
+    <script>
+        console.log('🚨 강제 캐시 클리어 실행');
+        
+        // Service Worker 제거
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                    console.log('Service Worker 제거됨');
+                }
+            });
+        }
+        
+        // 로컬 스토리지 클리어
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log('로컬 스토리지 클리어됨');
+        
+        // 캐시 강제 새로고침으로 리다이렉트
+        setTimeout(() => {
+            window.location.href = '/admin/cms?cachebust=' + Date.now();
+        }, 1000);
+    </script>
+</body>
+</html>

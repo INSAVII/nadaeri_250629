@@ -1,157 +1,144 @@
 #!/usr/bin/env python3
+"""
+관리자 API 엔드포인트 테스트
+"""
+
 import requests
 import json
 import sys
 import os
 
 # API 기본 URL
-API_BASE_URL = "http://localhost:8001"
+BASE_URL = "http://localhost:8001"
 
 def test_admin_login():
-    """admin 계정 로그인 테스트"""
-    print("=== Admin 계정 로그인 테스트 ===")
-    
-    login_data = {
-        "username": "admin",
-        "password": "admin"
-    }
-    
+    """관리자 로그인 테스트"""
     try:
-        response = requests.post(
-            f"{API_BASE_URL}/api/auth/login",
-            data=login_data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
+        login_data = {
+            "username": "admin@qclick.com",  # OAuth2PasswordRequestForm 형식
+            "password": "admin"
+        }
         
-        print(f"Status Code: {response.status_code}")
-        print(f"Response Headers: {dict(response.headers)}")
+        response = requests.post(f"{BASE_URL}/api/auth/login", data=login_data)
         
         if response.status_code == 200:
             data = response.json()
-            print("✅ 로그인 성공!")
-            print(f"Access Token: {data.get('access_token', 'N/A')[:20]}...")
-            
-            user = data.get('user', {})
-            print(f"User ID: {user.get('id')}")
-            print(f"User Email: {user.get('email')}")
-            print(f"User Role: {user.get('role')}")
-            print(f"User Name: {user.get('name')}")
-            print(f"Is Active: {user.get('is_active')}")
-            print(f"Balance: {user.get('balance')}")
-            
-            # role 검증
-            if user.get('role') == 'admin':
-                print("✅ Role이 올바르게 'admin'으로 반환됨")
-            else:
-                print(f"❌ Role이 잘못됨: {user.get('role')}")
-            
-            return data.get('access_token')
+            print("✅ 관리자 로그인 성공")
+            print(f"   토큰: {data['access_token'][:50]}...")
+            return data['access_token']
         else:
-            print(f"❌ 로그인 실패: {response.text}")
+            print(f"❌ 관리자 로그인 실패: {response.status_code}")
+            print(f"   응답: {response.text}")
             return None
             
-    except requests.exceptions.ConnectionError:
-        print("❌ 백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.")
-        return None
     except Exception as e:
-        print(f"❌ 오류 발생: {e}")
+        print(f"❌ 로그인 중 오류: {e}")
         return None
 
-def test_admin_check(token):
-    """admin 권한 확인 테스트"""
-    if not token:
-        print("토큰이 없어서 admin 권한 확인을 건너뜁니다.")
-        return
-    
-    print("\n=== Admin 권한 확인 테스트 ===")
-    
+def test_admin_update_user_permissions(token, user_id="testdbuser"):
+    """관리자 권한 업데이트 API 테스트"""
     try:
-        response = requests.get(
-            f"{API_BASE_URL}/api/auth/check-admin",
-            headers={"Authorization": f"Bearer {token}"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        # 권한 업데이트 요청
+        update_data = {
+            "user_id": user_id,
+            "permissions": {
+                "free": True,
+                "month1": True,
+                "month3": False
+            }
+        }
+        
+        print(f"🔍 관리자 API 테스트 - 사용자: {user_id}")
+        print(f"   요청 데이터: {json.dumps(update_data, indent=2)}")
+        
+        response = requests.post(
+            f"{BASE_URL}/api/auth/admin/update-user-program-permissions",
+            headers=headers,
+            json=update_data
         )
         
-        print(f"Status Code: {response.status_code}")
+        print(f"   응답 상태: {response.status_code}")
+        print(f"   응답 헤더: {dict(response.headers)}")
         
         if response.status_code == 200:
             data = response.json()
-            print("✅ Admin 권한 확인 성공!")
-            print(f"Is Admin: {data.get('is_admin')}")
-            print(f"User ID: {data.get('user_id')}")
-            print(f"Email: {data.get('email')}")
+            print("✅ 관리자 API 성공")
+            print(f"   응답: {json.dumps(data, indent=2)}")
+            return True
         else:
-            print(f"❌ Admin 권한 확인 실패: {response.text}")
+            print(f"❌ 관리자 API 실패: {response.status_code}")
+            print(f"   응답: {response.text}")
+            return False
             
     except Exception as e:
-        print(f"❌ 오류 발생: {e}")
+        print(f"❌ API 테스트 중 오류: {e}")
+        return False
 
-def test_cms_users(token):
-    """CMS 사용자 목록 조회 테스트"""
-    if not token:
-        print("토큰이 없어서 CMS 테스트를 건너뜁니다.")
-        return
-    
-    print("\n=== CMS 사용자 목록 조회 테스트 ===")
-    
+def test_user_permissions_after_update(token, user_id="testdbuser"):
+    """업데이트 후 사용자 권한 확인"""
     try:
-        response = requests.get(
-            f"{API_BASE_URL}/api/deposits/users",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
         
-        print(f"Status Code: {response.status_code}")
+        # 사용자 정보 조회 (관리자 권한으로)
+        response = requests.get(
+            f"{BASE_URL}/api/deposits/users?skip=0&limit=100",
+            headers=headers
+        )
         
         if response.status_code == 200:
             users = response.json()
-            print(f"✅ 사용자 목록 조회 성공! 총 {len(users)}명")
+            target_user = None
             
-            for user in users[:3]:  # 처음 3명만 출력
-                print(f"  - ID: {user.get('id')}, Email: {user.get('email')}, Role: {user.get('role')}")
+            for user in users:
+                if user.get('id') == user_id:
+                    target_user = user
+                    break
+            
+            if target_user:
+                print(f"✅ 사용자 {user_id} 정보 조회 성공")
+                print(f"   프로그램 권한:")
+                print(f"     - Free: {target_user.get('program_permissions_free', False)}")
+                print(f"     - Month1: {target_user.get('program_permissions_month1', False)}")
+                print(f"     - Month3: {target_user.get('program_permissions_month3', False)}")
+                return True
+            else:
+                print(f"❌ 사용자 {user_id}를 찾을 수 없습니다")
+                return False
         else:
-            print(f"❌ 사용자 목록 조회 실패: {response.text}")
+            print(f"❌ 사용자 목록 조회 실패: {response.status_code}")
+            return False
             
     except Exception as e:
-        print(f"❌ 오류 발생: {e}")
+        print(f"❌ 권한 확인 중 오류: {e}")
+        return False
 
-def test_logout_simulation():
-    """로그아웃 시뮬레이션 테스트"""
-    print("\n=== 로그아웃 시뮬레이션 테스트 ===")
+def main():
+    print("🔍 관리자 API 엔드포인트 테스트 시작")
     
-    # 1. 로그인
+    # 1. 관리자 로그인
     token = test_admin_login()
     if not token:
+        print("❌ 관리자 로그인 실패로 테스트 중단")
         return
     
-    # 2. 로그아웃 (토큰 무효화 시뮬레이션)
-    print("\n--- 로그아웃 후 재로그인 테스트 ---")
+    # 2. 관리자 권한 업데이트 API 테스트
+    success = test_admin_update_user_permissions(token)
+    if not success:
+        print("❌ 관리자 권한 업데이트 API 실패")
+        return
     
-    # 3. 재로그인
-    token2 = test_admin_login()
-    if token2:
-        print("✅ 재로그인 성공!")
-        if token2 != token:
-            print("✅ 새로운 토큰이 발급됨")
-        else:
-            print("⚠️ 동일한 토큰이 재사용됨")
-    else:
-        print("❌ 재로그인 실패")
+    # 3. 업데이트 후 권한 확인
+    test_user_permissions_after_update(token)
+    
+    print("\n✅ 관리자 API 테스트 완료")
 
 if __name__ == "__main__":
-    print("Admin 계정 API 테스트 시작")
-    print(f"API Base URL: {API_BASE_URL}")
-    print("=" * 50)
-    
-    # 1. 로그인 테스트
-    token = test_admin_login()
-    
-    # 2. Admin 권한 확인
-    test_admin_check(token)
-    
-    # 3. CMS 사용자 목록 조회
-    test_cms_users(token)
-    
-    # 4. 로그아웃/재로그인 테스트
-    test_logout_simulation()
-    
-    print("\n" + "=" * 50)
-    print("테스트 완료") 
+    main() 

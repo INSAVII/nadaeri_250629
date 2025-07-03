@@ -43,7 +43,7 @@ python main.py
 네 번째 터미널: QText 서비스 (python main.py)
 
 
-프론트엔드: http://localhost:3000
+프론트엔드: http://localhost:3003
 메인 API: http://localhost:8001
 QName 서비스: http://localhost:8002
 QText 서비스: http://localhost:8003

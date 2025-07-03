@@ -50,7 +50,7 @@
   - [ ] Health Check Path: `/health`
 
 ### 환경변수 설정
-- [ ] CORS_ORIGINS: `https://qclick-app.vercel.app,http://localhost:3000`
+- [ ] CORS_ORIGINS: `https://qclick-app.vercel.app,http://localhost:3003`
 - [ ] 기타 필요한 환경변수
 
 ### 검증

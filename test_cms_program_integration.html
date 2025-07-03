@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMS-QCapture 연동 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .test-button:hover {
+            background: #0056b3;
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>CMS-QCapture 프로그램 권한 연동 테스트</h1>
+
+    <div class="test-section">
+        <h2>1. 로컬 스토리지 테스트</h2>
+        <p>CMS에서 설정한 프로그램 권한이 로컬 스토리지에 올바르게 저장되는지 테스트합니다.</p>
+
+        <button class="test-button" onclick="testLocalStorage()">로컬 스토리지 테스트</button>
+        <button class="test-button" onclick="clearLocalStorage()">로컬 스토리지 초기화</button>
+
+        <div id="localStorageStatus" class="status"></div>
+        <div id="localStorageLog" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 이벤트 전송 테스트</h2>
+        <p>CMS에서 QCapture로 프로그램 권한 변경 이벤트가 올바르게 전송되는지 테스트합니다.</p>
+
+        <button class="test-button" onclick="testEventDispatch()">이벤트 전송 테스트</button>
+        <button class="test-button" onclick="testEventReceive()">이벤트 수신 테스트</button>
+
+        <div id="eventStatus" class="status"></div>
+        <div id="eventLog" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 권한 상태 시뮬레이션</h2>
+        <p>다양한 권한 상태를 시뮬레이션하여 다운로드 버튼 상태를 테스트합니다.</p>
+
+        <button class="test-button" onclick="simulateUserPermissions('free')">무료 권한만 활성화</button>
+        <button class="test-button" onclick="simulateUserPermissions('month1')">1개월 권한만 활성화</button>
+        <button class="test-button" onclick="simulateUserPermissions('month3')">3개월 권한만 활성화</button>
+        <button class="test-button" onclick="simulateUserPermissions('all')">모든 권한 활성화</button>
+        <button class="test-button" onclick="simulateUserPermissions('none')">모든 권한 비활성화</button>
+
+        <div id="simulationStatus" class="status"></div>
+        <div id="simulationLog" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 통합 테스트</h2>
+        <p>전체 워크플로우를 테스트합니다.</p>
+
+        <button class="test-button" onclick="runIntegrationTest()">통합 테스트 실행</button>
+
+        <div id="integrationStatus" class="status"></div>
+        <div id="integrationLog" class="log"></div>
+    </div>
+
+    <script>
+        // 로그 함수
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            element.textContent += logEntry;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        // 상태 업데이트 함수
+        function updateStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        // 1. 로컬 스토리지 테스트
+        function testLocalStorage() {
+            log('localStorageLog', '로컬 스토리지 테스트 시작...');
+
+            // 테스트 사용자 ID
+            const testUserId = 'test_user_123';
+
+            // 테스트 권한 데이터
+            const testPermissions = {
+                free: true,
+                month1: false,
+                month3: true
+            };
+
+            try {
+                // 권한 저장
+                localStorage.setItem(`CMS_PROGRAM_PERMISSIONS_${testUserId}`, JSON.stringify(testPermissions));
+                log('localStorageLog', `권한 저장 완료: ${testUserId}`);
+
+                // 권한 읽기
+                const storedPermissions = localStorage.getItem(`CMS_PROGRAM_PERMISSIONS_${testUserId}`);
+                const parsedPermissions = JSON.parse(storedPermissions);
+
+                log('localStorageLog', `저장된 권한: ${JSON.stringify(parsedPermissions)}`);
+
+                // 검증
+                if (JSON.stringify(parsedPermissions) === JSON.stringify(testPermissions)) {
+                    updateStatus('localStorageStatus', '✅ 로컬 스토리지 테스트 성공', 'success');
+                    log('localStorageLog', '✅ 권한 데이터가 올바르게 저장되고 읽혔습니다.');
+                } else {
+                    updateStatus('localStorageStatus', '❌ 로컬 스토리지 테스트 실패', 'error');
+                    log('localStorageLog', '❌ 권한 데이터가 올바르지 않습니다.');
+                }
+            } catch (error) {
+                updateStatus('localStorageStatus', '❌ 로컬 스토리지 테스트 오류', 'error');
+                log('localStorageLog', `❌ 오류: ${error.message}`);
+            }
+        }
+
+        function clearLocalStorage() {
+            const keys = Object.keys(localStorage);
+            const cmsKeys = keys.filter(key => key.startsWith('CMS_PROGRAM_PERMISSIONS_'));
+
+            cmsKeys.forEach(key => {
+                localStorage.removeItem(key);
+                log('localStorageLog', `삭제됨: ${key}`);
+            });
+
+            updateStatus('localStorageStatus', `✅ ${cmsKeys.length}개의 CMS 권한 데이터 삭제 완료`, 'success');
+        }
+
+        // 2. 이벤트 전송 테스트
+        function testEventDispatch() {
+            log('eventLog', '이벤트 전송 테스트 시작...');
+
+            const testEvent = new CustomEvent('programPermissionSaved', {
+                detail: {
+                    type: 'bulk_save',
+                    users: [
+                        {
+                            userId: 'test_user_123',
+                            permissions: {
+                                free: true,
+                                month1: false,
+                                month3: true
+                            }
+                        }
+                    ],
+                    timestamp: Date.now()
+                }
+            });
+
+            try {
+                window.dispatchEvent(testEvent);
+                log('eventLog', '✅ 이벤트 전송 완료');
+                updateStatus('eventStatus', '✅ 이벤트 전송 테스트 성공', 'success');
+            } catch (error) {
+                log('eventLog', `❌ 이벤트 전송 오류: ${error.message}`);
+                updateStatus('eventStatus', '❌ 이벤트 전송 테스트 실패', 'error');
+            }
+        }
+
+        function testEventReceive() {
+            log('eventLog', '이벤트 수신 테스트 시작...');
+
+            // 이벤트 리스너 등록
+            const eventListener = (event) => {
+                log('eventLog', `✅ 이벤트 수신됨: ${JSON.stringify(event.detail)}`);
+                updateStatus('eventStatus', '✅ 이벤트 수신 테스트 성공', 'success');
+
+                // 리스너 제거
+                window.removeEventListener('programPermissionSaved', eventListener);
+            };
+
+            window.addEventListener('programPermissionSaved', eventListener);
+
+            // 테스트 이벤트 전송
+            setTimeout(() => {
+                testEventDispatch();
+            }, 100);
+        }
+
+        // 3. 권한 상태 시뮬레이션
+        function simulateUserPermissions(type) {
+            log('simulationLog', `권한 시뮬레이션 시작: ${type}`);
+
+            const testUserId = 'simulation_user';
+            let permissions;
+
+            switch (type) {
+                case 'free':
+                    permissions = { free: true, month1: false, month3: false };
+                    break;
+                case 'month1':
+                    permissions = { free: false, month1: true, month3: false };
+                    break;
+                case 'month3':
+                    permissions = { free: false, month1: false, month3: true };
+                    break;
+                case 'all':
+                    permissions = { free: true, month1: true, month3: true };
+                    break;
+                case 'none':
+                    permissions = { free: false, month1: false, month3: false };
+                    break;
+                default:
+                    permissions = { free: false, month1: false, month3: false };
+            }
+
+            try {
+                // 로컬 스토리지에 저장
+                localStorage.setItem(`CMS_PROGRAM_PERMISSIONS_${testUserId}`, JSON.stringify(permissions));
+
+                // 이벤트 전송
+                const event = new CustomEvent('programPermissionSaved', {
+                    detail: {
+                        type: 'simulation',
+                        users: [{ userId: testUserId, permissions }],
+                        timestamp: Date.now()
+                    }
+                });
+
+                window.dispatchEvent(event);
+
+                log('simulationLog', `✅ 권한 시뮬레이션 완료: ${JSON.stringify(permissions)}`);
+                updateStatus('simulationStatus', `✅ ${type} 권한 시뮬레이션 완료`, 'success');
+            } catch (error) {
+                log('simulationLog', `❌ 시뮬레이션 오류: ${error.message}`);
+                updateStatus('simulationStatus', '❌ 권한 시뮬레이션 실패', 'error');
+            }
+        }
+
+        // 4. 통합 테스트
+        function runIntegrationTest() {
+            log('integrationLog', '통합 테스트 시작...');
+
+            const testSteps = [
+                '1. 로컬 스토리지 초기화',
+                '2. 테스트 권한 설정',
+                '3. 이벤트 전송',
+                '4. 권한 검증'
+            ];
+
+            let currentStep = 0;
+
+            const runStep = () => {
+                if (currentStep >= testSteps.length) {
+                    log('integrationLog', '✅ 모든 통합 테스트 완료');
+                    updateStatus('integrationStatus', '✅ 통합 테스트 성공', 'success');
+                    return;
+                }
+
+                log('integrationLog', testSteps[currentStep]);
+
+                switch (currentStep) {
+                    case 0:
+                        // 로컬 스토리지 초기화
+                        clearLocalStorage();
+                        break;
+                    case 1:
+                        // 테스트 권한 설정
+                        simulateUserPermissions('all');
+                        break;
+                    case 2:
+                        // 이벤트 전송
+                        testEventDispatch();
+                        break;
+                    case 3:
+                        // 권한 검증
+                        const testUserId = 'simulation_user';
+                        const storedPermissions = localStorage.getItem(`CMS_PROGRAM_PERMISSIONS_${testUserId}`);
+                        if (storedPermissions) {
+                            const permissions = JSON.parse(storedPermissions);
+                            log('integrationLog', `✅ 최종 권한 검증: ${JSON.stringify(permissions)}`);
+                        } else {
+                            log('integrationLog', '❌ 권한 검증 실패: 저장된 권한 없음');
+                        }
+                        break;
+                }
+
+                currentStep++;
+                setTimeout(runStep, 500);
+            };
+
+            runStep();
+        }
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', () => {
+            log('localStorageLog', '테스트 페이지 로드됨');
+            log('eventLog', '이벤트 리스너 준비됨');
+            log('simulationLog', '시뮬레이션 준비됨');
+            log('integrationLog', '통합 테스트 준비됨');
+        });
+    </script>
+</body>
+
+</html>

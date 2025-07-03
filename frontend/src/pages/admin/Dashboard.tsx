@@ -53,6 +53,17 @@ export default function AdminDashboard() {
           </Link>
         </div>
 
+        {/* 프로그램 권한 관리 */}
+        <div className="border rounded p-4 hover:bg-gray-50 transition-colors">
+          <h2 className="text-lg font-light mb-2">🔐 프로그램 권한 관리</h2>
+          <p className="text-sm text-gray-600 font-light mb-4">
+            사용자별 무료/1개월/3개월 프로그램 접근 권한을 관리합니다.
+          </p>
+          <Link to="/admin/program-permissions">
+            <TextButton variant="primary">권한 관리</TextButton>
+          </Link>
+        </div>
+
         {/* 작업 모니터링 */}
         <div className="border rounded p-4 hover:bg-gray-50 transition-colors">
           <h2 className="text-lg font-light mb-2">📊 작업 모니터링</h2>

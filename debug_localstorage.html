@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMS localStorage 디버그</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .debug-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .debug-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 3px;
+        }
+
+        .key {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .value {
+            color: #666;
+            font-family: monospace;
+        }
+
+        button {
+            margin: 5px;
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .clear-btn {
+            background: #dc3545;
+        }
+
+        .clear-btn:hover {
+            background: #c82333;
+        }
+
+        .auto-refresh {
+            background: #28a745;
+        }
+
+        .auto-refresh:hover {
+            background: #218838;
+        }
+
+        .auto-refresh.active {
+            background: #dc3545;
+        }
+
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>CMS localStorage 디버그 도구</h1>
+
+    <div class="debug-section">
+        <h2>실시간 모니터링</h2>
+        <button id="autoRefreshBtn" onclick="toggleAutoRefresh()" class="auto-refresh">자동 새로고침 시작</button>
+        <div id="logContainer" class="log"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>현재 localStorage 상태</h2>
+        <button onclick="refreshData()">새로고침</button>
+        <button onclick="clearAll()" class="clear-btn">전체 삭제</button>
+        <div id="localStorageData"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>CMS 프로그램 권한 데이터 분석</h2>
+        <div id="cmsAnalysis"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>사용자별 권한 상태</h2>
+        <div id="userPermissions"></div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let logCount = 0;
+
+        function log(message) {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            logContainer.innerHTML += `[${timestamp}] ${message}\n`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            logCount++;
+
+            // 로그가 너무 많아지면 오래된 것 삭제
+            if (logCount > 100) {
+                const lines = logContainer.innerHTML.split('\n');
+                logContainer.innerHTML = lines.slice(-50).join('\n');
+                logCount = 50;
+            }
+        }
+
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoRefreshBtn');
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                btn.textContent = '자동 새로고침 시작';
+                btn.classList.remove('active');
+                log('자동 새로고침 중지됨');
+            } else {
+                autoRefreshInterval = setInterval(() => {
+                    log('자동 새로고침 실행...');
+                    refreshData();
+                }, 2000);
+                btn.textContent = '자동 새로고침 중지';
+                btn.classList.add('active');
+                log('자동 새로고침 시작됨 (2초마다)');
+            }
+        }
+
+        function refreshData() {
+            displayLocalStorage();
+            analyzeCMSData();
+            displayUserPermissions();
+            log('데이터 새로고침 완료');
+        }
+
+        function displayLocalStorage() {
+            const container = document.getElementById('localStorageData');
+            container.innerHTML = '<h3>전체 localStorage 키:</h3>';
+
+            if (localStorage.length === 0) {
+                container.innerHTML += '<p>localStorage에 데이터가 없습니다.</p>';
+                return;
+            }
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+
+                const item = document.createElement('div');
+                item.className = 'debug-item';
+                item.innerHTML = `
+                    <div class="key">키: ${key}</div>
+                    <div class="value">값: ${value}</div>
+                    <button onclick="deleteItem('${key}')">삭제</button>
+                `;
+                container.appendChild(item);
+            }
+        }
+
+        function analyzeCMSData() {
+            const container = document.getElementById('cmsAnalysis');
+            const cmsData = localStorage.getItem('cms_program_permissions');
+            const changedUsersData = localStorage.getItem('cms_changed_users');
+
+            container.innerHTML = '<h3>CMS 프로그램 권한 데이터:</h3>';
+
+            if (!cmsData && !changedUsersData) {
+                container.innerHTML += '<p>CMS 관련 데이터가 없습니다.</p>';
+                return;
+            }
+
+            if (cmsData) {
+                try {
+                    const parsed = JSON.parse(cmsData);
+                    container.innerHTML += `
+                        <div class="debug-item">
+                            <div class="key">권한 데이터 타입:</div>
+                            <div class="value">${typeof parsed}</div>
+                        </div>
+                        <div class="debug-item">
+                            <div class="key">저장된 사용자 수:</div>
+                            <div class="value">${Object.keys(parsed).length}명</div>
+                        </div>
+                        <div class="debug-item">
+                            <div class="key">전체 권한 데이터:</div>
+                            <div class="value">${JSON.stringify(parsed, null, 2)}</div>
+                        </div>
+                    `;
+                } catch (error) {
+                    container.innerHTML += `<p>권한 데이터 파싱 오류: ${error.message}</p>`;
+                }
+            }
+
+            if (changedUsersData) {
+                try {
+                    const parsed = JSON.parse(changedUsersData);
+                    container.innerHTML += `
+                        <div class="debug-item">
+                            <div class="key">변경된 사용자 목록:</div>
+                            <div class="value">${JSON.stringify(parsed, null, 2)}</div>
+                        </div>
+                        <div class="debug-item">
+                            <div class="key">변경된 사용자 수:</div>
+                            <div class="value">${parsed.length}명</div>
+                        </div>
+                    `;
+                } catch (error) {
+                    container.innerHTML += `<p>변경된 사용자 데이터 파싱 오류: ${error.message}</p>`;
+                }
+            }
+        }
+
+        function displayUserPermissions() {
+            const container = document.getElementById('userPermissions');
+            const cmsData = localStorage.getItem('cms_program_permissions');
+
+            container.innerHTML = '<h3>사용자별 권한 상태:</h3>';
+
+            if (!cmsData) {
+                container.innerHTML += '<p>권한 데이터가 없습니다.</p>';
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(cmsData);
+                const users = Object.keys(parsed);
+
+                if (users.length === 0) {
+                    container.innerHTML += '<p>저장된 사용자가 없습니다.</p>';
+                    return;
+                }
+
+                users.forEach(userId => {
+                    const permissions = parsed[userId];
+                    const item = document.createElement('div');
+                    item.className = 'debug-item';
+                    item.innerHTML = `
+                        <div class="key">사용자 ID: ${userId}</div>
+                        <div class="value">
+                            Free: ${permissions.free ? '✅' : '❌'}<br>
+                            Month1: ${permissions.month1 ? '✅' : '❌'}<br>
+                            Month3: ${permissions.month3 ? '✅' : '❌'}
+                        </div>
+                        <button onclick="deleteUserPermission('${userId}')">이 사용자 삭제</button>
+                    `;
+                    container.appendChild(item);
+                });
+            } catch (error) {
+                container.innerHTML += `<p>사용자 데이터 파싱 오류: ${error.message}</p>`;
+            }
+        }
+
+        function deleteItem(key) {
+            localStorage.removeItem(key);
+            log(`키 "${key}" 삭제됨`);
+            refreshData();
+        }
+
+        function deleteUserPermission(userId) {
+            const cmsData = localStorage.getItem('cms_program_permissions');
+            if (cmsData) {
+                const parsed = JSON.parse(cmsData);
+                delete parsed[userId];
+
+                if (Object.keys(parsed).length > 0) {
+                    localStorage.setItem('cms_program_permissions', JSON.stringify(parsed));
+                } else {
+                    localStorage.removeItem('cms_program_permissions');
+                }
+                log(`사용자 ${userId} 권한 데이터 삭제됨`);
+            }
+            refreshData();
+        }
+
+        function clearAll() {
+            if (confirm('모든 localStorage 데이터를 삭제하시겠습니까?')) {
+                localStorage.clear();
+                log('모든 localStorage 데이터 삭제됨');
+                refreshData();
+            }
+        }
+
+        // 페이지 로드 시 초기 데이터 표시
+        log('디버그 도구 시작됨');
+        refreshData();
+    </script>
+</body>
+
+</html>

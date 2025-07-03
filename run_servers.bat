@@ -14,5 +14,5 @@ start cmd /k "cd /d D:\250624_cms01\frontend && npm run dev"
 
 echo Servers started!
 echo Backend: http://localhost:8000
-echo Frontend: http://localhost:3000
+echo Frontend: http://localhost:3003
 pause

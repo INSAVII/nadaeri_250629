@@ -28,6 +28,11 @@ class User(Base):
     has_business = Column(Boolean, default=False)
     business_number = Column(String, nullable=True)
     
+    # 프로그램 권한 필드 (예치금 방식으로 단순화)
+    program_permissions_free = Column(Boolean, default=False)
+    program_permissions_month1 = Column(Boolean, default=False)
+    program_permissions_month3 = Column(Boolean, default=False)
+    
     # 활성화된 관계 설정
     transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
     user_programs = relationship("UserProgram", back_populates="user", cascade="all, delete-orphan")
@@ -73,5 +78,8 @@ class User(Base):
             "gender": self.gender,
             "work_type": self.work_type,
             "has_business": self.has_business,
-            "business_number": self.business_number
+            "business_number": self.business_number,
+            "program_permissions_free": self.program_permissions_free,
+            "program_permissions_month1": self.program_permissions_month1,
+            "program_permissions_month3": self.program_permissions_month3
         }

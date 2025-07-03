@@ -1,49 +1,45 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 
 <head>
-    <title>완전한 청소 작업</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>강제 캐시 완전 정리</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            padding: 20px;
             max-width: 800px;
             margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
 
-        .section {
-            margin: 20px 0;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
-        .title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #333;
-            font-size: 18px;
-        }
-
-        .content {
-            background: #f9f9f9;
-            padding: 10px;
-            border-radius: 3px;
-        }
-
-        button {
-            padding: 12px 20px;
-            margin: 10px 5px;
+        .button {
             background: #dc3545;
             color: white;
             border: none;
+            padding: 15px 30px;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: background-color 0.3s;
         }
 
-        button:hover {
+        .button:hover {
             background: #c82333;
+        }
+
+        .button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
         }
 
         .success {
@@ -63,14 +59,22 @@
             background: #e0a800;
         }
 
+        .info {
+            background: #17a2b8;
+        }
+
+        .info:hover {
+            background: #138496;
+        }
+
         .log {
             background: #f8f9fa;
             border: 1px solid #dee2e6;
-            padding: 10px;
+            border-radius: 5px;
+            padding: 15px;
             margin: 10px 0;
-            border-radius: 3px;
             font-family: monospace;
-            font-size: 12px;
+            font-size: 14px;
             max-height: 300px;
             overflow-y: auto;
         }
@@ -78,7 +82,8 @@
         .status {
             padding: 10px;
             margin: 10px 0;
-            border-radius: 3px;
+            border-radius: 5px;
+            font-weight: bold;
         }
 
         .status.success {
@@ -102,258 +107,207 @@
 </head>
 
 <body>
-    <h1>🧹 완전한 청소 작업</h1>
-    <p>이 페이지는 브라우저의 모든 캐시, 로컬스토리지, 세션스토리지를 완전히 삭제합니다.</p>
+    <div class="container">
+        <h1>🧹 강제 캐시 완전 정리 도구</h1>
+        <p>이 도구는 브라우저의 모든 캐시와 저장소를 완전히 정리합니다.</p>
 
-    <div class="section">
-        <div class="title">1단계: 로컬스토리지 청소</div>
-        <div class="content">
-            <p>모든 로컬스토리지 데이터를 삭제합니다.</p>
-            <button onclick="clearLocalStorage()">로컬스토리지 완전 삭제</button>
-            <div id="localStorageStatus"></div>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="title">2단계: 세션스토리지 청소</div>
-        <div class="content">
-            <p>모든 세션스토리지 데이터를 삭제합니다.</p>
-            <button onclick="clearSessionStorage()">세션스토리지 완전 삭제</button>
-            <div id="sessionStorageStatus"></div>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="title">3단계: 쿠키 청소</div>
-        <div class="content">
-            <p>모든 쿠키를 삭제합니다.</p>
-            <button onclick="clearCookies()">쿠키 완전 삭제</button>
-            <div id="cookieStatus"></div>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="title">4단계: 브라우저 캐시 청소</div>
-        <div class="content">
-            <p>Service Worker 캐시와 IndexedDB를 삭제합니다.</p>
-            <button onclick="clearBrowserCache()">브라우저 캐시 삭제</button>
-            <div id="cacheStatus"></div>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="title">5단계: 모든 청소 작업 실행</div>
-        <div class="content">
-            <p>위의 모든 청소 작업을 한 번에 실행합니다.</p>
-            <button onclick="clearEverything()" class="success">모든 데이터 완전 삭제</button>
-            <div id="everythingStatus"></div>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="title">6단계: 강제 새로고침</div>
-        <div class="content">
-            <p>청소 후 강제로 페이지를 새로고침합니다.</p>
-            <button onclick="forceRefresh()" class="warning">강제 새로고침</button>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="title">작업 로그</div>
+        <div id="status"></div>
         <div id="log" class="log"></div>
-        <button onclick="clearLog()">로그 지우기</button>
-    </div>
 
-    <div class="section">
-        <div class="title">현재 상태 확인</div>
-        <div class="content">
-            <button onclick="checkStatus()">현재 상태 확인</button>
-            <div id="statusCheck"></div>
+        <div style="margin: 20px 0;">
+            <button class="button warning" onclick="clearAllCache()">
+                🧹 모든 캐시 완전 정리
+            </button>
+            <button class="button info" onclick="clearAuthData()">
+                🔐 인증 데이터만 삭제
+            </button>
+            <button class="button success" onclick="hardRefresh()">
+                🔄 강제 새로고침
+            </button>
+            <button class="button" onclick="clearLog()">
+                📝 로그 지우기
+            </button>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <h3>정리 항목:</h3>
+            <ul>
+                <li>localStorage 완전 삭제</li>
+                <li>sessionStorage 완전 삭제</li>
+                <li>모든 쿠키 삭제</li>
+                <li>브라우저 캐시 삭제</li>
+                <li>IndexedDB 삭제</li>
+                <li>Service Worker 캐시 삭제</li>
+            </ul>
         </div>
     </div>
 
     <script>
-        function addLog(message) {
-            const log = document.getElementById('log');
+        const logElement = document.getElementById('log');
+        const statusElement = document.getElementById('status');
+
+        function log(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
-            log.innerHTML += `[${timestamp}] ${message}\n`;
-            log.scrollTop = log.scrollHeight;
-            console.log(message);
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function showStatus(message, type = 'success') {
+            statusElement.innerHTML = `<div class="status ${type}">${message}</div>`;
         }
 
         function clearLog() {
-            document.getElementById('log').innerHTML = '';
+            logElement.innerHTML = '';
         }
 
-        function showStatus(elementId, message, type) {
-            const element = document.getElementById(elementId);
-            element.innerHTML = `<div class="status ${type}">${message}</div>`;
-        }
-
-        function clearLocalStorage() {
+        async function clearAllCache() {
             try {
-                addLog('로컬스토리지 청소 시작...');
+                log('🧹 모든 캐시 정리 시작...');
+                showStatus('캐시 정리 중...', 'warning');
 
-                // 모든 키 삭제
-                const keys = [];
-                for (let i = 0; i < localStorage.length; i++) {
-                    keys.push(localStorage.key(i));
-                }
-
-                keys.forEach(key => {
-                    localStorage.removeItem(key);
-                    addLog(`로컬스토리지 키 삭제: ${key}`);
-                });
-
-                // 전체 삭제
+                // 1. localStorage 완전 삭제
+                log('📦 localStorage 삭제 중...');
                 localStorage.clear();
-                addLog('로컬스토리지 완전 삭제 완료');
-                showStatus('localStorageStatus', '✅ 로컬스토리지가 완전히 삭제되었습니다.', 'success');
-            } catch (error) {
-                addLog(`로컬스토리지 삭제 오류: ${error.message}`);
-                showStatus('localStorageStatus', `❌ 오류: ${error.message}`, 'error');
-            }
-        }
+                log('✅ localStorage 완전 삭제됨');
 
-        function clearSessionStorage() {
-            try {
-                addLog('세션스토리지 청소 시작...');
+                // 2. sessionStorage 완전 삭제
+                log('📦 sessionStorage 삭제 중...');
+                sessionStorage.clear();
+                log('✅ sessionStorage 완전 삭제됨');
 
-                // 모든 키 삭제
-                const keys = [];
-                for (let i = 0; i < sessionStorage.length; i++) {
-                    keys.push(sessionStorage.key(i));
+                // 3. 모든 쿠키 삭제
+                log('🍪 쿠키 삭제 중...');
+                document.cookie.split(";").forEach(function (c) {
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+                log('✅ 모든 쿠키 삭제됨');
+
+                // 4. IndexedDB 삭제
+                log('🗄️ IndexedDB 삭제 중...');
+                if ('indexedDB' in window) {
+                    const databases = await indexedDB.databases();
+                    for (const db of databases) {
+                        if (db.name) {
+                            indexedDB.deleteDatabase(db.name);
+                            log(`✅ IndexedDB 삭제됨: ${db.name}`);
+                        }
+                    }
                 }
 
-                keys.forEach(key => {
-                    sessionStorage.removeItem(key);
-                    addLog(`세션스토리지 키 삭제: ${key}`);
-                });
+                // 5. Service Worker 캐시 삭제
+                log('🔧 Service Worker 캐시 삭제 중...');
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                        await registration.unregister();
+                        log('✅ Service Worker 등록 해제됨');
+                    }
+                }
 
-                // 전체 삭제
-                sessionStorage.clear();
-                addLog('세션스토리지 완전 삭제 완료');
-                showStatus('sessionStorageStatus', '✅ 세션스토리지가 완전히 삭제되었습니다.', 'success');
+                // 6. 캐시 API 삭제
+                log('🗂️ 캐시 API 삭제 중...');
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    for (const cacheName of cacheNames) {
+                        await caches.delete(cacheName);
+                        log(`✅ 캐시 삭제됨: ${cacheName}`);
+                    }
+                }
+
+                log('🎉 모든 캐시 정리 완료!');
+                showStatus('✅ 모든 캐시가 성공적으로 정리되었습니다!', 'success');
+
+                // 3초 후 자동 새로고침
+                setTimeout(() => {
+                    log('🔄 3초 후 자동 새로고침...');
+                    location.reload(true);
+                }, 3000);
+
             } catch (error) {
-                addLog(`세션스토리지 삭제 오류: ${error.message}`);
-                showStatus('sessionStorageStatus', `❌ 오류: ${error.message}`, 'error');
+                log(`❌ 캐시 정리 중 오류: ${error.message}`, 'error');
+                showStatus(`❌ 캐시 정리 중 오류가 발생했습니다: ${error.message}`, 'error');
             }
         }
 
-        function clearCookies() {
+        function clearAuthData() {
             try {
-                addLog('쿠키 청소 시작...');
+                log('🔐 인증 데이터만 삭제 시작...');
+                showStatus('인증 데이터 삭제 중...', 'warning');
 
-                const cookies = document.cookie.split(";");
-                cookies.forEach(cookie => {
-                    const eqPos = cookie.indexOf("=");
-                    const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-                    if (name) {
-                        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-                        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=" + window.location.hostname;
-                        addLog(`쿠키 삭제: ${name}`);
+                // 인증 관련 키들만 삭제
+                const authKeys = [
+                    'USER_DATA',
+                    'currentUser',
+                    'authUser',
+                    'mockUsers',
+                    'LOGIN_TIME',
+                    'FETCHING_PERMISSIONS',
+                    'forceLogout',
+                    'forceInit'
+                ];
+
+                authKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    sessionStorage.removeItem(key);
+                    log(`✅ 인증 키 삭제됨: ${key}`);
+                });
+
+                // 토큰 관련 쿠키 삭제
+                document.cookie.split(";").forEach(function (c) {
+                    const cookieName = c.split("=")[0].trim();
+                    if (cookieName.includes('token') || cookieName.includes('auth') || cookieName.includes('session')) {
+                        document.cookie = cookieName + "=;expires=" + new Date().toUTCString() + ";path=/";
+                        log(`✅ 인증 쿠키 삭제됨: ${cookieName}`);
                     }
                 });
 
-                addLog('쿠키 완전 삭제 완료');
-                showStatus('cookieStatus', '✅ 쿠키가 완전히 삭제되었습니다.', 'success');
+                log('✅ 인증 데이터 삭제 완료!');
+                showStatus('✅ 인증 데이터가 성공적으로 삭제되었습니다!', 'success');
+
+                // 2초 후 자동 새로고침
+                setTimeout(() => {
+                    log('🔄 2초 후 자동 새로고침...');
+                    location.reload();
+                }, 2000);
+
             } catch (error) {
-                addLog(`쿠키 삭제 오류: ${error.message}`);
-                showStatus('cookieStatus', `❌ 오류: ${error.message}`, 'error');
+                log(`❌ 인증 데이터 삭제 중 오류: ${error.message}`, 'error');
+                showStatus(`❌ 인증 데이터 삭제 중 오류가 발생했습니다: ${error.message}`, 'error');
             }
         }
 
-        function clearBrowserCache() {
-            try {
-                addLog('브라우저 캐시 청소 시작...');
+        function hardRefresh() {
+            log('🔄 강제 새로고침 실행...');
+            showStatus('강제 새로고침 중...', 'warning');
 
-                // Service Worker 캐시 삭제
-                if ('caches' in window) {
-                    caches.keys().then(function (names) {
-                        for (let name of names) {
-                            caches.delete(name);
-                            addLog(`Service Worker 캐시 삭제: ${name}`);
-                        }
-                    });
-                }
-
-                // IndexedDB 삭제
-                if ('indexedDB' in window) {
-                    indexedDB.databases().then(function (databases) {
-                        databases.forEach(function (database) {
-                            if (database.name) {
-                                indexedDB.deleteDatabase(database.name);
-                                addLog(`IndexedDB 삭제: ${database.name}`);
-                            }
-                        });
-                    });
-                }
-
-                addLog('브라우저 캐시 삭제 완료');
-                showStatus('cacheStatus', '✅ 브라우저 캐시가 삭제되었습니다.', 'success');
-            } catch (error) {
-                addLog(`브라우저 캐시 삭제 오류: ${error.message}`);
-                showStatus('cacheStatus', `❌ 오류: ${error.message}`, 'error');
-            }
-        }
-
-        function clearEverything() {
-            addLog('=== 모든 청소 작업 시작 ===');
-            clearLocalStorage();
-            clearSessionStorage();
-            clearCookies();
-            clearBrowserCache();
-
+            // 캐시를 무시하고 강제 새로고침
             setTimeout(() => {
-                addLog('=== 모든 청소 작업 완료 ===');
-                showStatus('everythingStatus', '✅ 모든 데이터가 완전히 삭제되었습니다!', 'success');
+                window.location.reload(true);
             }, 1000);
         }
 
-        function forceRefresh() {
-            addLog('강제 새로고침 실행...');
-            // 캐시를 무시하고 강제 새로고침
-            window.location.reload(true);
-        }
+        // 페이지 로드 시 현재 상태 표시
+        window.addEventListener('load', () => {
+            log('🚀 강제 캐시 정리 도구 로드됨');
+            log(`📍 현재 URL: ${window.location.href}`);
+            log(`🌐 User Agent: ${navigator.userAgent}`);
 
-        function checkStatus() {
-            addLog('현재 상태 확인 중...');
+            // 현재 저장소 상태 확인
+            const localStorageCount = Object.keys(localStorage).length;
+            const sessionStorageCount = Object.keys(sessionStorage).length;
+            const cookieCount = document.cookie.split(';').filter(c => c.trim()).length;
 
-            let status = '<h4>현재 상태:</h4>';
+            log(`📊 현재 상태: localStorage(${localStorageCount}개), sessionStorage(${sessionStorageCount}개), 쿠키(${cookieCount}개)`);
 
-            // 로컬스토리지 상태
-            const localStorageCount = localStorage.length;
-            status += `<div>로컬스토리지: ${localStorageCount}개 항목</div>`;
-
-            // 세션스토리지 상태
-            const sessionStorageCount = sessionStorage.length;
-            status += `<div>세션스토리지: ${sessionStorageCount}개 항목</div>`;
-
-            // 쿠키 상태
-            const cookieCount = document.cookie ? document.cookie.split(';').length : 0;
-            status += `<div>쿠키: ${cookieCount}개</div>`;
-
-            // USER_DATA 확인
-            const userData = localStorage.getItem('USER_DATA');
-            if (userData) {
-                try {
-                    const parsed = JSON.parse(userData);
-                    status += `<div class="status warning">⚠️ USER_DATA 존재: ${parsed.role || 'role 없음'}</div>`;
-                } catch (e) {
-                    status += `<div class="status error">❌ USER_DATA 파싱 오류</div>`;
-                }
+            if (localStorageCount > 0 || sessionStorageCount > 0 || cookieCount > 0) {
+                showStatus('⚠️ 캐시 데이터가 발견되었습니다. 정리가 필요할 수 있습니다.', 'warning');
             } else {
-                status += `<div class="status success">✅ USER_DATA 없음</div>`;
+                showStatus('✅ 캐시가 깨끗합니다.', 'success');
             }
-
-            document.getElementById('statusCheck').innerHTML = status;
-        }
-
-        // 페이지 로드 시 초기화
-        window.onload = function () {
-            addLog('완전한 청소 작업 페이지 로드됨');
-            checkStatus();
-        };
+        });
     </script>
 </body>
 

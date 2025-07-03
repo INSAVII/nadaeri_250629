@@ -29,7 +29,7 @@ app.add_middleware(LoggingMiddleware)
 app.add_middleware(PerformanceMiddleware)
 
 # CORS 미들웨어 설정
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3003,http://localhost:3001").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

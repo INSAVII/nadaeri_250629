@@ -31,6 +31,6 @@ echo - 메인 API: http://localhost:8001
 echo - 큐네임 서비스: http://localhost:8004
 echo - 큐문자 서비스: http://localhost:8003
 echo.
-echo 프론트엔드: http://localhost:3000
+echo 프론트엔드: http://localhost:3003
 echo.
 pause 

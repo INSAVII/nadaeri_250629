@@ -13,60 +13,91 @@ type CMSStats = {
     averageBalance: number;
 };
 
-// 실제 API 연동 함수들
-const fetchUsersFromAPI = async (token: string): Promise<User[]> => {
-    console.log('CMS - API 호출 시작:', `/api/deposits/users?skip=0&limit=100`);
-    console.log('CMS - 토큰:', token ? `${token.substring(0, 20)}...` : '토큰 없음');
-
-    const response = await fetch(`${getApiUrl()}/api/deposits/users?skip=0&limit=100`, {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    });
-
-    console.log('CMS - API 응답 상태:', response.status);
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('CMS - API 오류:', errorText);
-        throw new Error(`사용자 목록을 불러오지 못했습니다: ${response.status} ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log('CMS - API 응답 데이터:', data);
-    return data;
+// API 응답 타입 정의
+type APIUser = {
+    id: string;
+    username?: string;
+    email: string;
+    role: string;
+    is_active: boolean;
+    created_at: string;
+    program_permissions_free?: boolean;
+    program_permissions_month1?: boolean;
+    program_permissions_month3?: boolean;
 };
 
+type APIResponse = {
+    users: APIUser[];
+    total: number;
+    skip: number;
+    limit: number;
+};
 
+// 새로운 사용자 목록 가져오기 함수 (예치금 관련 없이)
+const fetchUsersBasic = async (token: string, page: number = 1, limit: number = 20, search?: string): Promise<{ users: CMSUser[], total: number }> => {
+    try {
+        let url = `${getApiUrl()}/api/auth/users?skip=${(page - 1) * limit}&limit=${limit}`;
+        if (search) {
+            url += `&search=${encodeURIComponent(search)}`;
+        }
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: APIResponse = await response.json();
+        console.log('CMS - 기본 사용자 API 응답:', data);
+
+        // 기본 사용자 정보로 변환
+        const convertedUsers: CMSUser[] = data.users.map((user: APIUser) => ({
+            id: user.id,
+            userId: user.id,
+            name: user.username || user.email,
+            email: user.email,
+            phone: '',
+            role: (user.role === 'admin' ? 'admin' : 'user') as 'user' | 'admin',
+            is_active: user.is_active,
+            created_at: user.created_at,
+            balance: 0,
+            programPermissions: {
+                free: user.program_permissions_free || false,
+                month1: user.program_permissions_month1 || false,
+                month3: user.program_permissions_month3 || false
+            }
+        }));
+
+        return {
+            users: convertedUsers,
+            total: data.total || convertedUsers.length
+        };
+    } catch (error) {
+        console.error('사용자 목록 가져오기 실패:', error);
+        return { users: [], total: 0 };
+    }
+};
 
 const updateUserStatusAPI = async (token: string, userId: string, isActive: boolean): Promise<User> => {
-    const response = await fetch(`${getApiUrl()}/api/deposits/users/${userId}/status`, {
-        method: 'PATCH',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ isActive })
-    });
-    if (!response.ok) throw new Error('사용자 상태 변경에 실패했습니다');
-    return await response.json();
-};
-
-const updateUserRoleAPI = async (token: string, userId: string, role: string): Promise<User> => {
-    const response = await fetch(`${getApiUrl()}/api/deposits/users/${userId}/role`, {
-        method: 'PATCH',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ role })
-    });
-    if (!response.ok) throw new Error('사용자 역할 변경에 실패했습니다');
-    return await response.json();
+    // const response = await fetch(`${getApiUrl()}/api/deposits/users/${userId}/status`, {
+    //     method: 'PATCH',
+    //     headers: {
+    //         'Authorization': `Bearer ${token}`,
+    //         'Content-Type': 'application/json'
+    //     },
+    //     body: JSON.stringify({ isActive })
+    // });
+    // if (!response.ok) throw new Error('사용자 상태 변경에 실패했습니다');
+    return await Promise.resolve({} as User);
 };
 
 export default function CMSPage() {
-    const { user, isAuthenticated, isLoading, updateBalance } = useAuth();
+    const { user, isAuthenticated, isLoading, updateBalance, refreshUserData: refreshAuthUserData, logout } = useAuth();
     const navigate = useNavigate();
     const [users, setUsers] = useState<CMSUser[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -88,7 +119,12 @@ export default function CMSPage() {
         newUsersThisMonth: 0,
         averageBalance: 0
     });
-    const [programPermissions, setProgramPermissions] = useState<{ [userId: string]: { free: boolean, month1: boolean, month3: boolean } }>({});
+
+    // ✅ 🆕 단순화된 프로그램 권한 관리 상태 (영구 저장)
+    const [permanentProgramPermissions, setPermanentProgramPermissions] = useState<{ [userId: string]: { free: boolean, month1: boolean, month3: boolean } }>({});
+
+    // 🆕 변경된 사용자 추적 (localStorage 저장용)
+    const [changedUsers, setChangedUsers] = useState<Set<string>>(new Set());
 
     // 무한루프 방지를 위한 ref들
     const dataLoadedRef = useRef(false);
@@ -96,143 +132,85 @@ export default function CMSPage() {
     const effectRunCountRef = useRef(0);
     const isUpdatingRef = useRef(false);
 
-    // 완전히 독립적인 초기화 - 한 번만 실행
+    // ✅ 단순화된 초기화 - 관리자 권한 확인 후 데이터 로드
     useEffect(() => {
-        if (dataLoadedRef.current) {
-            console.log('CMS - 이미 데이터 로드됨, 중복 실행 방지');
-            return;
+        if (isAuthenticated && user?.role === 'admin' && user?.token) {
+            console.log('CMS - 관리자 권한 확인됨, 데이터 로드 시작');
+            loadData();
         }
-
-        // 추가 안전장치: 컴포넌트가 마운트된 후에만 실행
-        const timer = setTimeout(() => {
-            if (!dataLoadedRef.current) {
-                console.log('CMS - 완전 독립적 초기화 시작');
-                dataLoadedRef.current = true;
-                loadData();
-                console.log('CMS - 완전 독립적 초기화 완료');
-            }
-        }, 100); // 100ms 지연으로 안정성 확보
-
-        return () => {
-            clearTimeout(timer);
-        };
-    }, []); // 빈 의존성 배열 - 한 번만 실행
+    }, [isAuthenticated, user?.role, user?.token]);
 
     const loadData = async () => {
-        // 상태 디버깅용 로그 추가
-        console.log('CMS DEBUG - user:', user);
-        console.log('CMS DEBUG - isAuthenticated:', isAuthenticated);
-
-        // 무한루프 방지: 이미 업데이트 중인지 확인
-        if (isUpdatingRef.current) {
-            console.log('CMS - 이미 데이터 로드 중, 중복 호출 차단');
+        if (!user?.token) {
+            console.log('CMS - 사용자 토큰이 없어서 데이터 로드를 건너뜁니다.');
             return;
         }
 
         try {
-            console.log('CMS loadData 시작');
-            isUpdatingRef.current = true;
             setLoading(true);
-            setError(null);
+            console.log('CMS - 완전 독립적 초기화 완료');
 
-            // 권한 체크
-            if (!isAuthenticated || user?.role !== 'admin') {
-                console.log('관리자 권한 없음');
-                setError('관리자 권한이 필요합니다.');
-                setLoading(false);
-                return;
-            }
-
-            // 토큰 체크
-            if (!user?.token) {
-                console.log('인증 토큰 없음');
-                setError('인증 토큰이 필요합니다.');
-                setLoading(false);
-                return;
-            }
-
-            // 실제 API 호출
-            const apiUsers = await fetchUsersFromAPI(user.token);
+            // 페이지네이션된 사용자 데이터 로드
+            const result = await fetchUsersBasic(user.token, 1, 20);
+            const apiUsers = result.users;
             console.log('CMS - API 응답 원본:', apiUsers);
 
-            const convertedUsers: CMSUser[] = apiUsers.map(apiUser => {
-                // 백엔드 API 응답을 프론트엔드 User 타입으로 변환
-                const convertedUser = {
-                    id: apiUser.id,
-                    userId: apiUser.id, // 백엔드에서는 id가 사용자 ID
-                    name: apiUser.name,
-                    email: apiUser.email,
-                    role: apiUser.role,
-                    balance: apiUser.balance,
-                    is_active: apiUser.is_active, // 백엔드: is_active -> 프론트엔드: is_active
-                    created_at: apiUser.created_at || new Date().toISOString().split('T')[0], // 백엔드: created_at -> 프론트엔드: created_at
-                    programs: apiUser.programs || [],
-                    // 프로그램 권한을 programs 배열에서 추출
-                    programPermissions: {
-                        free: apiUser.programs?.some(p => p.program_name === 'free' && p.is_allowed) || false,
-                        month1: apiUser.programs?.some(p => p.program_name === 'month1' && p.is_allowed) || false,
-                        month3: apiUser.programs?.some(p => p.program_name === 'month3' && p.is_allowed) || false
-                    }
+            // 이미 올바른 CMSUser 타입으로 변환되어 있음
+            setUsers(apiUsers);
+            updateStats(apiUsers);
+
+            // 🆕 데이터베이스의 실제 권한 상태로 초기화 + localStorage 변경사항 병합
+            const dbPermissions: { [userId: string]: { free: boolean, month1: boolean, month3: boolean } } = {};
+
+            // 데이터베이스에서 가져온 실제 권한 상태로 초기화
+            apiUsers.forEach(user => {
+                dbPermissions[user.id] = {
+                    free: user.programPermissions?.free || false,
+                    month1: user.programPermissions?.month1 || false,
+                    month3: user.programPermissions?.month3 || false
                 };
-
-                console.log('CMS - 변환된 사용자:', convertedUser);
-                return convertedUser as CMSUser;
             });
-            setUsers(convertedUsers);
 
-            const mockStats: CMSStats = {
-                totalUsers: convertedUsers.length,
-                activeUsers: convertedUsers.filter(u => u.is_active).length,
-                totalBalance: convertedUsers.reduce((sum, u) => sum + u.balance, 0),
-                monthlyRevenue: 0,
-                newUsersThisMonth: 0,
-                averageBalance: convertedUsers.reduce((sum, u) => sum + u.balance, 0) / convertedUsers.length
-            };
-            setStats(mockStats);
+            // localStorage에서 저장되지 않은 변경사항 복원 (DB 상태와 병합)
+            const savedPermissions = localStorage.getItem('cms_program_permissions');
+            if (savedPermissions) {
+                const parsedPermissions = JSON.parse(savedPermissions);
+                console.log('CMS - localStorage에서 권한 복원:', parsedPermissions);
+
+                // localStorage의 변경사항을 DB 상태에 병합
+                Object.keys(parsedPermissions).forEach(userId => {
+                    if (dbPermissions[userId]) {
+                        dbPermissions[userId] = {
+                            ...dbPermissions[userId],
+                            ...parsedPermissions[userId]
+                        };
+                    }
+                });
+            }
+
+            setPermanentProgramPermissions(dbPermissions);
+            console.log('CMS - 최종 권한 상태 (DB + localStorage 병합):', dbPermissions);
 
             console.log('CMS loadData 완료');
         } catch (error) {
-            console.error('데이터 로드 실패:', error);
-            setError('데이터를 불러오는데 실패했습니다.');
+            console.error('CMS - 데이터 로드 실패:', error);
+            setError('데이터를 불러오는데 실패했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'));
         } finally {
             setLoading(false);
-            // 업데이트 완료 후 플래그 해제 (지연 실행)
-            setTimeout(() => {
-                isUpdatingRef.current = false;
-            }, 100);
         }
     };
 
     // 사용자 데이터 새로고침
     const refreshUserData = async () => {
-        try {
-            if (!user?.token) {
-                setError('인증 토큰이 필요합니다.');
-                return;
-            }
-
-            const apiUsers = await fetchUsersFromAPI(user.token);
-            const convertedUsers: CMSUser[] = apiUsers.map(apiUser =>
-                ensureUserDefaults(apiUser) as CMSUser
-            );
-            setUsers(convertedUsers);
-            setStats({
-                totalUsers: convertedUsers.length,
-                activeUsers: convertedUsers.filter(u => u.is_active).length,
-                totalBalance: convertedUsers.reduce((sum, u) => sum + u.balance, 0),
-                monthlyRevenue: 0,
-                newUsersThisMonth: 0,
-                averageBalance: convertedUsers.reduce((sum, u) => sum + u.balance, 0) / convertedUsers.length
-            });
-            setSuccessMessage('사용자 데이터가 새로고침되었습니다.');
-        } catch (error) {
-            console.error('사용자 데이터 새로고침 실패:', error);
-            setError('사용자 데이터 새로고침에 실패했습니다.');
-        }
+        // 🚫 완전 비활성화: 데이터 새로고침 기능 차단
+        console.log('🚫 데이터 새로고침 기능 완전 차단 (체크박스 상태 보존)');
+        setError('데이터 새로고침이 비활성화되었습니다. 체크박스 상태를 보존합니다.');
+        setTimeout(() => setError(null), 3000);
+        return;
     };
 
     // 통계 업데이트 함수
-    const updateStats = (userList: User[]) => {
+    const updateStats = (userList: CMSUser[]) => {
         const totalBalance = userList.reduce((sum, u) => sum + u.balance, 0);
         const activeUsers = userList.filter(u => u.is_active !== false).length;
         const averageBalance = userList.length > 0 ? totalBalance / userList.length : 0;
@@ -252,66 +230,31 @@ export default function CMSPage() {
             setError('사용자를 선택해주세요.');
             return;
         }
-
         const amount = parseInt(depositAmount);
         if (isNaN(amount) || amount <= 0) {
             setError('올바른 금액을 입력해주세요.');
             return;
         }
-
         if (!user?.token) {
             setError('인증 토큰이 필요합니다.');
             return;
         }
-
         try {
             setLoading(true);
             setError(null);
-
-            // 현재 표시된 사용자 목록을 그대로 사용 (예치금 계산은 API 호출 시에만)
             const updatedUsers = users.map(cmsUser => {
                 if (selectedUsers.includes(cmsUser.id)) {
-                    console.log(`CMS - 사용자 ${cmsUser.id} 예치금 업데이트 대상 선택`);
-                    return cmsUser; // 원본 정보 그대로 유지
+                    return cmsUser;
                 }
                 return cmsUser;
             });
-
-            // 실제 API 업데이트 - 예치금 전용 API 사용
-            console.log('CMS - 예치금 업데이트 시작:', {
-                selectedUsers,
-                amount,
-                depositType,
-                apiUrl: getApiUrl()
-            });
-
             const updatedApiUsers = await Promise.all(updatedUsers.map(async (apiUser) => {
                 if (selectedUsers.includes(apiUser.id)) {
-                    console.log(`CMS - 사용자 ${apiUser.id} 예치금 업데이트 시작`);
-
-                    // 입력된 금액을 그대로 사용 (API에서 현재 잔액에 추가/차감)
                     const amountToChange = depositType === 'add' ? amount : -amount;
-
-                    console.log(`CMS - 사용자 ${apiUser.id} 예치금 계산 상세:`, {
-                        currentBalance: apiUser.balance || 0,
-                        amountToChange,
-                        depositType,
-                        inputAmount: amount
-                    });
-
-                    // 예치금 전용 API 호출 (deposits API 사용)
                     const requestBody = {
-                        amount: amountToChange, // 실제 변경할 금액
+                        amount: amountToChange,
                         description: `관리자 ${depositType === 'add' ? '충전' : '차감'}: ${amount.toLocaleString()}원`
                     };
-
-                    console.log('CMS - API 요청 정보:', {
-                        url: `/api/deposits/users/${apiUser.id}/balance`,
-                        method: 'PATCH',
-                        body: requestBody,
-                        token: user?.token ? '토큰 있음' : '토큰 없음'
-                    });
-
                     const response = await fetch(`${getApiUrl()}/api/deposits/users/${apiUser.id}/balance`, {
                         method: 'PATCH',
                         headers: {
@@ -320,131 +263,32 @@ export default function CMSPage() {
                         },
                         body: JSON.stringify(requestBody)
                     });
-
-                    console.log('CMS - API 응답 정보:', {
-                        status: response.status,
-                        statusText: response.statusText,
-                        ok: response.ok
-                    });
-
                     if (!response.ok) {
                         const errorText = await response.text();
-                        console.error('CMS - 예치금 업데이트 API 오류:', {
-                            status: response.status,
-                            statusText: response.statusText,
-                            errorText,
-                            requestBody,
-                            userId: apiUser.id,
-                            url: `/api/deposits/users/${apiUser.id}/balance`,
-                            method: 'PATCH'
-                        });
                         throw new Error(`예치금 업데이트에 실패했습니다: ${response.status} ${response.statusText} - ${errorText}`);
                     }
-
                     const result = await response.json();
-                    console.log('CMS - 예치금 업데이트 API 성공:', result);
-                    console.log('CMS - 응답 구조 확인:', {
-                        success: result.success,
-                        hasData: !!result.data,
-                        dataKeys: result.data ? Object.keys(result.data) : 'no data',
-                        newBalance: result.data?.new_balance,
-                        oldBalance: result.data?.old_balance
-                    });
-
-                    // 성공 응답에서 새로운 잔액을 사용하여 사용자 정보 업데이트
                     if (result.success && result.data) {
-                        console.log(`CMS - 예치금 업데이트 성공, 새로운 잔액: ${result.data.new_balance}`);
-
-                        // 🎯 새로운 단순 방식: 현재 로그인한 사용자인 경우만 즉시 업데이트
-                        const currentUserIdForEvent = user?.userId || user?.id;
-                        if (user && currentUserIdForEvent && apiUser.id === currentUserIdForEvent) {
-                            console.log('💰 CMS - 현재 로그인 사용자 예치금 변경, 즉시 업데이트');
-                            console.log('💰 CMS - updateBalance 호출 전 사용자 상태:', {
-                                userId: user.userId,
-                                role: user.role,
-                                isAdmin: user.role === 'admin',
-                                oldBalance: user.balance,
-                                newBalance: result.data.new_balance,
-                                userObject: user
-                            });
-
-                            // AuthContext의 updateBalance 사용 (role 보존하며 예치금만 업데이트)
-                            if (updateBalance) {
-                                await updateBalance(user, result.data.new_balance);
-                                console.log('💰 CMS - updateBalance 호출 후 완료, 업데이트된 잔액:', result.data.new_balance);
-                            }
-                        } else {
-                            console.log('💰 CMS - 다른 사용자 예치금 변경, 페이지 새로고침 안내');
+                        if (updateBalance && apiUser.id === (user?.userId || user?.id)) {
+                            await updateBalance(user, result.data.new_balance);
                         }
-
-                        // 원본 사용자 정보에 새로운 잔액만 업데이트 (UI 반영용)
-                        const updatedUser = {
-                            ...apiUser,
-                            balance: result.data.new_balance
-                        };
-                        console.log(`CMS - 사용자 ${apiUser.id} 잔액 업데이트:`, updatedUser);
-                        return updatedUser;
+                        return { ...apiUser, balance: result.data.new_balance };
                     } else {
-                        console.warn(`CMS - 예치금 업데이트 응답 형식 오류:`, result);
-                        // 응답 형식이 예상과 다르면 원본 정보 반환
                         return apiUser;
                     }
-
                 }
                 return apiUser;
             }));
-
-            // User 타입으로 변환하여 상태 업데이트
-            const convertedUsers: CMSUser[] = updatedApiUsers.map(apiUser =>
-                ensureUserDefaults(apiUser) as CMSUser
-            );
-            setUsers(convertedUsers);
-
-            // 통계 업데이트
+            setUsers(updatedApiUsers);
             updateStats(updatedApiUsers);
-
-            // 예치금 업데이트 완료 로그
-            console.log('CMS - 예치금 업데이트 완료:', {
-                selectedUsers,
-                totalUpdated: selectedUsers.length,
-                action: depositType === 'add' ? '충전' : '차감',
-                amount: amount.toLocaleString()
-            });
-
-            const actionText = depositType === 'add' ? '충전' : '차감';
-            setSuccessMessage(`${selectedUsers.length}명의 사용자에게 ${amount.toLocaleString()}원을 ${actionText}했습니다.`);
+            setSuccessMessage(`${selectedUsers.length}명의 사용자에게 ${amount.toLocaleString()}원을 ${depositType === 'add' ? '충전' : '차감'}했습니다.`);
             setSelectedUsers([]);
             setDepositAmount('');
-
-            // 디버깅: 최종 결과 로그
-            console.log('🎉 CMS - 예치금 일괄 처리 완료:', {
-                processedUsers: selectedUsers.length,
-                action: actionText,
-                amount: amount.toLocaleString(),
-                finalUsersState: convertedUsers.map(u => ({ id: u.id, name: u.name, balance: u.balance }))
-            });
-
             setTimeout(() => setSuccessMessage(null), 3000);
         } catch (error) {
-            console.error('예치금 처리 중 오류:', error);
-
-            // 더 자세한 에러 메시지 제공
             let errorMessage = '예치금 처리 중 오류가 발생했습니다.';
-            if (error instanceof Error) {
-                errorMessage = error.message;
-            }
-
+            if (error instanceof Error) errorMessage = error.message;
             setError(errorMessage);
-
-            // 백엔드 서버 연결 상태 확인
-            try {
-                const healthCheck = await fetch(`/health`);
-                if (!healthCheck.ok) {
-                    setError('백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.');
-                }
-            } catch (healthError) {
-                setError('백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.');
-            }
         } finally {
             setLoading(false);
         }
@@ -525,107 +369,71 @@ export default function CMSPage() {
         }
     });
 
-    const handleProgramPermissionChange = (userId: string, permission: 'free' | 'month1' | 'month3', value: boolean) => {
-        // 프로그램 권한 변경 중 플래그 설정 (무한루프 방지)
-        sessionStorage.setItem('PROGRAM_PERMISSION_CHANGING', 'true');
+    // ✅ 체크박스 클릭 = UI 상태만 변경 (localStorage에 저장)
+    const handleProgramCheckboxChange = (userId: string, programType: 'free' | 'month1' | 'month3', isChecked: boolean) => {
+        console.log(`🔴 체크박스 클릭: ${userId} ${programType} = ${isChecked} (localStorage에 저장)`);
 
-        // 1. 현재 users 상태 업데이트
-        setUsers(prevUsers =>
-            prevUsers.map(user =>
-                user.id === userId
-                    ? {
-                        ...user,
-                        programPermissions: {
-                            free: user.programPermissions?.free || false,
-                            month1: user.programPermissions?.month1 || false,
-                            month3: user.programPermissions?.month3 || false,
-                            [permission]: value
-                        }
-                    }
-                    : user
-            )
-        );
-
-        // 5. 성공 메시지 표시
-        setSuccessMessage(`${permission} 프로그램 권한이 ${value ? '활성화' : '비활성화'}되었습니다.`);
-        setTimeout(() => setSuccessMessage(null), 2000);
-
-        // 6. 프로그램 권한 변경 완료 후 플래그 해제 (500ms 후)
-        setTimeout(() => {
-            sessionStorage.removeItem('PROGRAM_PERMISSION_CHANGING');
-            console.log('CMS - 프로그램 권한 변경 완료, 플래그 해제');
-        }, 500);
-    };
-
-    const handleBulkProgramPermission = async (permission: 'free' | 'month1' | 'month3', value: string) => {
-        if (selectedUsers.length === 0) {
-            setError('사용자를 선택해주세요.');
-            return;
-        }
-
-        if (!user?.token) {
-            setError('인증 토큰이 필요합니다.');
-            return;
-        }
-
-        try {
-            setLoading(true);
-            setError(null);
-
-            // 실제 API 호출
-            const apiUsers = await fetchUsersFromAPI(user.token);
-            const updatedUsers = apiUsers.map(user => {
-                if (selectedUsers.includes(user.id)) {
-                    return {
-                        ...user,
-                        programPermissions: {
-                            ...user.programPermissions,
-                            [permission]: value === 'true'
-                        }
-                    };
+        // UI 상태 업데이트
+        setPermanentProgramPermissions(prevStates => {
+            const newStates = {
+                ...prevStates,
+                [userId]: {
+                    ...prevStates[userId],
+                    [programType]: isChecked
                 }
-                return user;
+            };
+
+            // 🆕 간단한 localStorage 저장 (변경된 사용자 추적 없이)
+            const currentSavedPermissions = localStorage.getItem('cms_program_permissions');
+            const allPermissions = currentSavedPermissions ? JSON.parse(currentSavedPermissions) : {};
+            allPermissions[userId] = newStates[userId];
+            localStorage.setItem('cms_program_permissions', JSON.stringify(allPermissions));
+
+            console.log('💾 localStorage에 저장:', {
+                userId,
+                permissions: allPermissions[userId]
             });
 
-            // 실제 API 업데이트
-            const updatedApiUsers = await Promise.all(updatedUsers.map(async (user) => {
-                if (selectedUsers.includes(user.id)) {
-                    const updatedUser = await updateUserRoleAPI(user.token!, user.id, value === 'true' ? 'admin' : 'user');
-                    return updatedUser;
-                }
-                return user;
+            return newStates;
+        });
+    };
+
+    // ✅ 데이터베이스 상태 확인 함수 (디버깅용)
+    const checkDatabaseState = () => {
+        console.log('🔍 현재 UI 상태 vs 데이터베이스 상태:');
+        users.forEach(user => {
+            const uiState = permanentProgramPermissions[user.id];
+            const dbState = user.programPermissions;
+            const isMatch = JSON.stringify(uiState) === JSON.stringify(dbState);
+            console.log(`사용자 ${user.id} (${user.name}):`, {
+                UI: uiState,
+                DB: dbState,
+                일치: isMatch,
+                상태: isMatch ? '✅ 동기화됨' : '❌ 불일치'
+            });
+        });
+
+        // 선택된 사용자 정보도 표시
+        if (selectedUsers.length > 0) {
+            console.log('📋 선택된 사용자들:', selectedUsers.map(id => {
+                const user = users.find(u => u.id === id);
+                return `${user?.name} (${id})`;
             }));
-
-            // User 타입으로 변환하여 상태 업데이트
-            const convertedUsers: CMSUser[] = updatedApiUsers.map(apiUser => {
-                const userWithDefaults = ensureUserDefaults(apiUser);
-                return {
-                    ...userWithDefaults,
-                    programPermissions: {
-                        free: userWithDefaults.programPermissions?.free || false,
-                        month1: userWithDefaults.programPermissions?.month1 || false,
-                        month3: userWithDefaults.programPermissions?.month3 || false
-                    }
-                } as CMSUser;
-            });
-            setUsers(convertedUsers);
-
-            // 통계 업데이트
-            updateStats(updatedApiUsers);
-
-            setSuccessMessage(`${selectedUsers.length}명의 사용자에게 ${permission} 프로그램 권한을 ${value === 'true' ? '부여' : '해제'}했습니다.`);
-            setSelectedUsers([]);
-
-            setTimeout(() => setSuccessMessage(null), 3000);
-        } catch (error) {
-            console.error('프로그램 권한 처리 중 오류:', error);
-            setError('프로그램 권한 처리 중 오류가 발생했습니다.');
-        } finally {
-            setLoading(false);
         }
+
+        // localStorage 상태도 확인
+        const savedPermissions = localStorage.getItem('cms_program_permissions');
+        console.log('💾 localStorage 상태:', savedPermissions ? JSON.parse(savedPermissions) : '없음');
+
+        // 현재 permanentProgramPermissions 상태 확인
+        console.log('🎯 현재 permanentProgramPermissions 상태:', permanentProgramPermissions);
     };
 
+    // ✅ 단순화된 저장 버튼 = 데이터베이스 저장 + QCapture 페이지 즉시 업데이트
     const handleBulkProgramSave = async () => {
+        console.log('🚨 handleBulkProgramSave 함수 시작 - 새 관리자 API 사용');
+        console.log('🚨 현재 파일 버전: 2025-07-03 관리자 API 버전');
+
         if (selectedUsers.length === 0) {
             setError('사용자를 선택해주세요.');
             return;
@@ -640,49 +448,163 @@ export default function CMSPage() {
             setLoading(true);
             setError(null);
 
-            // 실제 API 호출
-            const apiUsers = await fetchUsersFromAPI(user.token);
-            const updatedUsers = apiUsers.map(user => {
-                if (selectedUsers.includes(user.id)) {
-                    // 현재 users 상태에서 해당 사용자의 programPermissions를 가져옴
-                    const currentUser = users.find(u => u.id === user.id);
-                    return {
-                        ...user,
-                        programPermissions: currentUser?.programPermissions || user.programPermissions
-                    };
-                }
-                return user;
-            });
+            let successCount = 0;
+            let errorCount = 0;
 
-            // 실제 API 업데이트
-            const updatedApiUsers = await Promise.all(updatedUsers.map(async (user) => {
-                if (selectedUsers.includes(user.id)) {
-                    const updatedUser = await updateUserRoleAPI(user.token!, user.id, 'admin');
-                    return updatedUser;
+            // 1. 데이터베이스에 권한 저장 (관리자용 일괄 API)
+            console.log('🔍 저장 시작 - 선택된 사용자:', selectedUsers);
+            console.log('🔍 현재 UI 상태:', permanentProgramPermissions);
+
+            for (const userId of selectedUsers) {
+                const permissions = permanentProgramPermissions[userId];
+                console.log(`🔍 사용자 ${userId} 권한 데이터:`, permissions);
+
+                if (!permissions) {
+                    console.warn(`⚠️ 사용자 ${userId}의 권한 데이터가 없습니다.`);
+                    continue;
                 }
-                return user;
+
+                try {
+                    // 관리자용 API로 한 번에 저장
+                    const requestBody = {
+                        user_id: userId,
+                        permissions: {
+                            free: permissions.free || false,
+                            month1: permissions.month1 || false,
+                            month3: permissions.month3 || false
+                        }
+                    };
+
+                    console.log(`🔍 관리자 API 요청 - 사용자: ${userId}`, requestBody);
+                    console.log(`🔍 API URL: ${getApiUrl()}/api/auth/admin/update-user-program-permissions`);
+
+                    const response = await fetch(`${getApiUrl()}/api/auth/admin/update-user-program-permissions`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${user.token}`
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    console.log(`🔍 관리자 API 응답 - 사용자: ${userId}`, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        ok: response.ok
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`❌ 관리자 API 오류 - 사용자: ${userId}`, {
+                            status: response.status,
+                            statusText: response.statusText,
+                            errorText
+                        });
+                        throw new Error(`권한 저장 실패: ${response.status} ${response.statusText}`);
+                    }
+
+                    const responseData = await response.json();
+                    console.log(`✅ 관리자 API 성공 - 사용자: ${userId}`, responseData);
+                    successCount++;
+                } catch (error) {
+                    console.error(`❌ 사용자 ${userId} 권한 저장 실패:`, error);
+                    errorCount++;
+                }
+            }
+
+            // 2. QCapture 페이지 즉시 업데이트 이벤트 전송
+            const updatedUsers = selectedUsers.map(userId => ({
+                userId,
+                permissions: permanentProgramPermissions[userId] || { free: false, month1: false, month3: false }
             }));
 
-            // User 타입으로 변환하여 상태 업데이트
-            const convertedUsers: CMSUser[] = updatedApiUsers.map(apiUser =>
-                ensureUserDefaults(apiUser) as CMSUser
-            );
-            setUsers(convertedUsers);
+            console.log('🔄 QCapture 페이지 업데이트 이벤트 전송:', updatedUsers);
 
-            // 통계 업데이트
-            updateStats(updatedApiUsers);
+            window.dispatchEvent(new CustomEvent('programPermissionSaved', {
+                detail: {
+                    type: 'bulk_save',
+                    users: updatedUsers,
+                    timestamp: Date.now()
+                }
+            }));
 
-            setSuccessMessage('선택된 사용자의 프로그램 권한이 일괄 저장되었습니다.');
+            // 3. 현재 사용자 권한이 변경된 경우 AuthContext 즉시 업데이트
+            const currentUserId = user?.userId || user?.id;
+            if (selectedUsers.includes(currentUserId) && refreshAuthUserData) {
+                console.log('🔄 현재 사용자 권한 변경됨, AuthContext 즉시 업데이트');
+                await refreshAuthUserData();
+            }
+
+            // 4. 🆕 저장 성공 후 localStorage에서 해당 사용자만 정리
+            if (errorCount === 0) {
+                setSuccessMessage(`✅ ${successCount}명의 사용자 프로그램 권한이 저장되었습니다. QCapture 페이지가 업데이트되었습니다.`);
+
+                // localStorage에서 저장된 사용자만 정리 (나머지는 그대로 유지)
+                const currentSavedPermissions = localStorage.getItem('cms_program_permissions');
+                if (currentSavedPermissions) {
+                    const allPermissions = JSON.parse(currentSavedPermissions);
+
+                    // 저장된 사용자들의 localStorage 데이터만 제거
+                    selectedUsers.forEach(userId => {
+                        if (allPermissions[userId]) {
+                            delete allPermissions[userId];
+                            console.log(`🧹 localStorage에서 저장된 사용자 ${userId} 제거`);
+                        }
+                    });
+
+                    // 남은 데이터가 있으면 업데이트, 없으면 삭제
+                    if (Object.keys(allPermissions).length > 0) {
+                        localStorage.setItem('cms_program_permissions', JSON.stringify(allPermissions));
+                    } else {
+                        localStorage.removeItem('cms_program_permissions');
+                    }
+                    console.log('🧹 localStorage 정리 완료 - 저장된 사용자만 제거됨');
+                }
+            } else {
+                setSuccessMessage(`⚠️ ${successCount}명 성공, ${errorCount}명 실패. 일부 권한이 저장되지 않았습니다.`);
+            }
+
             setSelectedUsers([]);
+            setTimeout(() => setSuccessMessage(null), 5000);
 
-            setTimeout(() => setSuccessMessage(null), 3000);
         } catch (error) {
-            console.error('프로그램 권한 저장 중 오류:', error);
-            setError('프로그램 권한 저장 중 오류가 발생했습니다.');
+            console.error('권한 저장 중 오류:', error);
+            setError('권한 저장 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'));
         } finally {
             setLoading(false);
         }
     };
+
+    // 검색 기능
+    const handleSearch = async () => {
+        if (!user?.token) return;
+
+        try {
+            setLoading(true);
+            const result = await fetchUsersBasic(user.token, 1, 20, searchTerm);
+            // 이미 올바른 CMSUser 타입으로 변환되어 있음
+            setUsers(result.users);
+            updateStats(result.users);
+        } catch (error) {
+            console.error('검색 실패:', error);
+            setError('검색 중 오류가 발생했습니다.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 검색어 변경 시 자동 검색 (디바운스)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (searchTerm.trim()) {
+                handleSearch();
+            } else {
+                loadData(); // 검색어가 없으면 전체 데이터 로드
+            }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     if (loading) {
         return (
@@ -905,7 +827,7 @@ export default function CMSPage() {
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {sortedUsers.map((user) => (
-                                            <tr key={user.id}>
+                                            <tr key={user.id} className={changedUsers.has(user.id) ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <input
                                                         type="checkbox"
@@ -968,8 +890,6 @@ export default function CMSPage() {
                     <div className="bg-white shadow rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">예치금 관리</h3>
-
-                            {/* 검색 및 필터 */}
                             <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <input
                                     type="text"
@@ -1009,8 +929,6 @@ export default function CMSPage() {
                                     <option value="date-desc">가입일 내림차순</option>
                                 </select>
                             </div>
-
-                            {/* 사용자 테이블 */}
                             <div className="overflow-x-auto mb-6">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
@@ -1077,10 +995,8 @@ export default function CMSPage() {
                                     </tbody>
                                 </table>
                             </div>
-
-                            {/* 일괄 예치금 관리 */}
                             <div className="border-t pt-6">
-                                <h4 className="text-md font-medium text-gray-900 mb-4">일괄 예치금 관리</h4>
+                                <h4 className="text-md font-medium text-gray-900 mb-4">일괄 예치금 처리</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">선택된 사용자</label>
@@ -1099,7 +1015,7 @@ export default function CMSPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">작업 유형</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">처리 방식</label>
                                         <select
                                             value={depositType}
                                             onChange={(e) => setDepositType(e.target.value as 'add' | 'subtract')}
@@ -1110,7 +1026,6 @@ export default function CMSPage() {
                                         </select>
                                     </div>
                                 </div>
-
                                 <button
                                     onClick={handleBulkDeposit}
                                     disabled={selectedUsers.length === 0 || !depositAmount}
@@ -1219,50 +1134,7 @@ export default function CMSPage() {
                                 </select>
                             </div>
 
-                            {/* 일괄 프로그램 권한 관리 */}
-                            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                                <h4 className="text-md font-medium text-gray-900 mb-4">일괄 프로그램 권한 관리</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">선택된 사용자</label>
-                                        <div className="text-sm text-gray-600">
-                                            {selectedUsers.length}명 선택됨
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">프로그램</label>
-                                        <select
-                                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            onChange={(e) => {
-                                                const [permission, value] = e.target.value.split(':');
-                                                if (permission && value) {
-                                                    handleBulkProgramPermission(permission as 'free' | 'month1' | 'month3', value);
-                                                }
-                                            }}
-                                        >
-                                            <option value="">프로그램 선택</option>
-                                            <option value="free:true">무료 버전 활성화</option>
-                                            <option value="free:false">무료 버전 비활성화</option>
-                                            <option value="month1:true">1개월 버전 활성화</option>
-                                            <option value="month1:false">1개월 버전 비활성화</option>
-                                            <option value="month3:true">3개월 버전 활성화</option>
-                                            <option value="month3:false">3개월 버전 비활성화</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">작업</label>
-                                        <button
-                                            onClick={handleBulkProgramSave}
-                                            disabled={selectedUsers.length === 0}
-                                            className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                        >
-                                            일괄 저장
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 사용자 테이블 */}
+                            {/* 프로그램 권한 테이블 */}
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
@@ -1286,7 +1158,7 @@ export default function CMSPage() {
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {sortedUsers.map((user) => (
-                                            <tr key={user.id}>
+                                            <tr key={user.id} className={changedUsers.has(user.id) ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <input
                                                         type="checkbox"
@@ -1307,24 +1179,24 @@ export default function CMSPage() {
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <input
                                                         type="checkbox"
-                                                        checked={user.programPermissions?.free || false}
-                                                        onChange={(e) => handleProgramPermissionChange(user.id, 'free', e.target.checked)}
+                                                        checked={permanentProgramPermissions[user.id]?.free || false}
+                                                        onChange={(e) => handleProgramCheckboxChange(user.id, 'free', e.target.checked)}
                                                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                                     />
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <input
                                                         type="checkbox"
-                                                        checked={user.programPermissions?.month1 || false}
-                                                        onChange={(e) => handleProgramPermissionChange(user.id, 'month1', e.target.checked)}
+                                                        checked={permanentProgramPermissions[user.id]?.month1 || false}
+                                                        onChange={(e) => handleProgramCheckboxChange(user.id, 'month1', e.target.checked)}
                                                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                                     />
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <input
                                                         type="checkbox"
-                                                        checked={user.programPermissions?.month3 || false}
-                                                        onChange={(e) => handleProgramPermissionChange(user.id, 'month3', e.target.checked)}
+                                                        checked={permanentProgramPermissions[user.id]?.month3 || false}
+                                                        onChange={(e) => handleProgramCheckboxChange(user.id, 'month3', e.target.checked)}
                                                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                                     />
                                                 </td>
@@ -1341,10 +1213,57 @@ export default function CMSPage() {
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* 🆕 변경된 사용자 정보 표시 */}
+                            {changedUsers.size > 0 && (
+                                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <span className="text-yellow-800 font-medium">
+                                                📝 변경된 사용자: {changedUsers.size}명
+                                            </span>
+                                            <span className="ml-2 text-sm text-yellow-600">
+                                                (저장 버튼을 눌러 데이터베이스에 저장하세요)
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                console.log('🔄 변경된 사용자 목록:', Array.from(changedUsers));
+                                                console.log('💾 localStorage 상태:', localStorage.getItem('cms_program_permissions'));
+                                            }}
+                                            className="text-sm text-yellow-600 hover:text-yellow-800 underline"
+                                        >
+                                            디버그 정보
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 버튼 그룹 */}
+                            <div className="mt-6 flex justify-between items-center">
+                                <button
+                                    onClick={checkDatabaseState}
+                                    className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 font-medium"
+                                >
+                                    상태 확인 (콘솔)
+                                </button>
+                                <div className="flex items-center space-x-4">
+                                    <span className="text-sm text-gray-600">
+                                        선택됨: {selectedUsers.length}명 | 저장 대기: {changedUsers.size}명
+                                    </span>
+                                    <button
+                                        onClick={handleBulkProgramSave}
+                                        disabled={selectedUsers.length === 0 || loading}
+                                        className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+                                    >
+                                        {loading ? '저장 중...' : `선택된 ${selectedUsers.length}명 권한 저장`}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
             </div>
         </div>
     );
-} 
+}

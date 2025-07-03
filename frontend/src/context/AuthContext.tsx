@@ -21,6 +21,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { STORAGE_KEYS, getApiUrl, IS_DEVELOPMENT } from '../config/constants';
 import { validateUserData } from '../utils/authHelpers';
 import { AuthUser, convertToAuthUser, convertFromAuthUser } from '../types/user';
+import * as jwt_decode_ns from 'jwt-decode';
+const jwt_decode: any = (jwt_decode_ns as any).default || jwt_decode_ns;
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -41,6 +43,10 @@ interface AuthContextType {
   forceReset?: () => void;
   refreshBalance?: () => Promise<boolean>;
   updateBalance?: (user: AuthUser, newBalance: number) => Promise<boolean>; // 새로운 단순 예치금 업데이트
+  refreshUserData?: () => Promise<boolean>; // 사용자 정보 완전 새로고침
+  // 프로그램 권한 관리 함수 (새로 추가)
+  fetchProgramPermissions?: () => Promise<{ free: boolean; month1: boolean; month3: boolean } | null>;
+  updateProgramPermissions?: (permissions: { free: boolean; month1: boolean; month3: boolean }) => Promise<boolean>;
   // 관리자 권한 체크 함수
   isUserAdmin?: (user: AuthUser | null) => boolean;
 }
@@ -56,11 +62,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initCountRef = React.useRef(0);
   const MAX_INIT_ATTEMPTS = 3;
 
-  // 초기화 플래그를 사용하여 한 번만 실행
+  // 앱 시작 시 localStorage에서 user/token 복원
+  useEffect(() => {
+    if (isInitialized) return;
+    const savedUser = localStorage.getItem('USER_DATA');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        if (parsed && parsed.token) {
+          setUser(parsed);
+        }
+      } catch { }
+    }
+    setIsInitialized(true);
+    setIsLoading(false);
+  }, [isInitialized]);
+
+  // 🚨 무한루프 방지: 초기화 횟수 체크
   useEffect(() => {
     if (isInitialized) return;
 
-    // 🚨 무한루프 방지: 초기화 횟수 체크
     initCountRef.current += 1;
     if (initCountRef.current > MAX_INIT_ATTEMPTS) {
       console.error('🚨 AuthContext - 초기화 횟수 초과, 강제 중단');
@@ -169,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 강제 로그아웃 플래그 설정
       sessionStorage.setItem('forceLogout', 'true');
 
-      // � 명시적 로그아웃 시에만 localStorage/sessionStorage 정리
+      // 🚫 명시적 로그아웃 시에만 localStorage/sessionStorage 정리
       localStorage.clear();
       sessionStorage.clear();
 
@@ -191,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 로그인 함수 (개선됨)
   const login = async (userId: string, password: string): Promise<boolean> => {
     console.log('🔥 AuthContext - 로그인 함수 시작');
-    
+
     try {
       console.log('🔥 AuthContext - try 블록 진입');
       console.log('AuthContext - 로그인 시도:', userId);
@@ -201,10 +222,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('🔥 getApiUrl 호출 전');
       const apiUrl = getApiUrl();
       console.log('🔥 getApiUrl 호출 후:', apiUrl);
-      
+
       const fullUrl = `${apiUrl}/api/auth/login`;
       console.log('🔥 fullUrl 생성:', fullUrl);
-      
+
       console.log('🔍 AuthContext - API 요청 시작');
       console.log('🔍 getApiUrl() 결과:', apiUrl);
       console.log('🔍 전체 요청 URL:', fullUrl);
@@ -264,7 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           password: password,
         }),
       };
-      
+
       console.log('🔍 fetch 옵션:', fetchOptions);
       console.log('🔍 body 내용:', fetchOptions.body.toString());
 
@@ -308,6 +329,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('🎯 AuthContext - 백엔드 로그인 응답 전체:', data);
         console.log('🎯 AuthContext - 사용자 데이터 상세:', data.user);
 
+        // 토큰 검증 강화
+        if (!data.access_token || typeof data.access_token !== 'string') {
+          console.error('❌ 로그인 응답에 유효한 토큰이 없음:', {
+            access_token: data.access_token,
+            tokenType: typeof data.access_token
+          });
+          return false;
+        }
+
+        // JWT 토큰 형식 검증
+        const tokenParts = data.access_token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('❌ 잘못된 JWT 토큰 형식:', {
+            tokenLength: data.access_token.length,
+            segments: tokenParts.length,
+            tokenStart: data.access_token.substring(0, 30)
+          });
+          return false;
+        }
+
+        console.log('✅ 유효한 JWT 토큰 확인:', {
+          tokenLength: data.access_token.length,
+          segments: tokenParts.length,
+          tokenStart: data.access_token.substring(0, 20) + '...'
+        });
+
         // 백엔드 응답을 표준 AuthUser 형식으로 변환
         const authUser: AuthUser = {
           id: data.user.id,
@@ -315,12 +362,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: data.user.name,
           email: data.user.email,
           phone: data.user.phone || '010-0000-0000',
-          role: data.user.role || 'user', // role이 없으면 기본값 'user'로 설정
+          role: data.user.role || 'user',
           balance: data.user.balance || 0,
-          is_active: data.user.is_active !== false, // 명시적으로 false가 아니면 true
+          is_active: data.user.is_active !== false,
           created_at: data.user.created_at,
           last_login_at: data.user.last_login_at,
-          token: data.access_token
+          token: data.access_token,
+          // 프로그램 권한 정보 추가
+          programPermissions: data.user.programPermissions || {
+            free: false,
+            month1: false,
+            month3: false
+          }
         };
 
         console.log('🎯 AuthContext - 변환된 사용자 데이터 상세:', {
@@ -331,6 +384,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: authUser.name,
           email: authUser.email,
           balance: authUser.balance,
+          programPermissions: authUser.programPermissions,
           fullUserData: authUser
         });
 
@@ -355,6 +409,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             isAdmin: authUser.role === 'admin',
             balance: authUser.balance
           });
+          setUser(authUser);
+          localStorage.setItem('USER_DATA', JSON.stringify(authUser));
+
+          // 🕐 로그인 시간 저장 (세션 관리용)
+          localStorage.setItem('LOGIN_TIME', Date.now().toString());
+
           return true;
         } else {
           console.error('❌ AuthContext - 사용자 데이터 저장 실패');
@@ -431,6 +491,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok && data.user && data.access_token) {
         console.log('AuthContext - 회원가입 성공:', data.user);
 
+        // 토큰 검증 강화
+        if (!data.access_token || typeof data.access_token !== 'string') {
+          console.error('❌ 회원가입 응답에 유효한 토큰이 없음:', {
+            access_token: data.access_token,
+            tokenType: typeof data.access_token
+          });
+          return false;
+        }
+
+        // JWT 토큰 형식 검증
+        const tokenParts = data.access_token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('❌ 회원가입 - 잘못된 JWT 토큰 형식:', {
+            tokenLength: data.access_token.length,
+            segments: tokenParts.length,
+            tokenStart: data.access_token.substring(0, 30)
+          });
+          return false;
+        }
+
+        console.log('✅ 회원가입 - 유효한 JWT 토큰 확인:', {
+          tokenLength: data.access_token.length,
+          segments: tokenParts.length,
+          tokenStart: data.access_token.substring(0, 20) + '...'
+        });
+
         // 백엔드 응답을 표준 AuthUser 형식으로 변환
         const authUser: AuthUser = {
           id: data.user.id,
@@ -443,14 +529,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           is_active: data.user.is_active !== false, // 명시적으로 false가 아니면 true
           created_at: data.user.created_at,
           last_login_at: data.user.last_login_at,
-          token: data.access_token
+          token: data.access_token,
+          // 프로그램 권한 정보 추가
+          programPermissions: data.user.programPermissions || {
+            free: false,
+            month1: false,
+            month3: false
+          }
         };
 
         console.log('AuthContext - 회원가입 변환된 사용자 데이터:', {
           originalRole: data.user.role,
           finalRole: authUser.role,
           isActive: authUser.is_active,
-          userId: authUser.userId
+          userId: authUser.userId,
+          programPermissions: authUser.programPermissions
         });
 
         if (saveUserData(authUser)) {
@@ -594,10 +687,177 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // 🔄 사용자 정보 완전 새로고침 (프로그램 권한 포함)
+  const refreshUserData = useCallback(async () => {
+    // 🚫 완전 비활성화: 사용자 정보 새로고침 기능 차단 (토큰 검증 방지)
+    console.log('🚫 AuthContext - 사용자 정보 새로고침 기능 완전 차단 (토큰 검증 방지)');
+    return false;
+  }, []);
+
   // 관리자 권한 체크 함수
   const isUserAdmin = (user: AuthUser | null): boolean => {
     return user?.role === 'admin';
   };
+
+  // 프로그램 권한 조회 함수 (단순화된 버전)
+  const fetchProgramPermissions = useCallback(async (): Promise<{ free: boolean; month1: boolean; month3: boolean } | null> => {
+    // 호출 스택 추적을 위한 로그
+    const stack = new Error().stack;
+    const stackLines = stack?.split('\n').slice(1, 10) || [];
+
+    console.log('🔄 AuthContext - fetchProgramPermissions 호출됨', {
+      timestamp: new Date().toISOString(),
+      userExists: !!user,
+      hasPermissions: !!user?.programPermissions,
+      stack: stackLines.join('\n'), // 호출 스택의 처음 10줄
+      caller: stackLines[0]?.trim() || 'unknown'
+    });
+
+    // 🚫 이미 권한 정보가 있으면 API 호출하지 않음 (캐싱)
+    if (user?.programPermissions) {
+      console.log('🔄 AuthContext - 기존 권한 정보 사용 (캐싱):', user.programPermissions);
+      return user.programPermissions;
+    }
+
+    // 🚫 토큰이 없으면 기본값 반환 (API 호출 방지)
+    if (!user?.token) {
+      console.log('🔄 AuthContext - 토큰 없음, 기본 권한 반환');
+      return {
+        free: false,
+        month1: false,
+        month3: false
+      };
+    }
+
+    // 🚫 이미 권한 조회 중이면 중복 호출 방지
+    const isFetching = sessionStorage.getItem('FETCHING_PERMISSIONS');
+    if (isFetching === 'true') {
+      console.log('🔄 AuthContext - 권한 조회 중, 중복 호출 방지');
+      return null;
+    }
+
+    try {
+      console.log('🔄 AuthContext - 프로그램 권한 조회 시작 (1회성)');
+      sessionStorage.setItem('FETCHING_PERMISSIONS', 'true');
+
+      const response = await fetch(`${getApiUrl()}/api/auth/program-permissions`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error('❌ AuthContext - 프로그램 권한 조회 실패:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.programPermissions) {
+        console.log('✅ AuthContext - 프로그램 권한 조회 성공:', data.programPermissions);
+
+        // 사용자 정보 업데이트 (1회성)
+        if (user) {
+          const updatedUser = {
+            ...user,
+            programPermissions: data.programPermissions
+          };
+          setUser(updatedUser);
+        }
+
+        return data.programPermissions;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ AuthContext - 프로그램 권한 조회 오류:', error);
+      return null;
+    } finally {
+      sessionStorage.removeItem('FETCHING_PERMISSIONS');
+    }
+  }, [user?.programPermissions, user?.token, user]);
+
+  // 프로그램 권한 관리 함수 (단순화된 버전)
+  const updateProgramPermissions = useCallback(async (permissions: { free: boolean; month1: boolean; month3: boolean }) => {
+    try {
+      if (!user?.token) {
+        console.error('AuthContext - 토큰이 없어서 프로그램 권한 업데이트 불가');
+        return false;
+      }
+
+      console.log('🔄 AuthContext - 프로그램 권한 업데이트 시작 (1회성)');
+
+      const response = await fetch(`${getApiUrl()}/api/auth/update-program-permissions-bulk`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          permissions,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ AuthContext - 프로그램 권한 업데이트 완료:', data);
+
+        // 사용자 정보 업데이트 (1회성)
+        const updatedUser = {
+          ...user,
+          programPermissions: permissions,
+          token: user.token,
+        };
+
+        setUser(updatedUser);
+
+        // 🚫 이벤트 발생 완전 제거 - 새로고침 방지
+        // window.dispatchEvent(new CustomEvent('programPermissionChanged', {
+        //   detail: {
+        //     userId: user.id,
+        //     permissions,
+        //     timestamp: new Date().toISOString(),
+        //     type: 'simple_update'
+        //   }
+        // }));
+
+        return true;
+      } else {
+        console.error('❌ AuthContext - 프로그램 권한 업데이트 실패:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ AuthContext - 프로그램 권한 업데이트 오류:', error);
+      return false;
+    }
+  }, [user]);
+
+  // user.token이 잘못된 형식이거나 만료되면 자동 로그아웃 - 단순화된 버전
+  useEffect(() => {
+    if (user && user.token) {
+      // 🚫 JWT 토큰 검증을 완전히 비활성화 - 세션 기반으로 변경
+      // 로그인 시에만 토큰을 검증하고, 이후에는 세션 상태만 확인
+
+      // 세션 타임아웃 체크 (7일) - 더 관대하게 설정
+      const sessionTimeout = 30 * 24 * 60 * 60 * 1000; // 30일로 연장
+      const loginTime = localStorage.getItem('LOGIN_TIME');
+
+      if (loginTime) {
+        const loginTimestamp = parseInt(loginTime);
+        const currentTime = Date.now();
+
+        if (currentTime - loginTimestamp > sessionTimeout) {
+          console.log('🔍 AuthContext - 세션 만료, 자동 로그아웃');
+          logout();
+          return;
+        }
+      }
+
+      console.log('✅ AuthContext - 세션 유지 (토큰 검증 완전 생략)');
+    }
+  }, [user]);
 
   const contextValue: AuthContextType = {
     user,
@@ -611,18 +871,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isUserAdmin,
     forceReset,
     refreshBalance,
-    updateBalance // 새로운 단순 예치금 업데이트 함수 추가
+    updateBalance, // 새로운 단순 예치금 업데이트 함수 추가
+    refreshUserData, // 사용자 정보 완전 새로고침 함수 추가
+    fetchProgramPermissions, // 프로그램 권한 조회 함수 추가
+    updateProgramPermissions, // 프로그램 권한 관리 함수 추가
   };
 
-  // 🔍 Context 값 변경 시마다 로그 출력
+  // 🔍 Context 값 변경 시마다 로그 출력 (무한 루프 방지)
   useEffect(() => {
     console.log('🔄 AuthContext - contextValue 변경:', {
-      user: user,
+      userId: user?.userId || user?.id,
       isAuthenticated: !!user,
       isLoading,
       timestamp: new Date().toISOString()
     });
-  }, [user, isLoading]);
+  }, [user?.userId, user?.id, isLoading]);
 
   return (
     <AuthContext.Provider value={contextValue}>

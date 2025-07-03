@@ -16,7 +16,7 @@ import uvicorn
 # 환경변수 직접 설정 (환경변수 파일 로딩 우회)
 os.environ.setdefault("DATABASE_URL", "sqlite:///./qclick.db")
 os.environ.setdefault("PORT", "8000")
-os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3003,https://qclick-app.vercel.app")
+os.environ.setdefault("CORS_ORIGINS", "http://localhost:3003,http://localhost:3001,https://qclick-app.vercel.app")
 os.environ.setdefault("SECRET_KEY", "your-secret-key-here-for-development")
 
 # dotenv 모듈을 monkey patch하여 load_dotenv() 호출을 무시
@@ -55,7 +55,7 @@ app = FastAPI(
 )
 
 # CORS 미들웨어 설정
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3003,https://qclick-app.vercel.app").split(",")
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3003,http://localhost:3001,https://qclick-app.vercel.app").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

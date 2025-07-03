@@ -24,9 +24,21 @@ if DATABASE_URL.startswith("postgresql://"):
     )
     print(f"PostgreSQL 연결 설정 완료: {DATABASE_URL[:50]}...")
 else:
-    # SQLite 연결 (로컬 개발용)
-    engine = create_engine(DATABASE_URL)
-    print(f"SQLite 연결 설정 완료: {DATABASE_URL}")
+    # SQLite 연결 (로컬 개발용) - 절대경로 사용
+    db_file_path = DATABASE_URL.replace("sqlite:///", "")
+    abs_db_path = os.path.abspath(db_file_path)
+    
+    # 절대경로로 DB URL 생성
+    abs_db_url = f"sqlite:///{abs_db_path}"
+    engine = create_engine(abs_db_url)
+    
+    print(f"SQLite 연결 설정 완료: {abs_db_url}")
+    
+    # DB 파일 절대경로 로깅 추가
+    print("=" * 60)
+    print(f"FastAPI가 사용하는 DB 파일 절대경로: {abs_db_path}")
+    print(f"DB 파일 존재 여부: {os.path.exists(abs_db_path)}")
+    print("=" * 60)
 
 # 세션 생성
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

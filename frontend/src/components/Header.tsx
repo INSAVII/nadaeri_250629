@@ -122,6 +122,35 @@ export default function Header() {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
+  // 캐시 정리 함수
+  const clearCache = () => {
+    if (confirm('브라우저 캐시를 정리하시겠습니까?\n\n로그인 정보와 설정이 모두 삭제됩니다.')) {
+      try {
+        // localStorage 정리
+        localStorage.clear();
+        console.log('✅ localStorage 완전 삭제됨');
+
+        // sessionStorage 정리
+        sessionStorage.clear();
+        console.log('✅ sessionStorage 완전 삭제됨');
+
+        // 쿠키 정리
+        document.cookie.split(";").forEach(function (c) {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        console.log('✅ 쿠키 완전 삭제됨');
+
+        alert('캐시가 정리되었습니다. 페이지가 새로고침됩니다.');
+
+        // 페이지 새로고침
+        window.location.reload();
+      } catch (error) {
+        console.error('캐시 정리 중 오류:', error);
+        alert('캐시 정리 중 오류가 발생했습니다.');
+      }
+    }
+  };
+
   // 현재 경로가 특정 패턴과 일치하는지 확인하는 함수
   const isActive = (path: string) => {
     if (path === '/') {
@@ -273,6 +302,16 @@ export default function Header() {
                 )}
 
                 <button
+                  onClick={clearCache}
+                  className="flex items-center px-3 py-2 rounded-md text-base font-light text-gray-600 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+                  title="브라우저 캐시 정리"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                  </svg>
+                  캐시정리
+                </button>
+                <button
                   onClick={logout}
                   className="flex items-center px-3 py-2 rounded-md text-base font-light text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                 >
@@ -396,6 +435,15 @@ export default function Header() {
             <div className="border-t border-gray-200 mt-2 pt-2">
               {isAuthenticated ? (
                 <>
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      clearCache();
+                    }}
+                    className="block w-full text-left px-3 py-2 rounded-md text-base font-light text-gray-600 hover:text-orange-600 hover:bg-orange-50"
+                  >
+                    🧹 캐시정리
+                  </button>
                   <button
                     onClick={() => {
                       setIsMobileMenuOpen(false);

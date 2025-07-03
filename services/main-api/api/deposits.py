@@ -6,12 +6,16 @@ from datetime import datetime, timedelta
 import uuid
 from fastapi.responses import JSONResponse
 from sqlalchemy import func
+import logging
 
 from database import get_db
 from models.user import User
 from models.program import Program, UserProgram
 from models.transaction import Transaction, TransactionType
-from api.auth import get_current_admin_user
+from api.auth import get_current_admin_user, get_current_active_user
+
+# 로깅 설정
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -60,6 +64,10 @@ class DepositUpdateRequest(BaseModel):
 
 class BulkDepositUpdateRequest(BaseModel):
     updates: List[DepositUpdateRequest]
+
+class ProgramDownloadRequest(BaseModel):
+    program_id: str
+    license_type: str  # free, month1, month3
 
 # API 엔드포인트
 @router.get("/users", response_model=List[UserWithProgramsResponse])
@@ -254,61 +262,50 @@ async def update_program_permission(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin_user)
 ):
-    """사용자의 프로그램 권한을 업데이트합니다 (관리자 전용)"""
+    """사용자의 프로그램 다운로드 권한을 업데이트합니다 (관리자 전용) - User 테이블에 직접 저장"""
     try:
+        logger.info(f"프로그램 다운로드 권한 업데이트 시작: user_id={user_id}, program_id={request.program_id}, is_allowed={request.is_allowed}")
+        
         # 사용자 확인
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
+            logger.error(f"사용자를 찾을 수 없음: {user_id}")
             raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
         
-        # 프로그램 확인
-        program = db.query(Program).filter(Program.id == request.program_id).first()
-        if not program:
-            raise HTTPException(status_code=404, detail="프로그램을 찾을 수 없습니다")
+        logger.info(f"사용자 확인 완료: user={user.email}")
         
-        # 기존 권한 확인
-        user_program = db.query(UserProgram).filter(
-            UserProgram.user_id == user_id,
-            UserProgram.program_id == request.program_id
-        ).first()
-        
-        if user_program:
-            # 기존 권한 업데이트
-            user_program.is_allowed = request.is_allowed
-            if request.duration_months:
-                user_program.expires_at = datetime.utcnow() + timedelta(days=request.duration_months * 30)
+        # User 테이블에 직접 저장 (예치금 방식)
+        if request.program_id == 'free':
+            user.program_permissions_free = request.is_allowed
+        elif request.program_id == 'month1':
+            user.program_permissions_month1 = request.is_allowed
+        elif request.program_id == 'month3':
+            user.program_permissions_month3 = request.is_allowed
         else:
-            # 새 권한 생성
-            expires_at = None
-            if request.duration_months:
-                expires_at = datetime.utcnow() + timedelta(days=request.duration_months * 30)
-            
-            user_program = UserProgram(
-                id=str(uuid.uuid4()),
-                user_id=user_id,
-                program_id=request.program_id,
-                is_allowed=request.is_allowed,
-                expires_at=expires_at
-            )
-            db.add(user_program)
+            logger.error(f"유효하지 않은 프로그램 ID: {request.program_id}")
+            raise HTTPException(status_code=400, detail="유효하지 않은 프로그램 ID입니다")
         
         db.commit()
+        db.refresh(user)
+        
+        logger.info(f"프로그램 다운로드 권한 업데이트 성공: user_id={user_id}, program_id={request.program_id}")
         
         return StandardResponse(
             success=True,
-            message="프로그램 권한이 성공적으로 업데이트되었습니다",
+            message="프로그램 다운로드 권한이 성공적으로 업데이트되었습니다",
             data={
                 "user_id": user_id,
                 "program_id": request.program_id,
                 "is_allowed": request.is_allowed,
-                "expires_at": user_program.expires_at.isoformat() if user_program.expires_at else None
+                "type": "user_table_direct"
             }
         )
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"프로그램 권한 업데이트 중 오류 발생: {str(e)}")
+        logger.error(f"프로그램 다운로드 권한 업데이트 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"프로그램 다운로드 권한 업데이트 중 오류 발생: {str(e)}")
 
 # 기존 엔드포인트들 (하위 호환성을 위해 유지)
 @router.post("/update-balance")
@@ -493,3 +490,89 @@ async def export_users_to_excel(
         })
     
     return {"users": user_data}
+
+@router.post("/download-program", response_model=StandardResponse)
+async def download_program_with_balance_deduction(
+    request: ProgramDownloadRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """프로그램 다운로드 시 예치금 차감 (일반 사용자용)"""
+    try:
+        logger.info(f"프로그램 다운로드 요청: user_id={current_user.id}, program_id={request.program_id}, license_type={request.license_type}")
+        
+        # 1. 프로그램 다운로드 권한 확인
+        user_program = db.query(UserProgram).filter(
+            UserProgram.user_id == current_user.id,
+            UserProgram.program_id == request.program_id
+        ).first()
+        
+        if not user_program or not user_program.is_allowed:
+            logger.warning(f"다운로드 권한 없음: user_id={current_user.id}, program_id={request.program_id}")
+            raise HTTPException(status_code=403, detail="프로그램 다운로드 권한이 없습니다")
+        
+        # 2. 프로그램 정보 확인
+        program = db.query(Program).filter(Program.id == request.program_id).first()
+        if not program:
+            raise HTTPException(status_code=404, detail="프로그램을 찾을 수 없습니다")
+        
+        # 3. 예치금 차감 (무료 프로그램은 차감하지 않음)
+        amount_to_deduct = 0
+        if request.license_type == 'month1':
+            amount_to_deduct = 10000  # 1개월: 10,000원
+        elif request.license_type == 'month3':
+            amount_to_deduct = 25000  # 3개월: 25,000원
+        elif request.license_type == 'free':
+            amount_to_deduct = 0  # 무료: 차감 없음
+        
+        if amount_to_deduct > 0:
+            if current_user.balance < amount_to_deduct:
+                logger.warning(f"예치금 부족: user_id={current_user.id}, balance={current_user.balance}, required={amount_to_deduct}")
+                raise HTTPException(status_code=400, detail=f"예치금이 부족합니다. 필요: {amount_to_deduct:,}원, 보유: {current_user.balance:,}원")
+            
+            # 예치금 차감
+            old_balance = current_user.balance
+            current_user.balance -= amount_to_deduct
+            
+            # 거래 내역 기록
+            transaction = Transaction.create_withdraw_transaction(
+                current_user, 
+                amount_to_deduct, 
+                f"download_{request.program_id}_{request.license_type}_{uuid.uuid4()}", 
+                f"프로그램 다운로드: {program.name} ({request.license_type})"
+            )
+            db.add(transaction)
+            
+            logger.info(f"예치금 차감 완료: user_id={current_user.id}, amount={amount_to_deduct}, balance={old_balance}->{current_user.balance}")
+        
+        # 4. 다운로드 횟수 증가
+        user_program.download_count += 1
+        user_program.last_downloaded = datetime.utcnow()
+        
+        # 5. 프로그램 다운로드 횟수 증가
+        program.download_count += 1
+        
+        db.commit()
+        
+        logger.info(f"프로그램 다운로드 성공: user_id={current_user.id}, program_id={request.program_id}, license_type={request.license_type}")
+        
+        return StandardResponse(
+            success=True,
+            message="프로그램 다운로드가 성공적으로 처리되었습니다",
+            data={
+                "user_id": current_user.id,
+                "program_id": request.program_id,
+                "license_type": request.license_type,
+                "amount_deducted": amount_to_deduct,
+                "remaining_balance": current_user.balance,
+                "download_count": user_program.download_count,
+                "download_url": f"/downloads/{request.program_id}/{request.license_type}/"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"프로그램 다운로드 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"프로그램 다운로드 중 오류 발생: {str(e)}")

@@ -13,7 +13,7 @@
 - **메인 API 서버**: http://localhost:8001
 - **큐네임(QName) 서비스**: http://localhost:8002
 - **큐문자(QText) 서비스**: http://localhost:8003
-- **프론트엔드**: http://localhost:3000
+- **프론트엔드**: http://localhost:3003
 
 ## 📊 개발 완료도
 
@@ -71,7 +71,7 @@
 │   ├── main-api/          # 메인 API 서버 (포트 8001)
 │   ├── qname-service/     # 큐네임 서비스 (포트 8002)
 │   └── qtext-service/     # 큐문자 서비스 (포트 8003)
-├── frontend/              # Next.js 프론트엔드 (포트 3000)
+├── frontend/              # Next.js 프론트엔드 (포트 3003)
 ├── api-gateway/           # API Gateway
 ├── deployment/            # 배포 관련 파일들
 └── docs/                  # 문서들
@@ -104,10 +104,10 @@
 - **큐문자**: POST /api/qtext/generate, POST /api/qtext/rewrite
 
 ### 웹 페이지
-- **메인 페이지**: http://localhost:3000
-- **로그인/회원가입**: http://localhost:3000/login, http://localhost:3000/signup
-- **서비스 페이지**: http://localhost:3000/qname, http://localhost:3000/qtext
-- **관리자 페이지**: http://localhost:3000/admin
+- **메인 페이지**: http://localhost:3003
+- **로그인/회원가입**: http://localhost:3003/login, http://localhost:3003/signup
+- **서비스 페이지**: http://localhost:3003/qname, http://localhost:3003/qtext
+- **관리자 페이지**: http://localhost:3003/admin
 
 ## 🚨 주의사항
 

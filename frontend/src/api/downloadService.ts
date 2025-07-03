@@ -192,52 +192,22 @@ export const downloadService: DownloadService = {
     // 다운로드 권한 확인 (AuthContext와 연동)
     checkDownloadPermission: (licenseType: string): boolean => {
         try {
-            // 1. AuthContext에서 사용자 데이터 가져오기 (우선순위 1)
-            const userData = localStorage.getItem('USER_DATA');
-            if (userData) {
-                const user = JSON.parse(userData);
-                if (user && user.programPermissions) {
-                    switch (licenseType) {
-                        case 'free':
-                            return user.programPermissions.free || false;
-                        case 'month1':
-                            return user.programPermissions.month1 || false;
-                        case 'month3':
-                            return user.programPermissions.month3 || false;
-                        default:
-                            return false;
-                    }
-                }
-            }
+            // 🚫 localStorage 의존성 제거 - AuthContext 사용으로 변경
+            // AuthContext에서 사용자 데이터를 가져오는 방식으로 변경 필요
+            // 현재는 임시로 기본값 반환 (실제 구현에서는 AuthContext 사용)
 
-            // 2. 기존 방식으로 fallback (우선순위 2)
-            const legacyUserData = localStorage.getItem('user');
-            if (legacyUserData) {
-                const user = JSON.parse(legacyUserData);
-                if (user && user.programPermissions) {
-                    switch (licenseType) {
-                        case 'free':
-                            return user.programPermissions.free || false;
-                        case 'month1':
-                            return user.programPermissions.month1 || false;
-                        case 'month3':
-                            return user.programPermissions.month3 || false;
-                        default:
-                            return false;
-                    }
-                }
-            }
-
-            // 3. 기본값 (무료는 기본적으로 허용)
+            // 기본값 (무료는 기본적으로 허용)
             if (licenseType === 'free') {
                 return true;
             }
 
+            // 🚨 TODO: AuthContext에서 사용자 권한 확인하도록 수정 필요
+            // 현재는 임시로 false 반환
+            console.warn('downloadService - AuthContext 연동 필요:', licenseType);
             return false;
         } catch (error) {
-            console.error('권한 확인 실패:', error);
-            // 오류 시 무료 버전만 허용
-            return licenseType === 'free';
+            console.error('downloadService - 권한 확인 오류:', error);
+            return false;
         }
     }
 };

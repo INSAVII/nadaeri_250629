@@ -112,9 +112,9 @@ netstat -an | findstr :3002  # 포트 사용 상태 확인
 1. **F12** 또는 **Ctrl+Shift+I**로 개발자 도구 열기
 2. **Application** 탭 선택
 3. **Storage** 섹션에서:
-   - **Local Storage**: `http://localhost:3000` 선택 후 Clear
-   - **Session Storage**: `http://localhost:3000` 선택 후 Clear
-   - **Cookies**: `http://localhost:3000` 선택 후 Clear
+   - **Local Storage**: `http://localhost:3003` 선택 후 Clear
+- **Session Storage**: `http://localhost:3003` 선택 후 Clear
+- **Cookies**: `http://localhost:3003` 선택 후 Clear
    - **IndexedDB**: 모든 데이터베이스 삭제
 4. **Cache Storage**: 모든 캐시 삭제
 

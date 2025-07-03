@@ -159,7 +159,7 @@ class KongGatewaySetup:
         cors_data = {
             "name": "cors",
             "config": {
-                "origins": ["http://localhost:3000", "http://localhost:3001"],
+                "origins": ["http://localhost:3003", "http://localhost:3001"],
                 "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
                 "headers": ["Content-Type", "Authorization", "X-User-ID"],
                 "exposed_headers": ["X-Request-ID"],

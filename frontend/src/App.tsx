@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import Header from './components/Header';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -21,6 +22,7 @@ import AdminDashboard from './pages/admin/Dashboard';
 import CMS from './pages/admin/CMS';
 import AdminPrograms from './pages/admin/Programs';
 import AdminJobs from './pages/admin/Jobs';
+import ProgramPermissionManager from './pages/admin/ProgramPermissionManager';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PriceProvider } from './context/PriceContext';
 import AdminMenuDebugger from './components/AdminMenuDebugger';
@@ -1136,6 +1138,14 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/admin/program-permissions"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <ProgramPermissionManager />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route
                 path="/promotion-manager"
@@ -1185,4 +1195,11 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+// ErrorBoundary로 전체 앱 래핑
+const AppWithErrorBoundary = () => (
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);
+
+export default AppWithErrorBoundary;

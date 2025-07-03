@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT 토큰 디버거</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .section h2 {
+            color: #555;
+            margin-top: 0;
+        }
+
+        .token-input {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .token-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .info-card {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .info-card h3 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+
+        .info-card .value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #212529;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔍 JWT 토큰 디버거</h1>
+
+        <div class="section">
+            <h2>1. 토큰 입력</h2>
+            <textarea id="tokenInput" class="token-input" placeholder="JWT 토큰을 여기에 붙여넣으세요..."></textarea>
+            <button class="btn" onclick="analyzeToken()">토큰 분석</button>
+            <button class="btn btn-danger" onclick="clearToken()">지우기</button>
+            <button class="btn" onclick="loadFromLocalStorage()">localStorage에서 로드</button>
+        </div>
+
+        <div class="section">
+            <h2>2. 토큰 정보</h2>
+            <div id="tokenInfo" class="token-info"></div>
+        </div>
+
+        <div class="section">
+            <h2>3. 토큰 분석 결과</h2>
+            <div id="analysisResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>4. localStorage 상태</h2>
+            <button class="btn" onclick="checkLocalStorage()">localStorage 확인</button>
+            <button class="btn btn-danger" onclick="clearLocalStorage()">localStorage 지우기</button>
+            <div id="localStorageResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        function analyzeToken() {
+            const token = document.getElementById('tokenInput').value.trim();
+            const resultDiv = document.getElementById('analysisResult');
+            const infoDiv = document.getElementById('tokenInfo');
+
+            if (!token) {
+                resultDiv.innerHTML = '❌ 토큰을 입력해주세요.';
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            let analysis = '🔍 JWT 토큰 분석 결과\n';
+            analysis += '='.repeat(50) + '\n\n';
+
+            // 기본 정보
+            analysis += `📏 토큰 길이: ${token.length} 문자\n`;
+            analysis += `🔗 토큰 시작: ${token.substring(0, 50)}...\n\n`;
+
+            // 세그먼트 분석
+            const parts = token.split('.');
+            analysis += `📦 세그먼트 수: ${parts.length}\n`;
+
+            if (parts.length !== 3) {
+                analysis += '❌ 잘못된 JWT 형식: 3개 세그먼트가 필요합니다.\n';
+                analysis += '   올바른 형식: header.payload.signature\n';
+                resultDiv.innerHTML = analysis;
+                resultDiv.className = 'result error';
+                return;
+            }
+
+            analysis += `   - Header: ${parts[0].length} 문자\n`;
+            analysis += `   - Payload: ${parts[1].length} 문자\n`;
+            analysis += `   - Signature: ${parts[2].length} 문자\n\n`;
+
+            // 토큰 정보 카드 업데이트
+            infoDiv.innerHTML = `
+                <div class="info-card">
+                    <h3>토큰 길이</h3>
+                    <div class="value">${token.length}</div>
+                </div>
+                <div class="info-card">
+                    <h3>세그먼트 수</h3>
+                    <div class="value">${parts.length}</div>
+                </div>
+                <div class="info-card">
+                    <h3>Header 길이</h3>
+                    <div class="value">${parts[0].length}</div>
+                </div>
+                <div class="info-card">
+                    <h3>Payload 길이</h3>
+                    <div class="value">${parts[1].length}</div>
+                </div>
+                <div class="info-card">
+                    <h3>Signature 길이</h3>
+                    <div class="value">${parts[2].length}</div>
+                </div>
+            `;
+
+            // Header 디코드
+            try {
+                const headerJson = atob(parts[0] + '==');
+                const header = JSON.parse(headerJson);
+                analysis += '📋 Header:\n';
+                analysis += JSON.stringify(header, null, 2) + '\n\n';
+            } catch (e) {
+                analysis += '❌ Header 디코드 실패: ' + e.message + '\n\n';
+            }
+
+            // Payload 디코드
+            try {
+                const payloadJson = atob(parts[1] + '==');
+                const payload = JSON.parse(payloadJson);
+
+                // 만료 시간 변환
+                if (payload.exp) {
+                    const expDate = new Date(payload.exp * 1000);
+                    payload.exp_readable = expDate.toLocaleString();
+                    payload.is_expired = Date.now() > payload.exp * 1000;
+                }
+
+                if (payload.iat) {
+                    const iatDate = new Date(payload.iat * 1000);
+                    payload.iat_readable = iatDate.toLocaleString();
+                }
+
+                analysis += '📄 Payload:\n';
+                analysis += JSON.stringify(payload, null, 2) + '\n\n';
+
+                // 만료 상태 확인
+                if (payload.exp) {
+                    if (payload.is_expired) {
+                        analysis += '⚠️ 토큰이 만료되었습니다!\n';
+                        analysis += `   만료 시간: ${payload.exp_readable}\n`;
+                    } else {
+                        analysis += '✅ 토큰이 유효합니다.\n';
+                        analysis += `   만료 시간: ${payload.exp_readable}\n`;
+                    }
+                }
+
+            } catch (e) {
+                analysis += '❌ Payload 디코드 실패: ' + e.message + '\n\n';
+            }
+
+            // Signature 확인
+            analysis += `🔐 Signature: ${parts[2].substring(0, 20)}... (길이: ${parts[2].length})\n`;
+
+            resultDiv.innerHTML = analysis;
+            resultDiv.className = 'result success';
+        }
+
+        function clearToken() {
+            document.getElementById('tokenInput').value = '';
+            document.getElementById('analysisResult').innerHTML = '';
+            document.getElementById('tokenInfo').innerHTML = '';
+        }
+
+        function loadFromLocalStorage() {
+            const userData = localStorage.getItem('USER_DATA');
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    if (user.token) {
+                        document.getElementById('tokenInput').value = user.token;
+                        analyzeToken();
+                    } else {
+                        alert('localStorage에 토큰이 없습니다.');
+                    }
+                } catch (e) {
+                    alert('localStorage 데이터 파싱 실패: ' + e.message);
+                }
+            } else {
+                alert('localStorage에 USER_DATA가 없습니다.');
+            }
+        }
+
+        function checkLocalStorage() {
+            const resultDiv = document.getElementById('localStorageResult');
+            let result = '📦 localStorage 상태 확인\n';
+            result += '='.repeat(40) + '\n\n';
+
+            const keys = Object.keys(localStorage);
+            if (keys.length === 0) {
+                result += 'localStorage가 비어있습니다.\n';
+            } else {
+                result += `총 ${keys.length}개의 항목이 있습니다:\n\n`;
+
+                keys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    result += `🔑 ${key}:\n`;
+
+                    if (key.includes('token') || key.includes('auth') || key.includes('user')) {
+                        try {
+                            const parsed = JSON.parse(value);
+                            result += `   타입: JSON 객체\n`;
+                            result += `   내용: ${JSON.stringify(parsed, null, 2)}\n`;
+                        } catch {
+                            result += `   타입: 문자열\n`;
+                            result += `   내용: ${value.substring(0, 100)}...\n`;
+                        }
+                    } else {
+                        result += `   타입: 문자열\n`;
+                        result += `   내용: ${value.substring(0, 100)}...\n`;
+                    }
+                    result += '\n';
+                });
+            }
+
+            resultDiv.innerHTML = result;
+            resultDiv.className = 'result';
+        }
+
+        function clearLocalStorage() {
+            if (confirm('정말로 localStorage를 모두 지우시겠습니까?')) {
+                localStorage.clear();
+                alert('localStorage가 지워졌습니다.');
+                checkLocalStorage();
+            }
+        }
+
+        // 페이지 로드 시 localStorage 상태 확인
+        window.onload = function () {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+
+</html>
