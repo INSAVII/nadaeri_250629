@@ -4,6 +4,40 @@ import { useNavigate } from 'react-router-dom';
 import { User, CMSUser, ensureUserDefaults } from '../../types/user';
 import { getApiUrl } from '../../config/constants';
 
+// 🆕 엑셀 다운로드 유틸리티 함수
+const downloadExcel = (data: any[], filename: string) => {
+    // CSV 형식으로 데이터 변환
+    const headers = Object.keys(data[0] || {});
+    const csvContent = [
+        headers.join(','),
+        ...data.map(row =>
+            headers.map(header => {
+                const value = row[header];
+                // 값에 쉼표가 있으면 따옴표로 감싸기
+                if (typeof value === 'string' && value.includes(',')) {
+                    return `"${value}"`;
+                }
+                return value;
+            }).join(',')
+        )
+    ].join('\n');
+
+    // BOM 추가 (한글 깨짐 방지)
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+    // 다운로드 링크 생성
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${filename}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
 type CMSStats = {
     totalUsers: number;
     activeUsers: number;
@@ -18,9 +52,11 @@ type APIUser = {
     id: string;
     username?: string;
     email: string;
+    phone?: string;  // 전화번호 추가
     role: string;
     is_active: boolean;
     created_at: string;
+    balance?: number;  // 예치금 정보 추가
     program_permissions_free?: boolean;
     program_permissions_month1?: boolean;
     program_permissions_month3?: boolean;
@@ -61,11 +97,11 @@ const fetchUsersBasic = async (token: string, page: number = 1, limit: number = 
             userId: user.id,
             name: user.username || user.email,
             email: user.email,
-            phone: '',
+            phone: user.phone || '',  // API에서 받은 전화번호 사용
             role: (user.role === 'admin' ? 'admin' : 'user') as 'user' | 'admin',
             is_active: user.is_active,
             created_at: user.created_at,
-            balance: 0,
+            balance: user.balance || 0,  // API에서 받은 예치금 정보 사용
             programPermissions: {
                 free: user.program_permissions_free || false,
                 month1: user.program_permissions_month1 || false,
@@ -99,6 +135,61 @@ const updateUserStatusAPI = async (token: string, userId: string, isActive: bool
 export default function CMSPage() {
     const { user, isAuthenticated, isLoading, updateBalance, refreshUserData: refreshAuthUserData, logout } = useAuth();
     const navigate = useNavigate();
+
+    // 🆕 영구적인 캐시 방지: 페이지 로드 시마다 캐시 무효화
+    const cacheBuster = Date.now();
+    const currentUrl = window.location.href;
+
+    // URL에 캐시 무효화 파라미터가 없으면 추가
+    if (!currentUrl.includes('cache_clear=')) {
+        const separator = currentUrl.includes('?') ? '&' : '?';
+        const newUrl = `${currentUrl}${separator}cache_clear=${cacheBuster}`;
+        window.history.replaceState({}, '', newUrl);
+    }
+
+    // 🆕 메타 태그로 캐시 방지
+    const metaTags = [
+        { httpEquiv: 'Cache-Control', content: 'no-cache, no-store, must-revalidate' },
+        { httpEquiv: 'Pragma', content: 'no-cache' },
+        { httpEquiv: 'Expires', content: '0' }
+    ];
+
+    metaTags.forEach(tag => {
+        let meta = document.querySelector(`meta[http-equiv="${tag.httpEquiv}"]`);
+        if (!meta) {
+            meta = document.createElement('meta');
+            meta.setAttribute('http-equiv', tag.httpEquiv);
+            document.head.appendChild(meta);
+        }
+        meta.setAttribute('content', tag.content);
+    });
+
+    // 🆕 강화된 캐시 방지: 개발 모드에서 자동 새로고침
+    if (process.env.NODE_ENV === 'development') {
+        const lastLoadTime = sessionStorage.getItem('cms_last_load');
+        const currentTime = Date.now();
+
+        // 3분마다 자동 새로고침 (개발 중에만)
+        if (!lastLoadTime || (currentTime - parseInt(lastLoadTime)) > 3 * 60 * 1000) {
+            sessionStorage.setItem('cms_last_load', currentTime.toString());
+
+            // 캐시된 스크립트 감지
+            const scripts = document.querySelectorAll('script[src]');
+            const hasCachedScript = Array.from(scripts).some(script => {
+                const src = script.getAttribute('src');
+                return src && src.includes('parcel') && !src.includes('?');
+            });
+
+            if (hasCachedScript) {
+                console.log('🔄 캐시된 스크립트 감지, 자동 새로고침 실행');
+                window.location.reload();
+                return;
+            }
+        }
+    }
+
+    console.log('🛡️ 영구적인 캐시 방지 설정 완료');
+
     const [users, setUsers] = useState<CMSUser[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -302,24 +393,34 @@ export default function CMSPage() {
             }
 
             // 실제 API 호출
-            const updatedUser = await updateUserStatusAPI(user.token, userId, !currentStatus);
-
-            // User 타입으로 변환하여 상태 업데이트
-            const convertedUser: CMSUser = ensureUserDefaults(updatedUser) as CMSUser;
-            setUsers(prevUsers =>
-                prevUsers.map(user =>
-                    user.id === userId ? convertedUser : user
-                )
-            );
-            setStats({
-                ...stats,
-                activeUsers: updatedUser.is_active ? stats.activeUsers + 1 : stats.activeUsers - 1
+            const response = await fetch(`${getApiUrl()}/api/deposits/users/${userId}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${user.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ is_active: !currentStatus })
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`상태 변경 실패: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+
+            const result = await response.json();
+            const updatedUser = result.data;
+
+            setUsers(prevUsers =>
+                prevUsers.map(u =>
+                    u.id === userId ? { ...u, is_active: updatedUser.is_active } : u
+                )
+            );
             setSuccessMessage('사용자 상태가 변경되었습니다.');
+            setTimeout(() => setSuccessMessage(null), 2000);
         } catch (error) {
             console.error('사용자 상태 변경 실패:', error);
             setError('사용자 상태 변경 중 오류가 발생했습니다.');
+            setTimeout(() => setError(null), 3000);
         }
     };
 
@@ -576,6 +677,59 @@ export default function CMSPage() {
     };
 
     // 검색 기능
+    // 🆕 회원관리 탭 엑셀 다운로드 함수
+    const handleUsersExcelDownload = () => {
+        if (selectedUsers.length === 0) {
+            setError('다운로드할 사용자를 선택해주세요.');
+            return;
+        }
+
+        const selectedUserData = users.filter(user => selectedUsers.includes(user.id));
+        const excelData = selectedUserData.map(user => ({
+            '사용자 ID': user.id,
+            '이름': user.name,
+            '이메일': user.email,
+            '전화번호': user.phone || '-',
+            '역할': user.role === 'admin' ? '관리자' : '일반사용자',
+            '상태': user.is_active ? '활성' : '비활성',
+            '예치금': user.balance.toLocaleString() + '원',
+            '가입일': new Date(user.created_at).toLocaleDateString('ko-KR'),
+            '무료프로그램': user.programPermissions?.free ? '사용가능' : '사용불가',
+            '1개월프로그램': user.programPermissions?.month1 ? '사용가능' : '사용불가',
+            '3개월프로그램': user.programPermissions?.month3 ? '사용가능' : '사용불가'
+        }));
+
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        downloadExcel(excelData, `회원정보_${selectedUsers.length}명_${timestamp}`);
+        setSuccessMessage(`${selectedUsers.length}명의 회원정보가 다운로드되었습니다.`);
+        setTimeout(() => setSuccessMessage(null), 3000);
+    };
+
+    // 🆕 예치금관리 탭 엑셀 다운로드 함수
+    const handleDepositsExcelDownload = () => {
+        if (selectedUsers.length === 0) {
+            setError('다운로드할 사용자를 선택해주세요.');
+            return;
+        }
+
+        const selectedUserData = users.filter(user => selectedUsers.includes(user.id));
+        const excelData = selectedUserData.map(user => ({
+            '사용자 ID': user.id,
+            '이름': user.name,
+            '이메일': user.email,
+            '전화번호': user.phone || '-',
+            '현재 예치금': user.balance.toLocaleString() + '원',
+            '상태': user.is_active ? '활성' : '비활성',
+            '가입일': new Date(user.created_at).toLocaleDateString('ko-KR'),
+            '마지막 로그인': user.last_login_at ? new Date(user.last_login_at).toLocaleDateString('ko-KR') : '-'
+        }));
+
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        downloadExcel(excelData, `예치금정보_${selectedUsers.length}명_${timestamp}`);
+        setSuccessMessage(`${selectedUsers.length}명의 예치금정보가 다운로드되었습니다.`);
+        setTimeout(() => setSuccessMessage(null), 3000);
+    };
+
     const handleSearch = async () => {
         if (!user?.token) return;
 
@@ -627,12 +781,26 @@ export default function CMSPage() {
                             <h1 className="text-3xl font-bold text-gray-900">CMS 관리 시스템</h1>
                             <p className="mt-2 text-gray-600">회원 관리 및 예치금 관리</p>
                         </div>
-                        <button
-                            onClick={refreshUserData}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                        >
-                            데이터 새로고침
-                        </button>
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={refreshUserData}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                                데이터 새로고침
+                            </button>
+                            <button
+                                onClick={() => {
+                                    // 캐시 클리어 및 강제 새로고침
+                                    sessionStorage.clear();
+                                    localStorage.removeItem('cms_program_permissions');
+                                    window.location.reload();
+                                }}
+                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                title="캐시 클리어 및 강제 새로고침"
+                            >
+                                캐시 클리어
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -665,8 +833,9 @@ export default function CMSPage() {
                                     ? 'border-blue-500 text-blue-600'
                                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     }`}
+                                data-tab-id={tab.id}
                             >
-                                {tab.name}
+                                {tab.name || tab.id}
                             </button>
                         ))}
                     </nav>
@@ -802,6 +971,24 @@ export default function CMSPage() {
                                 </select>
                             </div>
 
+                            {/* 🆕 엑셀 다운로드 버튼 */}
+                            <div className="mb-4 flex justify-between items-center">
+                                <div className="text-sm text-gray-600">
+                                    선택된 사용자: {selectedUsers.length}명
+                                </div>
+                                <button
+                                    onClick={handleUsersExcelDownload}
+                                    disabled={selectedUsers.length === 0}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                                    title="선택된 회원정보를 엑셀 파일로 다운로드"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span>엑셀 다운로드</span>
+                                </button>
+                            </div>
+
                             {/* 사용자 테이블 */}
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
@@ -818,6 +1005,7 @@ export default function CMSPage() {
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">전화번호</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">예치금</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">가입일</th>
@@ -844,6 +1032,9 @@ export default function CMSPage() {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm text-gray-900">{user.email}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">{user.phone || '-'}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm text-gray-900">₩{user.balance.toLocaleString()}</div>
@@ -929,6 +1120,23 @@ export default function CMSPage() {
                                     <option value="date-desc">가입일 내림차순</option>
                                 </select>
                             </div>
+                            {/* 🆕 엑셀 다운로드 버튼 */}
+                            <div className="mb-4 flex justify-between items-center">
+                                <div className="text-sm text-gray-600">
+                                    선택된 사용자: {selectedUsers.length}명
+                                </div>
+                                <button
+                                    onClick={handleDepositsExcelDownload}
+                                    disabled={selectedUsers.length === 0}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                                    title="선택된 예치금정보를 엑셀 파일로 다운로드"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span>엑셀 다운로드</span>
+                                </button>
+                            </div>
                             <div className="overflow-x-auto mb-6">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
@@ -944,6 +1152,7 @@ export default function CMSPage() {
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">전화번호</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">예치금</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">가입일</th>
@@ -969,6 +1178,9 @@ export default function CMSPage() {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm text-gray-900">{user.email}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">{user.phone || '-'}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm text-gray-900">₩{user.balance.toLocaleString()}</div>

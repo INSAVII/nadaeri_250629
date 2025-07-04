@@ -655,9 +655,11 @@ async def get_users(
                 "id": user.id,
                 "username": user.name,  # username 대신 name 사용
                 "email": user.email,
+                "phone": user.phone or "",  # 전화번호 추가
                 "role": user.role,
                 "is_active": user.is_active,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
+                "balance": user.balance,  # 예치금 정보 추가
                 "program_permissions_free": user.program_permissions_free,
                 "program_permissions_month1": user.program_permissions_month1,
                 "program_permissions_month3": user.program_permissions_month3

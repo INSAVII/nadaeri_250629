@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMS 탭 디버깅 도구</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .button:hover {
+            background: #0056b3;
+        }
+
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔍 CMS 탭 디버깅 도구</h1>
+        <p>이 도구는 CMS 페이지의 탭 상태를 확인하고 문제를 진단합니다.</p>
+
+        <div id="status"></div>
+        <div id="log" class="log"></div>
+
+        <div style="margin: 20px 0;">
+            <button class="button" onclick="checkCMSTabs()">
+                🔍 CMS 탭 상태 확인
+            </button>
+            <button class="button" onclick="forceRefresh()">
+                🔄 강제 새로고침
+            </button>
+            <button class="button" onclick="clearLog()">
+                📝 로그 지우기
+            </button>
+            <button class="button" onclick="navigateToCMS()">
+                📋 CMS 페이지로 이동
+            </button>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <h3>진단 항목:</h3>
+            <ul>
+                <li>CMS 페이지 로드 상태</li>
+                <li>탭 네비게이션 요소 존재 여부</li>
+                <li>예치금 관리 탭 버튼 확인</li>
+                <li>JavaScript 오류 확인</li>
+                <li>캐시 상태 확인</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const logElement = document.getElementById('log');
+        const statusElement = document.getElementById('status');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function showStatus(message, type = 'success') {
+            statusElement.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function clearLog() {
+            logElement.innerHTML = '';
+        }
+
+        function checkCMSTabs() {
+            try {
+                log('🔍 CMS 탭 상태 확인 시작...');
+                showStatus('CMS 탭 상태 확인 중...', 'warning');
+
+                // 1. 현재 페이지 확인
+                log(`현재 URL: ${window.location.href}`);
+                log(`현재 경로: ${window.location.pathname}`);
+
+                // 2. CMS 페이지인지 확인
+                if (window.location.pathname.includes('/admin/cms')) {
+                    log('✅ CMS 페이지에 있습니다.');
+                } else {
+                    log('⚠️ CMS 페이지가 아닙니다. CMS 페이지로 이동하세요.');
+                    showStatus('CMS 페이지로 이동하세요.', 'warning');
+                    return;
+                }
+
+                // 3. 탭 네비게이션 요소 확인
+                const tabNavigation = document.querySelector('nav.flex.space-x-8');
+                if (tabNavigation) {
+                    log('✅ 탭 네비게이션 요소를 찾았습니다.');
+
+                    // 4. 모든 탭 버튼 확인
+                    const tabButtons = tabNavigation.querySelectorAll('button');
+                    log(`탭 버튼 개수: ${tabButtons.length}`);
+
+                    tabButtons.forEach((button, index) => {
+                        const buttonText = button.textContent?.trim();
+                        log(`탭 ${index + 1}: "${buttonText}"`);
+
+                        if (buttonText === '예치금 관리') {
+                            log('✅ 예치금 관리 탭을 찾았습니다!');
+                        }
+                    });
+
+                    // 5. 예치금 관리 탭 특별 확인
+                    const depositsTab = Array.from(tabButtons).find(btn =>
+                        btn.textContent?.trim() === '예치금 관리'
+                    );
+
+                    if (depositsTab) {
+                        log('✅ 예치금 관리 탭이 정상적으로 존재합니다.');
+                        showStatus('✅ 예치금 관리 탭이 정상적으로 존재합니다.', 'success');
+                    } else {
+                        log('❌ 예치금 관리 탭을 찾을 수 없습니다.');
+                        showStatus('❌ 예치금 관리 탭을 찾을 수 없습니다.', 'error');
+                    }
+
+                } else {
+                    log('❌ 탭 네비게이션 요소를 찾을 수 없습니다.');
+                    showStatus('❌ 탭 네비게이션 요소를 찾을 수 없습니다.', 'error');
+                }
+
+                // 6. JavaScript 오류 확인
+                log('🔍 JavaScript 오류 확인 중...');
+                const errors = window.performance.getEntriesByType('resource')
+                    .filter(entry => entry.name.includes('.js') && entry.duration > 5000);
+
+                if (errors.length > 0) {
+                    log(`⚠️ 느린 JavaScript 파일 발견: ${errors.length}개`);
+                    errors.forEach(error => {
+                        log(`  - ${error.name} (${error.duration.toFixed(0)}ms)`);
+                    });
+                } else {
+                    log('✅ JavaScript 파일 로딩 상태 정상');
+                }
+
+                // 7. 캐시 상태 확인
+                log('🔍 캐시 상태 확인 중...');
+                const cacheKeys = Object.keys(localStorage);
+                const cmsRelatedKeys = cacheKeys.filter(key =>
+                    key.includes('cms') || key.includes('CMS') || key.includes('program')
+                );
+
+                if (cmsRelatedKeys.length > 0) {
+                    log(`CMS 관련 캐시 키 발견: ${cmsRelatedKeys.length}개`);
+                    cmsRelatedKeys.forEach(key => {
+                        log(`  - ${key}`);
+                    });
+                } else {
+                    log('✅ CMS 관련 캐시 키 없음');
+                }
+
+            } catch (error) {
+                log(`❌ 오류 발생: ${error.message}`, 'error');
+                showStatus(`❌ 오류가 발생했습니다: ${error.message}`, 'error');
+            }
+        }
+
+        function forceRefresh() {
+            log('🔄 강제 새로고침 실행...');
+            showStatus('강제 새로고침 중...', 'warning');
+
+            // 캐시 무시하고 새로고침
+            window.location.reload(true);
+        }
+
+        function navigateToCMS() {
+            log('📋 CMS 페이지로 이동...');
+            window.location.href = '/admin/cms';
+        }
+
+        // 페이지 로드 시 자동으로 상태 확인
+        window.addEventListener('load', () => {
+            log('페이지 로드 완료');
+            if (window.location.pathname.includes('/admin/cms')) {
+                setTimeout(() => {
+                    checkCMSTabs();
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+
+</html>

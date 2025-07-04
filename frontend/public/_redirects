@@ -1,1 +1,13 @@
 /*    /index.html   200 
+# 캐시 방지 설정
+/*
+  Cache-Control: no-cache, no-store, must-revalidate, max-age=0
+  Pragma: no-cache
+  Expires: 0
+  Surrogate-Control: no-store
+
+# CMS 페이지 특별 캐시 방지
+/admin/cms
+  Cache-Control: no-cache, no-store, must-revalidate, max-age=0
+  Pragma: no-cache
+  Expires: 0
