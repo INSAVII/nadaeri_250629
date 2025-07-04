@@ -17,6 +17,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database import Base, engine
 from models import User, Transaction, Program, UserProgram, ServiceUsage, Board
+from models.program import ProgramFile
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -392,53 +393,68 @@ def migrate_program_permissions():
     finally:
         db.close()
 
-def run_migration():
-    """전체 마이그레이션 실행"""
-    logger.info("🚀 데이터베이스 마이그레이션 시작")
-    
-    # 1. 데이터베이스 연결 확인
-    if not check_database_connection():
-        return False
-    
-    # 2. 기존 데이터 백업
-    if not backup_existing_data():
-        logger.warning("⚠️ 백업 실패했지만 계속 진행합니다")
-    
-    # 3. 새로운 스키마로 테이블 생성
-    if not create_tables():
-        return False
-    
-    # 4. 데이터 마이그레이션
-    migration_steps = [
-        ("사용자 데이터", migrate_user_data),
-        ("거래 데이터", migrate_transaction_data),
-        ("프로그램 데이터", migrate_program_data),
-        ("사용자 프로그램 데이터", migrate_user_program_data),
-    ]
-    
-    for step_name, step_func in migration_steps:
-        logger.info(f"🔄 {step_name} 마이그레이션 중...")
-        if not step_func():
-            logger.warning(f"⚠️ {step_name} 마이그레이션 실패했지만 계속 진행합니다")
-    
-    # 5. 초기 데이터 생성
-    if not create_initial_data():
-        logger.warning("⚠️ 초기 데이터 생성 실패했지만 계속 진행합니다")
-    
-    # 6. 백업 테이블 정리 (선택사항)
-    cleanup_backup_tables()
-    
-    # 7. 프로그램 권한 마이그레이션
-    migrate_program_permissions()
-    
-    logger.info("🎉 데이터베이스 마이그레이션 완료!")
-    return True
+def create_program_files_table():
+    """프로그램 파일 테이블을 생성합니다."""
+    try:
+        logger.info("프로그램 파일 테이블 생성 시작...")
+        
+        # ProgramFile 테이블 생성
+        ProgramFile.__table__.create(bind=engine, checkfirst=True)
+        
+        logger.info("✅ 프로그램 파일 테이블 생성 완료")
+        
+    except Exception as e:
+        logger.error(f"❌ 프로그램 파일 테이블 생성 실패: {e}")
+        raise
+
+def run_migrations():
+    """모든 마이그레이션을 실행합니다."""
+    try:
+        logger.info("=== 데이터베이스 마이그레이션 시작 ===")
+        
+        # 프로그램 파일 테이블 생성
+        create_program_files_table()
+        
+        # 1. 데이터베이스 연결 확인
+        if not check_database_connection():
+            return False
+        
+        # 2. 기존 데이터 백업
+        if not backup_existing_data():
+            logger.warning("⚠️ 백업 실패했지만 계속 진행합니다")
+        
+        # 3. 새로운 스키마로 테이블 생성
+        if not create_tables():
+            return False
+        
+        # 4. 데이터 마이그레이션
+        migration_steps = [
+            ("사용자 데이터", migrate_user_data),
+            ("거래 데이터", migrate_transaction_data),
+            ("프로그램 데이터", migrate_program_data),
+            ("사용자 프로그램 데이터", migrate_user_program_data),
+        ]
+        
+        for step_name, step_func in migration_steps:
+            logger.info(f"🔄 {step_name} 마이그레이션 중...")
+            if not step_func():
+                logger.warning(f"⚠️ {step_name} 마이그레이션 실패했지만 계속 진행합니다")
+        
+        # 5. 초기 데이터 생성
+        if not create_initial_data():
+            logger.warning("⚠️ 초기 데이터 생성 실패했지만 계속 진행합니다")
+        
+        # 6. 백업 테이블 정리 (선택사항)
+        cleanup_backup_tables()
+        
+        # 7. 프로그램 권한 마이그레이션
+        migrate_program_permissions()
+        
+        logger.info("=== 모든 마이그레이션 완료 ===")
+        
+    except Exception as e:
+        logger.error(f"마이그레이션 실패: {e}")
+        raise
 
 if __name__ == "__main__":
-    success = run_migration()
-    if success:
-        print("\n✅ 마이그레이션이 성공적으로 완료되었습니다!")
-        print("기본 관리자 계정: admin / admin123!")
-    else:
-        print("\n❌ 마이그레이션 중 오류가 발생했습니다.")
-        sys.exit(1) 
+    run_migrations() 

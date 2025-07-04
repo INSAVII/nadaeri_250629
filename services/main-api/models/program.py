@@ -1,9 +1,11 @@
-from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, Text, BigInteger
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 import json
+import uuid
 
 from database import Base
 
@@ -89,3 +91,17 @@ class ProgramUserResponse(ProgramResponse):
     
     class Config:
         from_attributes = True
+
+class ProgramFile(Base):
+    __tablename__ = "program_files"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)  # 프로그램 표시명 (예: "큐캡쳐 무료")
+    filename = Column(String, nullable=False)  # 실제 파일명
+    file_path = Column(String, nullable=False)  # 서버에 저장된 파일 경로
+    file_size = Column(BigInteger)  # 파일 크기 (bytes)
+    license_type = Column(String, nullable=False)  # 라이센스 타입 (free, month1, month3)
+    is_active = Column(Boolean, default=True)  # 활성화 상태
+    upload_date = Column(DateTime(timezone=True), server_default=func.now())  # 업로드 날짜
+    file_content = Column(Text)  # 파일 내용 (base64 인코딩, 작은 파일용)
+    content_type = Column(String, default="application/octet-stream")  # 파일 타입

@@ -68,6 +68,7 @@ class BulkDepositUpdateRequest(BaseModel):
 class ProgramDownloadRequest(BaseModel):
     program_id: str
     license_type: str  # free, month1, month3
+    prices: Optional[dict] = None  # 프론트엔드에서 전송하는 가격 정보
 
 # API 엔드포인트
 @router.get("/users", response_model=List[UserWithProgramsResponse])
@@ -501,27 +502,75 @@ async def download_program_with_balance_deduction(
     try:
         logger.info(f"프로그램 다운로드 요청: user_id={current_user.id}, program_id={request.program_id}, license_type={request.license_type}")
         
-        # 1. 프로그램 다운로드 권한 확인
+        # 1. 프로그램 다운로드 권한 확인 (UserProgram 테이블 대신 사용자 필드 확인)
+        logger.info(f"사용자 권한 확인: user_id={current_user.id}, programPermissions={current_user.program_permissions_free}, {current_user.program_permissions_month1}, {current_user.program_permissions_month3}")
+        
+        # license_type에 따른 권한 확인
+        has_permission = False
+        if request.license_type == 'free':
+            has_permission = current_user.program_permissions_free or False
+        elif request.license_type == 'month1':
+            has_permission = current_user.program_permissions_month1 or False
+        elif request.license_type == 'month3':
+            has_permission = current_user.program_permissions_month3 or False
+        
+        if not has_permission:
+            logger.warning(f"다운로드 권한 없음: user_id={current_user.id}, program_id={request.program_id}, license_type={request.license_type}, has_permission={has_permission}")
+            raise HTTPException(status_code=403, detail="프로그램 다운로드 권한이 없습니다")
+        
+        logger.info(f"다운로드 권한 확인됨: user_id={current_user.id}, program_id={request.program_id}, license_type={request.license_type}")
+        
+        # 2. 프로그램 정보 확인 (실제 데이터베이스 조회)
+        program = None
+        
+        # license_type에 따른 프로그램 ID 결정 (실제 데이터베이스 ID 사용)
+        if request.program_id == 'qcapture':
+            if request.license_type == 'free':
+                program_id = 'free'  # 실제 데이터베이스 ID
+            elif request.license_type == 'month1':
+                program_id = 'month1'  # 실제 데이터베이스 ID
+            elif request.license_type == 'month3':
+                program_id = 'month3'  # 실제 데이터베이스 ID
+            else:
+                raise HTTPException(status_code=400, detail="유효하지 않은 라이센스 타입입니다")
+        else:
+            program_id = request.program_id
+        
+        # 데이터베이스에서 프로그램 조회
+        program = db.query(Program).filter(Program.id == program_id).first()
+        if not program:
+            logger.error(f"프로그램을 찾을 수 없음: program_id={program_id}, license_type={request.license_type}")
+            raise HTTPException(status_code=404, detail=f"프로그램을 찾을 수 없습니다 (ID: {program_id})")
+        
+        logger.info(f"프로그램 조회 성공: program_id={program_id}, name={program.name}")
+        
+        # 3. 다운로드 횟수 제한 확인 (새로 추가)
         user_program = db.query(UserProgram).filter(
             UserProgram.user_id == current_user.id,
             UserProgram.program_id == request.program_id
         ).first()
         
-        if not user_program or not user_program.is_allowed:
-            logger.warning(f"다운로드 권한 없음: user_id={current_user.id}, program_id={request.program_id}")
-            raise HTTPException(status_code=403, detail="프로그램 다운로드 권한이 없습니다")
+        # 다운로드 횟수 제한 설정 (개발용으로 늘림)
+        MAX_DOWNLOADS = 100  # 최대 100회 다운로드 허용 (개발용)
         
-        # 2. 프로그램 정보 확인
-        program = db.query(Program).filter(Program.id == request.program_id).first()
-        if not program:
-            raise HTTPException(status_code=404, detail="프로그램을 찾을 수 없습니다")
+        if user_program and user_program.download_count >= MAX_DOWNLOADS:
+            logger.warning(f"다운로드 횟수 초과: user_id={current_user.id}, program_id={request.program_id}, current_count={user_program.download_count}, max_allowed={MAX_DOWNLOADS}")
+            raise HTTPException(status_code=429, detail=f"다운로드 횟수 제한에 도달했습니다. 최대 {MAX_DOWNLOADS}회까지 다운로드 가능합니다.")
         
-        # 3. 예치금 차감 (무료 프로그램은 차감하지 않음)
+        # 4. 예치금 차감 (무료 프로그램은 차감하지 않음)
         amount_to_deduct = 0
         if request.license_type == 'month1':
-            amount_to_deduct = 10000  # 1개월: 10,000원
+            # 프론트엔드에서 전송한 가격 사용
+            if request.prices and 'month1' in request.prices:
+                amount_to_deduct = request.prices['month1']
+            else:
+                amount_to_deduct = 5000  # 기본값
         elif request.license_type == 'month3':
-            amount_to_deduct = 25000  # 3개월: 25,000원
+            # 프론트엔드에서 전송한 가격 사용
+            if request.prices and 'month3' in request.prices:
+                amount_to_deduct = request.prices['month3']
+            else:
+                amount_to_deduct = 12000  # 기본값
         elif request.license_type == 'free':
             amount_to_deduct = 0  # 무료: 차감 없음
         
@@ -545,16 +594,29 @@ async def download_program_with_balance_deduction(
             
             logger.info(f"예치금 차감 완료: user_id={current_user.id}, amount={amount_to_deduct}, balance={old_balance}->{current_user.balance}")
         
-        # 4. 다운로드 횟수 증가
-        user_program.download_count += 1
-        user_program.last_downloaded = datetime.utcnow()
+        # 5. 다운로드 횟수 증가 및 사용자 프로그램 기록 업데이트
+        if program:
+            program.download_count += 1
         
-        # 5. 프로그램 다운로드 횟수 증가
-        program.download_count += 1
+        # UserProgram 테이블 업데이트 (다운로드 횟수 추적)
+        if user_program:
+            user_program.download_count += 1
+            user_program.last_downloaded = datetime.now()
+        else:
+            # 새로운 사용자 프로그램 기록 생성
+            user_program = UserProgram(
+                id=str(uuid.uuid4()),
+                user_id=current_user.id,
+                program_id=request.program_id,
+                is_allowed=True,
+                download_count=1,
+                last_downloaded=datetime.now()
+            )
+            db.add(user_program)
         
         db.commit()
         
-        logger.info(f"프로그램 다운로드 성공: user_id={current_user.id}, program_id={request.program_id}, license_type={request.license_type}")
+        logger.info(f"프로그램 다운로드 성공: user_id={current_user.id}, program_id={request.program_id}, license_type={request.license_type}, download_count={user_program.download_count if user_program else 1}")
         
         return StandardResponse(
             success=True,
@@ -565,7 +627,9 @@ async def download_program_with_balance_deduction(
                 "license_type": request.license_type,
                 "amount_deducted": amount_to_deduct,
                 "remaining_balance": current_user.balance,
-                "download_count": user_program.download_count,
+                "download_count": user_program.download_count if user_program else 1,
+                "max_downloads": MAX_DOWNLOADS,
+                "downloads_remaining": MAX_DOWNLOADS - (user_program.download_count if user_program else 1),
                 "download_url": f"/downloads/{request.program_id}/{request.license_type}/"
             }
         )

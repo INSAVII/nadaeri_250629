@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ServiceIcon, TextButton } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
+import { usePrice } from '../context/PriceContext';
 import { STORAGE_KEYS, getApiUrl } from '../config/constants';
 
 // 기존 programService 타입 정의
@@ -36,6 +37,7 @@ interface ProgramSubscription {
 // 최종 수정: 2025. 6. 19. 오전 8:20:00
 const QCapture: React.FC = () => {
   const { isAuthenticated, user, refreshUserData } = useAuth();
+  const { qcaptureMonth1Price, setQcaptureMonth1Price, qcaptureMonth3Price, setQcaptureMonth3Price } = usePrice();
 
   // 프로그램 다운로드 목록 관리 (큐캡쳐 무료, 1개월, 3개월)
   const [publicPrograms, setPublicPrograms] = useState<ProgramFile[]>([]);
@@ -46,67 +48,153 @@ const QCapture: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
 
+  // 가격 설정 관련 상태
+  const [isEditingMonth1, setIsEditingMonth1] = useState(false);
+  const [isEditingMonth3, setIsEditingMonth3] = useState(false);
+  const [tempMonth1Price, setTempMonth1Price] = useState(qcaptureMonth1Price);
+  const [tempMonth3Price, setTempMonth3Price] = useState(qcaptureMonth3Price);
+
   // 무한루프 방지를 위한 ref들 (단순화)
   const eventListenersRegisteredRef = useRef(false);
 
-  // ✅ 단순화된 권한 확인 = 다운로드 버튼 활성화/비활성화만
+  // ✅ 강화된 권한 확인 = 사용자 정보와 권한 상태 모두 확인
   const permissionStates = useMemo(() => {
-    if (!user?.programPermissions) {
+    console.log('🔍 QCapture - 권한 상태 확인:', {
+      user: user?.userId,
+      hasUser: !!user,
+      hasPermissions: !!user?.programPermissions,
+      permissions: user?.programPermissions
+    });
+
+    if (!user || !user.programPermissions) {
+      console.log('❌ QCapture - 사용자 또는 권한 정보 없음');
       return { free: false, month1: false, month3: false };
     }
 
-    return {
+    const states = {
       free: user.programPermissions.free || false,
       month1: user.programPermissions.month1 || false,
       month3: user.programPermissions.month3 || false
     };
-  }, [user?.programPermissions]);
+
+    console.log('✅ QCapture - 권한 상태 계산 완료:', states);
+    return states;
+  }, [user, user?.programPermissions]);
 
   // 내장 서비스 함수들 - programService 대체
   const getPublicPrograms = async (type: string): Promise<ProgramFile[]> => {
-    // localStorage에서 활성화된 프로그램 가져오기
-    const activeProgramsJson = localStorage.getItem('ACTIVE_PROGRAMS');
-    const activePrograms = activeProgramsJson ? JSON.parse(activeProgramsJson) : {};
+    try {
+      // 🆕 백엔드 API에서 프로그램 정보 가져오기
+      const response = await fetch(`${getApiUrl()}/api/programs/programs`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user?.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    // 실제 업로드된 파일 정보 사용
-    return [
-      {
-        id: '1',
-        name: '큐캡쳐 무료',
-        version: '1.0',
-        type: 'qcapture',
-        url: activePrograms.qcapture_free ? `/downloads/qcapture/free/${activePrograms.qcapture_free.filename}` : '/downloads/qcapture/free/qcapture_free_v1.0.exe',
-        isActive: !!activePrograms.qcapture_free,
-        isPublished: !!activePrograms.qcapture_free,
-        license_type: 'free',
-        filename: activePrograms.qcapture_free?.filename || 'qcapture_free_v1.0.exe',
-        fileSize: activePrograms.qcapture_free?.fileSize
-      },
-      {
-        id: '2',
-        name: '큐캡쳐 1개월',
-        version: '2.1',
-        type: 'qcapture',
-        url: activePrograms.qcapture_1month ? `/downloads/qcapture/month1/${activePrograms.qcapture_1month.filename}` : '/downloads/qcapture/month1/qcapture_1month_v2.1.exe',
-        isActive: !!activePrograms.qcapture_1month,
-        isPublished: !!activePrograms.qcapture_1month,
-        license_type: '1month',
-        filename: activePrograms.qcapture_1month?.filename || 'qcapture_1month_v2.1.exe',
-        fileSize: activePrograms.qcapture_1month?.fileSize
-      },
-      {
-        id: '3',
-        name: '큐캡쳐 3개월',
-        version: '3.0',
-        type: 'qcapture',
-        url: activePrograms.qcapture_3month ? `/downloads/qcapture/month3/${activePrograms.qcapture_3month.filename}` : '/downloads/qcapture/month3/qcapture_3month_v3.0.exe',
-        isActive: !!activePrograms.qcapture_3month,
-        isPublished: !!activePrograms.qcapture_3month,
-        license_type: '3month',
-        filename: activePrograms.qcapture_3month?.filename || 'qcapture_3month_v3.0.exe',
-        fileSize: activePrograms.qcapture_3month?.fileSize
+      if (response.ok) {
+        const programs = await response.json();
+        console.log('백엔드에서 가져온 프로그램 목록:', programs);
+
+        // 백엔드 응답을 ProgramFile 형식으로 변환
+        return programs.map((program: any) => ({
+          id: program.id,
+          name: program.name,
+          version: '1.0', // 기본값
+          type: 'qcapture',
+          url: `/api/programs/user/download-file/${program.license_type === 'qcapture_free' ? 'free' : program.license_type === 'qcapture_month1' ? 'month1' : 'month3'}`,
+          isActive: program.is_active,
+          isPublished: program.is_active,
+          license_type: program.license_type === 'qcapture_free' ? 'free' :
+            program.license_type === 'qcapture_month1' ? '1month' : '3month',
+          filename: program.filename,
+          fileSize: program.file_size
+        }));
+      } else {
+        console.error('프로그램 목록 가져오기 실패:', response.status);
+        // 실패 시 기본값 반환
+        return [
+          {
+            id: '1',
+            name: '큐캡쳐 무료',
+            version: '1.0',
+            type: 'qcapture',
+            url: '/downloads/qcapture/free/qcapture_free_v1.0.exe',
+            isActive: false,
+            isPublished: false,
+            license_type: 'free',
+            filename: 'qcapture_free_v1.0.exe',
+            fileSize: 0
+          },
+          {
+            id: '2',
+            name: '큐캡쳐 1개월',
+            version: '2.1',
+            type: 'qcapture',
+            url: '/downloads/qcapture/month1/qcapture_1month_v2.1.exe',
+            isActive: false,
+            isPublished: false,
+            license_type: '1month',
+            filename: 'qcapture_1month_v2.1.exe',
+            fileSize: 0
+          },
+          {
+            id: '3',
+            name: '큐캡쳐 3개월',
+            version: '3.0',
+            type: 'qcapture',
+            url: '/downloads/qcapture/month3/qcapture_3month_v3.0.exe',
+            isActive: false,
+            isPublished: false,
+            license_type: '3month',
+            filename: 'qcapture_3month_v3.0.exe',
+            fileSize: 0
+          }
+        ];
       }
-    ];
+    } catch (error) {
+      console.error('프로그램 목록 가져오기 오류:', error);
+      // 오류 시 기본값 반환
+      return [
+        {
+          id: '1',
+          name: '큐캡쳐 무료',
+          version: '1.0',
+          type: 'qcapture',
+          url: '/downloads/qcapture/free/qcapture_free_v1.0.exe',
+          isActive: false,
+          isPublished: false,
+          license_type: 'free',
+          filename: 'qcapture_free_v1.0.exe',
+          fileSize: 0
+        },
+        {
+          id: '2',
+          name: '큐캡쳐 1개월',
+          version: '2.1',
+          type: 'qcapture',
+          url: '/downloads/qcapture/month1/qcapture_1month_v2.1.exe',
+          isActive: false,
+          isPublished: false,
+          license_type: '1month',
+          filename: 'qcapture_1month_v2.1.exe',
+          fileSize: 0
+        },
+        {
+          id: '3',
+          name: '큐캡쳐 3개월',
+          version: '3.0',
+          type: 'qcapture',
+          url: '/downloads/qcapture/month3/qcapture_3month_v3.0.exe',
+          isActive: false,
+          isPublished: false,
+          license_type: '3month',
+          filename: 'qcapture_3month_v3.0.exe',
+          fileSize: 0
+        }
+      ];
+    }
   };
 
   const getUserPrograms = async (): Promise<UserProgram[]> => {
@@ -198,13 +286,11 @@ const QCapture: React.FC = () => {
         setUserPrograms([]);
       }
 
-      // 로컬 스토리지에서 활성화 프로그램 확인
-      try {
-        const activeProgramsJson = localStorage.getItem('ACTIVE_PROGRAMS');
-        const activePrograms = activeProgramsJson ? JSON.parse(activeProgramsJson) : {};
-      } catch (storageError) {
-        console.error('로컬 스토리지 접근 오류:', storageError);
-      }
+      console.log('QCapture - 프로그램 목록 로드 완료:', {
+        publicPrograms: publicQCapturePrograms.length,
+        userPrograms: userPrograms.length,
+        userPermissions: user?.programPermissions
+      });
 
     } catch (error) {
       console.error('프로그램 로드 실패:', error);
@@ -220,11 +306,6 @@ const QCapture: React.FC = () => {
       return;
     }
     eventListenersRegisteredRef.current = true;
-
-    // 프로그램 변경 이벤트
-    const handleActiveProgramsChanged = () => {
-      loadPrograms();
-    };
 
     // ✅ 개선된 이벤트 리스너 = 즉시 권한 상태 업데이트
     const handleProgramPermissionSaved = (event: CustomEvent) => {
@@ -252,14 +333,12 @@ const QCapture: React.FC = () => {
     };
 
     // 이벤트 리스너 등록
-    window.addEventListener('activeProgramsChanged', handleActiveProgramsChanged);
     window.addEventListener('programPermissionSaved', handleProgramPermissionSaved as EventListener);
 
     // 초기 상태 설정
     loadPrograms();
 
     return () => {
-      window.removeEventListener('activeProgramsChanged', handleActiveProgramsChanged);
       window.removeEventListener('programPermissionSaved', handleProgramPermissionSaved as EventListener);
       eventListenersRegisteredRef.current = false;
     };
@@ -272,8 +351,6 @@ const QCapture: React.FC = () => {
       [programId]: !prev[programId]
     }));
   };
-
-
 
   // 새로운 다운로드 처리 함수 (예치금 차감 포함)
   const handleDownload = async (licenseType: string, programName: string) => {
@@ -288,7 +365,7 @@ const QCapture: React.FC = () => {
       }
 
       // 로딩 상태 표시
-      setMessage(`�� ${programName} 다운로드 준비 중...`);
+      setMessage(`⏳ ${programName} 다운로드 준비 중...`);
 
       // 1. 백엔드 API 호출로 예치금 차감 및 다운로드 권한 확인
       if (!user?.token) {
@@ -303,107 +380,103 @@ const QCapture: React.FC = () => {
         },
         body: JSON.stringify({
           program_id: 'qcapture',
-          license_type: licenseType
+          license_type: licenseType,
+          prices: {
+            month1: qcaptureMonth1Price,
+            month3: qcaptureMonth3Price
+          }
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+
+        // 다운로드 횟수 제한 에러 처리
+        if (response.status === 429) {
+          setMessage(`❌ ${errorData.detail || '다운로드 횟수 제한에 도달했습니다.'}`);
+          return;
+        }
+
         throw new Error(errorData.detail || response.statusText);
       }
 
       const downloadData = await response.json();
       console.log('다운로드 API 응답:', downloadData);
 
-      // 2. 예치금 차감 정보 표시
+      // 2. 예치금 차감 정보 및 다운로드 횟수 정보 표시
+      let messageText = '';
       if (downloadData.data.amount_deducted > 0) {
-        setMessage(`💰 예치금 ${downloadData.data.amount_deducted.toLocaleString()}원이 차감되었습니다. (잔액: ${downloadData.data.remaining_balance.toLocaleString()}원)`);
+        messageText += `💰 예치금 ${downloadData.data.amount_deducted.toLocaleString()}원이 차감되었습니다. (잔액: ${downloadData.data.remaining_balance.toLocaleString()}원) `;
       } else {
-        setMessage(`✅ ${programName} 다운로드가 시작되었습니다! (무료 프로그램)`);
+        messageText += `✅ ${programName} 다운로드가 시작되었습니다! (무료 프로그램) `;
       }
 
-      // 3. 실제 파일 다운로드 실행 (직접 구현)
-      const activeProgramsJson = localStorage.getItem('ACTIVE_PROGRAMS');
-      const activePrograms = activeProgramsJson ? JSON.parse(activeProgramsJson) : {};
-
-      // 파일명 결정
-      let filename = 'qcapture_free_v1.0.exe';
-      if (licenseType === 'month1') filename = 'qcapture_1month_v2.1.exe';
-      if (licenseType === 'month3') filename = 'qcapture_3month_v3.0.exe';
-
-      // 업로드된 파일이 있으면 해당 파일명 사용
-      const programKey = `qcapture_${licenseType}`;
-      if (activePrograms[programKey]) {
-        filename = activePrograms[programKey].filename;
+      // 다운로드 횟수 정보 추가
+      if (downloadData.data.downloads_remaining !== undefined) {
+        messageText += `\n📊 다운로드 횟수: ${downloadData.data.download_count}/${downloadData.data.max_downloads} (남은 횟수: ${downloadData.data.downloads_remaining})`;
       }
 
-      // localStorage에서 파일 내용 찾기
-      const fileContentKey = `FILE_CONTENT_${programKey}_${filename}`;
-      let fileContent = localStorage.getItem(fileContentKey);
+      setMessage(messageText);
 
-      // 파일 내용이 없으면 다른 키 패턴으로도 시도
-      if (!fileContent) {
-        const alternativeKeys = [
-          `FILE_CONTENT_qcapture_${licenseType}_${filename}`,
-          `FILE_CONTENT_${filename}`
-        ];
-
-        for (const altKey of alternativeKeys) {
-          fileContent = localStorage.getItem(altKey);
-          if (fileContent) break;
+      // 3. 백엔드 API에서 실제 파일 다운로드
+      const downloadResponse = await fetch(`${getApiUrl()}/api/programs/user/download-program/${licenseType}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user.token}`
         }
+      });
+
+      if (!downloadResponse.ok) {
+        const errorData = await downloadResponse.json().catch(() => ({ detail: downloadResponse.statusText }));
+        throw new Error(errorData.detail || downloadResponse.statusText);
       }
 
-      if (fileContent) {
-        // 실제 파일 다운로드
-        const binaryString = atob(fileContent);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+      // 파일 정보 받기
+      const fileInfo = await downloadResponse.json();
+      console.log('파일 정보:', fileInfo);
+
+      // 🆕 실제 파일 다운로드 (새로운 엔드포인트 사용)
+      const actualDownloadResponse = await fetch(`${getApiUrl()}/api/programs/user/download-file/${licenseType}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user.token}`
         }
+      });
 
-        const blob = new Blob([bytes], { type: 'application/octet-stream' });
-        const downloadUrl = URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = filename;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // 메모리 정리
-        setTimeout(() => {
-          URL.revokeObjectURL(downloadUrl);
-        }, 1000);
-      } else {
-        // 더미 파일 생성
-        const dummyContent = `This is a dummy file for ${programName}. Please contact administrator for the actual file.`;
-        const blob = new Blob([dummyContent], { type: 'text/plain' });
-        const downloadUrl = URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = filename;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // 메모리 정리
-        setTimeout(() => {
-          URL.revokeObjectURL(downloadUrl);
-        }, 1000);
+      if (!actualDownloadResponse.ok) {
+        const errorData = await actualDownloadResponse.json().catch(() => ({ detail: actualDownloadResponse.statusText }));
+        throw new Error(errorData.detail || actualDownloadResponse.statusText);
       }
+
+      // 파일 다운로드 (실제 파일명 사용)
+      const blob = await actualDownloadResponse.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileInfo.data.filename; // 🆕 실제 업로드된 파일명 사용
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // 메모리 정리
+      setTimeout(() => {
+        URL.revokeObjectURL(downloadUrl);
+      }, 1000);
 
       // 4. 사용자 정보 새로고침 (잔액 업데이트)
       await refreshUserData?.();
 
       // 5. 성공 메시지 업데이트
       setTimeout(() => {
-        setMessage(`✅ ${programName} 다운로드가 완료되었습니다!`);
-        setTimeout(() => setMessage(''), 3000);
+        const successMessage = `✅ ${programName} 다운로드가 완료되었습니다!`;
+        if (downloadData.data.downloads_remaining !== undefined) {
+          setMessage(`${successMessage}\n📊 남은 다운로드 횟수: ${downloadData.data.downloads_remaining}회`);
+        } else {
+          setMessage(successMessage);
+        }
+        setTimeout(() => setMessage(''), 5000);
       }, 2000);
 
     } catch (error) {
@@ -416,6 +489,8 @@ const QCapture: React.FC = () => {
         } else if (error.message.includes('권한이 없습니다')) {
           setMessage(`❌ ${programName} 사용 권한이 없습니다. 관리자에게 문의하세요.`);
         } else if (error.message.includes('예치금이 부족합니다')) {
+          setMessage(`❌ ${error.message}`);
+        } else if (error.message.includes('다운로드 횟수 제한')) {
           setMessage(`❌ ${error.message}`);
         } else {
           setMessage(`❌ 다운로드 중 오류가 발생했습니다: ${error.message}`);
@@ -431,7 +506,22 @@ const QCapture: React.FC = () => {
     }
   };
 
+  // 가격 설정 함수들
+  const handleMonth1PriceSave = () => {
+    setQcaptureMonth1Price(tempMonth1Price);
+    setIsEditingMonth1(false);
+  };
 
+  const handleMonth3PriceSave = () => {
+    setQcaptureMonth3Price(tempMonth3Price);
+    setIsEditingMonth3(false);
+  };
+
+  // 가격 업데이트
+  useEffect(() => {
+    setTempMonth1Price(qcaptureMonth1Price);
+    setTempMonth3Price(qcaptureMonth3Price);
+  }, [qcaptureMonth1Price, qcaptureMonth3Price]);
 
   return (
     <div className="page-container py-6">
@@ -451,14 +541,84 @@ const QCapture: React.FC = () => {
           </div>
         </div>
 
-        {/* 상태 배지 */}
-        <div className="flex items-center space-x-2 mb-4">
-          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-light rounded">
-            서비스 정상
-          </span>
-          <span className="text-xs text-gray-600 font-light">
-            이미지 문자제거는 Q문자를 사용하세요
-          </span>
+        {/* 가격 설정/표시 */}
+        <div className="mb-4">
+          {/* 서비스 상태 */}
+          <div className="flex items-center space-x-2 mb-2">
+            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-light rounded">서비스 정상</span>
+            <span className="text-xs text-gray-600 font-light">이미지 문자제거는 Q문자를 사용하세요</span>
+          </div>
+
+          {/* 가격 설정 (관리자용) */}
+          {user?.role === 'admin' && (
+            <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-2">
+              <h3 className="text-sm font-medium text-blue-800 mb-2">💰 가격 설정 (관리자 전용)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1개월 가격 설정 */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-700 font-medium">1개월 프로그램:</span>
+                  {isEditingMonth1 ? (
+                    <div className="flex items-center space-x-1">
+                      <input
+                        type="number"
+                        min={0}
+                        value={tempMonth1Price}
+                        onChange={e => setTempMonth1Price(Number(e.target.value))}
+                        className="w-20 px-2 py-1 text-sm border rounded"
+                      />
+                      <span className="text-xs text-gray-500">원</span>
+                      <button onClick={handleMonth1PriceSave} className="text-xs text-green-600 hover:text-green-800">저장</button>
+                      <button onClick={() => { setIsEditingMonth1(false); setTempMonth1Price(qcaptureMonth1Price); }} className="text-xs text-gray-500 hover:text-gray-700">취소</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-sm text-blue-600 font-medium">{qcaptureMonth1Price.toLocaleString()}원</span>
+                      <button onClick={() => setIsEditingMonth1(true)} className="text-xs text-gray-500 hover:text-gray-700" title="1개월 가격 수정">✏️</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3개월 가격 설정 */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-700 font-medium">3개월 프로그램:</span>
+                  {isEditingMonth3 ? (
+                    <div className="flex items-center space-x-1">
+                      <input
+                        type="number"
+                        min={0}
+                        value={tempMonth3Price}
+                        onChange={e => setTempMonth3Price(Number(e.target.value))}
+                        className="w-20 px-2 py-1 text-sm border rounded"
+                      />
+                      <span className="text-xs text-gray-500">원</span>
+                      <button onClick={handleMonth3PriceSave} className="text-xs text-green-600 hover:text-green-800">저장</button>
+                      <button onClick={() => { setIsEditingMonth3(false); setTempMonth3Price(qcaptureMonth3Price); }} className="text-xs text-gray-500 hover:text-gray-700">취소</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-sm text-blue-600 font-medium">{qcaptureMonth3Price.toLocaleString()}원</span>
+                      <button onClick={() => setIsEditingMonth3(true)} className="text-xs text-gray-500 hover:text-gray-700" title="3개월 가격 수정">✏️</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 가격 표시 (일반 사용자용) */}
+          {user?.role !== 'admin' && (
+            <div className="flex items-center space-x-4 text-sm text-gray-600">
+              <span>1개월: <span className="text-blue-600 font-medium">{qcaptureMonth1Price.toLocaleString()}원</span></span>
+              <span>3개월: <span className="text-blue-600 font-medium">{qcaptureMonth3Price.toLocaleString()}원</span></span>
+            </div>
+          )}
+
+          {/* 사용자 예치금 표시 */}
+          {user && (
+            <div className="mt-2 text-sm text-gray-600">
+              💰 예치금: <span className="font-medium">{user.balance?.toLocaleString() || 0}원</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -487,7 +647,7 @@ const QCapture: React.FC = () => {
             <div className="space-y-4">
               {/* 큐캡쳐 무료 */}
               <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 flex-1">
                   <input
                     type="checkbox"
                     id="qcapture_free"
@@ -495,7 +655,7 @@ const QCapture: React.FC = () => {
                     onChange={() => handleCheckboxChange('qcapture_free')}
                     className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <div>
+                  <div className="flex-1">
                     <label htmlFor="qcapture_free" className="font-medium text-gray-900">
                       큐캡쳐 무료
                     </label>
@@ -519,21 +679,23 @@ const QCapture: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <button
-                  className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${isAuthenticated && permissionStates.free && publicPrograms.find(p => p.license_type === 'free')?.isActive
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  onClick={() => handleDownload('free', '큐캡쳐 무료')}
-                  disabled={!isAuthenticated || !permissionStates.free || !publicPrograms.find(p => p.license_type === 'free')?.isActive}
-                >
-                  다운로드
-                </button>
+                <div className="w-1/2 flex justify-end">
+                  <button
+                    className={`py-2 px-4 rounded-lg font-semibold transition-colors w-full max-w-xs ${isAuthenticated && permissionStates.free && publicPrograms.find(p => p.license_type === 'free')?.isActive
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    onClick={() => handleDownload('free', '큐캡쳐 무료')}
+                    disabled={!isAuthenticated || !permissionStates.free || !publicPrograms.find(p => p.license_type === 'free')?.isActive}
+                  >
+                    다운로드
+                  </button>
+                </div>
               </div>
 
               {/* 큐캡쳐 1개월 */}
               <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 flex-1">
                   <input
                     type="checkbox"
                     id="qcapture_1month"
@@ -541,7 +703,7 @@ const QCapture: React.FC = () => {
                     onChange={() => handleCheckboxChange('qcapture_1month')}
                     className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <div>
+                  <div className="flex-1">
                     <label htmlFor="qcapture_1month" className="font-medium text-gray-900">
                       큐캡쳐 1개월
                     </label>
@@ -565,21 +727,23 @@ const QCapture: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <button
-                  className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${isAuthenticated && permissionStates.month1 && publicPrograms.find(p => p.license_type === '1month')?.isActive
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  onClick={() => handleDownload('month1', '큐캡쳐 1개월')}
-                  disabled={!isAuthenticated || !permissionStates.month1 || !publicPrograms.find(p => p.license_type === '1month')?.isActive}
-                >
-                  다운로드
-                </button>
+                <div className="w-1/2 flex justify-end">
+                  <button
+                    className={`py-2 px-4 rounded-lg font-semibold transition-colors w-full max-w-xs ${isAuthenticated && permissionStates.month1
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    onClick={() => handleDownload('month1', '큐캡쳐 1개월')}
+                    disabled={!isAuthenticated || !permissionStates.month1}
+                  >
+                    다운로드
+                  </button>
+                </div>
               </div>
 
               {/* 큐캡쳐 3개월 */}
               <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 flex-1">
                   <input
                     type="checkbox"
                     id="qcapture_3month"
@@ -587,7 +751,7 @@ const QCapture: React.FC = () => {
                     onChange={() => handleCheckboxChange('qcapture_3month')}
                     className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <div>
+                  <div className="flex-1">
                     <label htmlFor="qcapture_3month" className="font-medium text-gray-900">
                       큐캡쳐 3개월
                     </label>
@@ -611,16 +775,18 @@ const QCapture: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <button
-                  className={`w-full py-2 px-4 rounded-lg font-semibold transition-colors ${isAuthenticated && permissionStates.month3 && publicPrograms.find(p => p.license_type === '3month')?.isActive
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  onClick={() => handleDownload('month3', '큐캡쳐 3개월')}
-                  disabled={!isAuthenticated || !permissionStates.month3 || !publicPrograms.find(p => p.license_type === '3month')?.isActive}
-                >
-                  다운로드
-                </button>
+                <div className="w-1/2 flex justify-end">
+                  <button
+                    className={`py-2 px-4 rounded-lg font-semibold transition-colors w-full max-w-xs ${isAuthenticated && permissionStates.month3 && publicPrograms.find(p => p.license_type === '3month')?.isActive
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    onClick={() => handleDownload('month3', '큐캡쳐 3개월')}
+                    disabled={!isAuthenticated || !permissionStates.month3 || !publicPrograms.find(p => p.license_type === '3month')?.isActive}
+                  >
+                    다운로드
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -650,6 +816,8 @@ const QCapture: React.FC = () => {
               <li>• 각 프로그램은 약 50MB+ 크기입니다 (최대 100MB 지원).</li>
               <li>• 다운로드 후 설치하여 사용하세요.</li>
               <li>• 권한이 있는 프로그램만 다운로드 가능합니다.</li>
+              <li>• <strong>다운로드 횟수 제한: 프로그램당 최대 3회까지 다운로드 가능합니다.</strong></li>
+              <li>• <strong>✅ 실제 파일 다운로드가 활성화되었습니다. 관리자가 파일을 업로드하면 즉시 다운로드 가능합니다.</strong></li>
               <li>• 다운로드 중 브라우저를 닫지 마세요.</li>
               <li>• 대용량 파일이므로 안정적인 인터넷 연결을 권장합니다.</li>
             </ul>
@@ -661,23 +829,46 @@ const QCapture: React.FC = () => {
               <h3 className="text-sm font-medium text-gray-800 mb-2">디버깅 정보</h3>
               <button
                 onClick={() => {
-                  const activePrograms = localStorage.getItem('ACTIVE_PROGRAMS');
-                  const allKeys = Object.keys(localStorage);
-                  const fileContentKeys = allKeys.filter(key => key.startsWith('FILE_CONTENT_'));
+                  console.log('=== 프로그램 상태 디버깅 ===');
+                  console.log('isAuthenticated:', isAuthenticated);
+                  console.log('permissionStates:', permissionStates);
+                  console.log('publicPrograms:', publicPrograms);
 
-                  console.log('=== 디버깅 정보 ===');
-                  console.log('ACTIVE_PROGRAMS:', activePrograms ? JSON.parse(activePrograms) : '없음');
-                  console.log('모든 localStorage 키:', allKeys);
-                  console.log('FILE_CONTENT 키들:', fileContentKeys);
+                  // 각 프로그램별 상세 상태
+                  const freeProgram = publicPrograms.find(p => p.license_type === 'free');
+                  const month1Program = publicPrograms.find(p => p.license_type === '1month');
+                  const month3Program = publicPrograms.find(p => p.license_type === '3month');
 
-                  fileContentKeys.forEach(key => {
-                    const content = localStorage.getItem(key);
-                    console.log(`${key}: ${content ? `${(content.length / 1024 / 1024).toFixed(1)} MB` : '없음'}`);
+                  console.log('무료 프로그램:', {
+                    found: !!freeProgram,
+                    isActive: freeProgram?.isActive,
+                    permission: permissionStates.free,
+                    buttonEnabled: isAuthenticated && permissionStates.free && freeProgram?.isActive
                   });
+
+                  console.log('1개월 프로그램:', {
+                    found: !!month1Program,
+                    isActive: month1Program?.isActive,
+                    permission: permissionStates.month1,
+                    buttonEnabled: isAuthenticated && permissionStates.month1 && month1Program?.isActive
+                  });
+
+                  console.log('3개월 프로그램:', {
+                    found: !!month3Program,
+                    isActive: month3Program?.isActive,
+                    permission: permissionStates.month3,
+                    buttonEnabled: isAuthenticated && permissionStates.month3 && month3Program?.isActive
+                  });
+
+                  // 🆕 데이터베이스 권한 상태 확인
+                  console.log('=== 데이터베이스 권한 상태 ===');
+                  console.log('user.programPermissions:', user?.programPermissions);
+                  console.log('user.role:', user?.role);
+                  console.log('user.balance:', user?.balance);
                 }}
                 className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
               >
-                localStorage 상태 확인
+                프로그램 상태 디버깅
               </button>
             </div>
           )}

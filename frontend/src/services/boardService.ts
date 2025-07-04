@@ -1,8 +1,8 @@
-// TODO: db 기반으로 전환시 구축 - axios import 활성화
-// import axios from 'axios';
+import axios from 'axios';
+import { getApiUrl } from '../config/constants';
 
-// TODO: db 기반으로 전환시 구축 - API 서버 URL 설정
-// const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001';
+// API 서버 URL 설정
+const API_BASE_URL = getApiUrl();
 
 // 인터페이스 정의
 export interface BoardPost {
@@ -192,9 +192,18 @@ class BoardService {
     }
 
     private getAuthHeaders() {
-        console.log('🚫 boardService - getAuthHeaders 호출됨 (localStorage 사용 금지)');
-        // localStorage에서 토큰을 가져오지 않음 - 자동 인증 방지
-        return { 'Content-Type': 'application/json' };
+        const token = localStorage.getItem('token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+        };
+    }
+
+    private getFormDataHeaders() {
+        const token = localStorage.getItem('token');
+        return {
+            'Authorization': token ? `Bearer ${token}` : ''
+        };
     }
 
     private getCurrentUser(): { id: number; name: string } {
@@ -223,45 +232,19 @@ class BoardService {
         limit?: number;
     }): Promise<BoardPost[]> {
         try {
-            // TODO: db 기반으로 전환시 구축 - 실제 API 호출
-            // const response = await axios.get(`${API_BASE_URL}/api/boards/`, {
-            //     params,
-            //     headers: this.getAuthHeaders()
-            // });
-            // return response.data;
+            const queryParams = new URLSearchParams();
+            if (params?.category) queryParams.append('category', params.category);
+            if (params?.search) queryParams.append('search', params.search);
+            if (params?.skip) queryParams.append('skip', params.skip.toString());
+            if (params?.limit) queryParams.append('limit', params.limit.toString());
 
-            const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
-            let filteredPosts = [...posts];
-
-            // 카테고리 필터링
-            if (params?.category) {
-                filteredPosts = filteredPosts.filter(post => post.category === params.category);
-            }
-
-            // 검색 필터링
-            if (params?.search) {
-                const searchTerm = params.search.toLowerCase();
-                filteredPosts = filteredPosts.filter(post =>
-                    post.title.toLowerCase().includes(searchTerm) ||
-                    post.content.toLowerCase().includes(searchTerm) ||
-                    post.author.toLowerCase().includes(searchTerm)
-                );
-            }
-
-            // 정렬 (고정글 우선, 최신순)
-            filteredPosts.sort((a, b) => {
-                if (a.is_pinned !== b.is_pinned) {
-                    return b.is_pinned ? 1 : -1;
-                }
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            const response = await axios.get(`${API_BASE_URL}/api/boards/?${queryParams}`, {
+                headers: this.getAuthHeaders()
             });
 
-            // 페이지네이션
-            const skip = params?.skip || 0;
-            const limit = params?.limit || 10;
-            return filteredPosts.slice(skip, skip + limit);
+            return response.data;
         } catch (error) {
-            console.error('게시글 목록 조회 실패:', error);
+            console.error('게시글 목록 조회 오류:', error);
             throw error;
         }
     }
@@ -269,26 +252,13 @@ class BoardService {
     // 개별 게시글 조회
     async getBoard(boardId: number): Promise<BoardPost> {
         try {
-            // TODO: db 기반으로 전환시 구축 - 실제 API 호출
-            // const response = await axios.get(`${API_BASE_URL}/api/boards/${boardId}`, {
-            //     headers: this.getAuthHeaders()
-            // });
-            // return response.data;
+            const response = await axios.get(`${API_BASE_URL}/api/boards/${boardId}`, {
+                headers: this.getAuthHeaders()
+            });
 
-            const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
-            const post = posts.find(p => p.id === boardId);
-
-            if (!post) {
-                throw new Error('게시글을 찾을 수 없습니다.');
-            }
-
-            // 조회수 증가
-            post.view_count += 1;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-
-            return post;
+            return response.data;
         } catch (error) {
-            console.error('게시글 조회 실패:', error);
+            console.error('게시글 조회 오류:', error);
             throw error;
         }
     }
@@ -296,73 +266,26 @@ class BoardService {
     // 게시글 작성
     async createBoard(data: CreateBoardRequest): Promise<{ message: string; board_id: number; uploaded_files: any[] }> {
         try {
-            // TODO: db 기반으로 전환시 구축 - 실제 API 호출
-            // const formData = new FormData();
-            // formData.append('title', data.title);
-            // formData.append('content', data.content);
-            // formData.append('category', data.category);
-            // if (data.is_pinned !== undefined) {
-            //     formData.append('is_pinned', data.is_pinned.toString());
-            // }
-            // if (data.files) {
-            //     for (const file of data.files) {
-            //         formData.append('files', file);
-            //     }
-            // }
-            // const response = await axios.post(`${API_BASE_URL}/api/boards/`, formData, {
-            //     headers: {
-            //         ...this.getAuthHeaders(),
-            //         'Content-Type': 'multipart/form-data'
-            //     }
-            // });
-            // return response.data;
+            const formData = new FormData();
+            formData.append('title', data.title);
+            formData.append('content', data.content);
+            formData.append('category', data.category);
+            formData.append('is_pinned', data.is_pinned ? 'true' : 'false');
 
-            const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
-            const currentUser = this.getCurrentUser();
-            const newId = getNextId(posts);
-            const now = new Date().toISOString();
-
-            // 파일 처리 (Mock)
-            const uploadedFiles: BoardFile[] = [];
+            // 파일 첨부
             if (data.files) {
                 for (const file of data.files) {
-                    const fileId = getNextFileId();
-                    uploadedFiles.push({
-                        id: fileId,
-                        original_filename: file.name,
-                        file_size: file.size,
-                        content_type: file.type,
-                        upload_date: now
-                    });
+                    formData.append('files', file);
                 }
             }
 
-            const newPost: BoardPost = {
-                id: newId,
-                title: data.title,
-                content: data.content,
-                category: data.category,
-                author: currentUser.name,
-                author_id: currentUser.id,
-                is_pinned: data.is_pinned || false,
-                is_notice: false, // 관리자만 공지사항 설정 가능
-                view_count: 0,
-                created_at: now,
-                updated_at: now,
-                file_count: uploadedFiles.length,
-                files: uploadedFiles
-            };
+            const response = await axios.post(`${API_BASE_URL}/api/boards/`, formData, {
+                headers: this.getFormDataHeaders()
+            });
 
-            posts.push(newPost);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-
-            return {
-                message: '게시글이 성공적으로 작성되었습니다.',
-                board_id: newId,
-                uploaded_files: uploadedFiles
-            };
+            return response.data;
         } catch (error) {
-            console.error('게시글 작성 실패:', error);
+            console.error('게시글 생성 오류:', error);
             throw error;
         }
     }
@@ -370,71 +293,26 @@ class BoardService {
     // 게시글 수정
     async updateBoard(boardId: number, data: UpdateBoardRequest): Promise<{ message: string; uploaded_files: any[] }> {
         try {
-            // TODO: db 기반으로 전환시 구축 - 실제 API 호출
-            // const formData = new FormData();
-            // formData.append('title', data.title);
-            // formData.append('content', data.content);
-            // formData.append('category', data.category);
-            // if (data.is_pinned !== undefined) {
-            //     formData.append('is_pinned', data.is_pinned.toString());
-            // }
-            // if (data.files) {
-            //     for (const file of data.files) {
-            //         formData.append('files', file);
-            //     }
-            // }
-            // const response = await axios.put(`${API_BASE_URL}/api/boards/${boardId}`, formData, {
-            //     headers: {
-            //         ...this.getAuthHeaders(),
-            //         'Content-Type': 'multipart/form-data'
-            //     }
-            // });
-            // return response.data;
+            const formData = new FormData();
+            formData.append('title', data.title);
+            formData.append('content', data.content);
+            formData.append('category', data.category);
+            formData.append('is_pinned', data.is_pinned ? 'true' : 'false');
 
-            const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
-            const postIndex = posts.findIndex(p => p.id === boardId);
-
-            if (postIndex === -1) {
-                throw new Error('게시글을 찾을 수 없습니다.');
-            }
-
-            const now = new Date().toISOString();
-
-            // 새 파일 처리 (Mock)
-            const uploadedFiles: BoardFile[] = [];
+            // 파일 첨부
             if (data.files) {
                 for (const file of data.files) {
-                    const fileId = getNextFileId();
-                    uploadedFiles.push({
-                        id: fileId,
-                        original_filename: file.name,
-                        file_size: file.size,
-                        content_type: file.type,
-                        upload_date: now
-                    });
+                    formData.append('files', file);
                 }
             }
 
-            // 게시글 업데이트
-            posts[postIndex] = {
-                ...posts[postIndex],
-                title: data.title,
-                content: data.content,
-                category: data.category,
-                is_pinned: data.is_pinned || false,
-                updated_at: now,
-                files: [...posts[postIndex].files, ...uploadedFiles],
-                file_count: posts[postIndex].files.length + uploadedFiles.length
-            };
+            const response = await axios.put(`${API_BASE_URL}/api/boards/${boardId}`, formData, {
+                headers: this.getFormDataHeaders()
+            });
 
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-
-            return {
-                message: '게시글이 성공적으로 수정되었습니다.',
-                uploaded_files: uploadedFiles
-            };
+            return response.data;
         } catch (error) {
-            console.error('게시글 수정 실패:', error);
+            console.error('게시글 수정 오류:', error);
             throw error;
         }
     }
@@ -442,59 +320,36 @@ class BoardService {
     // 게시글 삭제
     async deleteBoard(boardId: number): Promise<{ message: string }> {
         try {
-            // TODO: db 기반으로 전환시 구축 - 실제 API 호출
-            // const response = await axios.delete(`${API_BASE_URL}/api/boards/${boardId}`, {
-            //     headers: this.getAuthHeaders()
-            // });
-            // return response.data;
+            const response = await axios.delete(`${API_BASE_URL}/api/boards/${boardId}`, {
+                headers: this.getAuthHeaders()
+            });
 
-            const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
-            const filteredPosts = posts.filter(p => p.id !== boardId);
-
-            if (posts.length === filteredPosts.length) {
-                throw new Error('게시글을 찾을 수 없습니다.');
-            }
-
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredPosts));
-
-            return { message: '게시글이 성공적으로 삭제되었습니다.' };
+            return response.data;
         } catch (error) {
-            console.error('게시글 삭제 실패:', error);
+            console.error('게시글 삭제 오류:', error);
             throw error;
         }
     }
 
-    // 파일 다운로드 (Mock)
+    // 파일 다운로드
     async downloadFile(fileId: number, filename: string): Promise<void> {
         try {
-            // TODO: db 기반으로 전환시 구축 - 실제 API 호출
-            // const response = await axios.get(`${API_BASE_URL}/api/boards/files/${fileId}/download`, {
-            //     headers: this.getAuthHeaders(),
-            //     responseType: 'blob'
-            // });
-            // const blob = new Blob([response.data]);
-            // const url = window.URL.createObjectURL(blob);
-            // const link = document.createElement('a');
-            // link.href = url;
-            // link.download = filename;
-            // document.body.appendChild(link);
-            // link.click();
-            // document.body.removeChild(link);
-            // window.URL.revokeObjectURL(url);
+            const response = await axios.get(`${API_BASE_URL}/api/boards/files/${fileId}/download`, {
+                headers: this.getAuthHeaders(),
+                responseType: 'blob'
+            });
 
-            // Mock 파일 다운로드 (실제 파일 없이 알림만)
-            const files = getAllFiles();
-            const file = files.find(f => f.id === fileId);
-
-            if (!file) {
-                throw new Error('파일을 찾을 수 없습니다.');
-            }
-
-            // 실제 파일 다운로드 대신 알림 표시
-            alert(`파일 다운로드: ${filename}\n(Mock 환경에서는 실제 파일이 다운로드되지 않습니다)`);
-
+            // 파일 다운로드
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
         } catch (error) {
-            console.error('파일 다운로드 실패:', error);
+            console.error('파일 다운로드 오류:', error);
             throw error;
         }
     }
@@ -502,36 +357,17 @@ class BoardService {
     // 파일 삭제
     async deleteFile(fileId: number): Promise<{ message: string }> {
         try {
-            // TODO: db 기반으로 전환시 구축 - 실제 API 호출
-            // const response = await axios.delete(`${API_BASE_URL}/api/boards/files/${fileId}`, {
-            //     headers: this.getAuthHeaders()
-            // });
-            // return response.data;
-
-            const posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as BoardPost[];
-            let fileDeleted = false;
-
-            posts.forEach(post => {
-                const fileIndex = post.files.findIndex(f => f.id === fileId);
-                if (fileIndex !== -1) {
-                    post.files.splice(fileIndex, 1);
-                    post.file_count = post.files.length;
-                    fileDeleted = true;
-                }
+            const response = await axios.delete(`${API_BASE_URL}/api/boards/files/${fileId}`, {
+                headers: this.getAuthHeaders()
             });
 
-            if (!fileDeleted) {
-                throw new Error('파일을 찾을 수 없습니다.');
-            }
-
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-
-            return { message: '파일이 성공적으로 삭제되었습니다.' };
+            return response.data;
         } catch (error) {
-            console.error('파일 삭제 실패:', error);
+            console.error('파일 삭제 오류:', error);
             throw error;
         }
     }
 }
 
+// 싱글톤 인스턴스 생성
 export const boardService = new BoardService();

@@ -49,6 +49,7 @@ from api.deposits import router as deposits_router
 #from api.manuals import router as manuals_router  # 삭제
 from api.promotions import router as promotions_router
 from api.boards import router as boards_router
+from api.programs import router as programs_router
 
 # 데이터베이스
 from database import engine, get_db
@@ -95,6 +96,7 @@ app.include_router(deposits_router, prefix="/api/deposits", tags=["예치금"])
 #app.include_router(manuals_router, prefix="/api/manuals", tags=["사용설명서"])  # 삭제
 app.include_router(promotions_router, prefix="/api/promotion", tags=["홍보문구"])
 app.include_router(boards_router, tags=["게시판"])
+app.include_router(programs_router, prefix="/api/programs", tags=["프로그램"])
 
 @app.get("/", tags=["루트"])
 async def root():
@@ -149,7 +151,8 @@ if __name__ == "__main__":
     logger.info(f"데이터베이스: {os.getenv('DATABASE_URL', 'sqlite:///./qclick.db')[:50]}...")
     
     try:
-        uvicorn.run("main:app", host=host, port=port, log_level="info")
+        # reload=False로 설정하여 자동 재시작 비활성화
+        uvicorn.run("main:app", host=host, port=port, log_level="info", reload=False)
     except Exception as e:
         logger.error(f"서버 시작 실패: {str(e)}")
         raise

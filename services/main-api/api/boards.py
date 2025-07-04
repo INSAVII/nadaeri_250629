@@ -18,14 +18,12 @@ router = APIRouter(prefix="/api/boards", tags=["boards"])
 UPLOAD_DIR = "uploads/boards"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# 허용되는 파일 확장자
-ALLOWED_EXTENSIONS = {'.txt', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar', '.jpg', '.jpeg', '.png', '.gif'}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+# 🆕 모든 파일 허용 (제한 없음)
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB로 증가
 
 def is_allowed_file(filename: str) -> bool:
-    """허용된 파일 확장자인지 확인"""
-    return '.' in filename and \
-           '.' + filename.rsplit('.', 1)[1].lower() in [ext.lstrip('.') for ext in ALLOWED_EXTENSIONS]
+    """🆕 모든 파일 허용 (제한 없음)"""
+    return True  # 모든 파일 허용
 
 def get_file_extension(filename: str) -> str:
     """파일 확장자 추출"""

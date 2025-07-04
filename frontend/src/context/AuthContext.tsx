@@ -62,18 +62,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initCountRef = React.useRef(0);
   const MAX_INIT_ATTEMPTS = 3;
 
-  // 앱 시작 시 localStorage에서 user/token 복원
+  // 🚫 자동 로그인 완전 비활성화
   useEffect(() => {
     if (isInitialized) return;
-    const savedUser = localStorage.getItem('USER_DATA');
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        if (parsed && parsed.token) {
-          setUser(parsed);
-        }
-      } catch { }
+
+    console.log('🚫 AuthContext - 자동 로그인 비활성화됨');
+
+    // 강제 초기화 플래그 확인
+    const forceInit = sessionStorage.getItem('forceInit');
+    if (forceInit === 'true') {
+      console.log('🧹 강제 초기화 플래그 감지, 모든 데이터 삭제');
+      sessionStorage.removeItem('forceInit');
+      localStorage.clear();
+      sessionStorage.clear();
+      setUser(null);
+    } else {
+      // 🚫 자동 로그인 비활성화 - 수동 로그인만 허용
+      console.log('🚫 자동 로그인 비활성화 - 수동 로그인 필요');
+      setUser(null);
     }
+
     setIsInitialized(true);
     setIsLoading(false);
   }, [isInitialized]);
@@ -118,13 +126,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 🚫 localStorage 사용 완전 중단: 모든 정보는 DB 기반으로 실시간 호출
-        console.log('AuthContext - 일반 초기화: localStorage 사용 안함, 항상 로그인 필요');
+        // ✅ localStorage에서 사용자 데이터 복원 (토큰 저장을 위해 필요)
+        const savedUser = localStorage.getItem(STORAGE_KEYS.USER_DATA);
+        if (savedUser) {
+          try {
+            const parsed = JSON.parse(savedUser);
+            if (parsed && parsed.token) {
+              console.log('AuthContext - localStorage에서 사용자 데이터 복원:', parsed);
+              setUser(parsed);
+            } else {
+              console.log('AuthContext - localStorage에 유효한 토큰이 없음');
+              setUser(null);
+            }
+          } catch (error) {
+            console.error('AuthContext - localStorage 파싱 오류:', error);
+            setUser(null);
+          }
+        } else {
+          console.log('AuthContext - localStorage에 사용자 데이터 없음');
+          setUser(null);
+        }
 
-        // 🔧 상태만 초기화 (localStorage 사용 금지)
-        setUser(null);
-
-        console.log('AuthContext - 일반 초기화 완료: user=null (DB 기반 로그인 필요)');
+        console.log('AuthContext - 일반 초기화 완료');
       } catch (error) {
         console.error('AuthContext - 초기화 중 오류:', error);
         setUser(null);
@@ -159,12 +182,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (userData.role === 'admin' || userData.role === 'user') &&
         typeof userData.balance === 'number'
       ) {
-        // 🚫 localStorage 저장 완전 비활성화 - 메모리만 사용 (DB 기반)
-        // localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+        // ✅ localStorage 저장 복원 - 토큰 저장을 위해 필요
+        localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+        localStorage.setItem('token', userData.token || '');
 
-        // 메모리 저장만
+        // 메모리 저장
         setUser(userData);
-        console.log('AuthContext - 사용자 데이터 메모리 저장 완료 (localStorage 사용 안함):', userData);
+        console.log('AuthContext - 사용자 데이터 저장 완료 (localStorage + 메모리):', userData);
         return true;
       } else {
         console.error('AuthContext - 유효하지 않은 사용자 데이터:', {
@@ -409,8 +433,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             isAdmin: authUser.role === 'admin',
             balance: authUser.balance
           });
-          setUser(authUser);
-          localStorage.setItem('USER_DATA', JSON.stringify(authUser));
 
           // 🕐 로그인 시간 저장 (세션 관리용)
           localStorage.setItem('LOGIN_TIME', Date.now().toString());
@@ -885,6 +907,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       timestamp: new Date().toISOString()
     });
+
+    // 🆕 window 객체에 사용자 정보 노출 (디버깅용)
+    if (user) {
+      (window as any).authUser = user;
+      console.log('🆕 window.authUser 설정됨:', user);
+    } else {
+      (window as any).authUser = null;
+      console.log('🆕 window.authUser 제거됨');
+    }
   }, [user?.userId, user?.id, isLoading]);
 
   return (
