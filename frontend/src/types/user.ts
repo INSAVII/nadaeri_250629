@@ -45,8 +45,8 @@ export interface User {
 // AuthContext에서 사용할 간소화된 User 타입 (표준 구조와 일치)
 export interface AuthUser {
     // 필수 필드 (표준 User와 동일)
-    id: string;
-    userId: string;
+    id: string;                    // 시스템 내부 ID (UUID)
+    userId: string;                // 사용자 ID (id와 동일하게 설정됨)
     name: string;
     email: string;
     phone: string;

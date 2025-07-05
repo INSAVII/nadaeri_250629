@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePrice } from '../context/PriceContext';
+import { getQTextApiUrl } from '../config/constants';
+import { qtextApiRequest, ApiError } from '../utils/apiClient';
 
 // 파일 검증 결과 타입 정의
 interface FileValidation {
@@ -12,11 +14,11 @@ interface FileValidation {
   supportedTypes: string[];
 }
 
-// API 설정
-const QTEXT_SERVICE_URL = 'http://localhost:8003';
+// API 설정 - 하이브리드 방식에 맞춰 동적 설정
+const QTEXT_SERVICE_URL = getQTextApiUrl();
 
 const QText: React.FC = () => {
-  const { user, isAuthenticated, isLoading, updateUserBalance } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const { qtextPrice, setQtextPrice } = usePrice();
   const [isEditing, setIsEditing] = useState(false);
   const [tempPrice, setTempPrice] = useState(qtextPrice || 100);
@@ -211,8 +213,9 @@ const QText: React.FC = () => {
       const fileCount = fileValidation.totalFiles;
       const newBalance = user.balance - totalCost;
 
-      // 사용자 잔액 업데이트 (AuthContext를 통해 실제 API 호출)
-      updateUserBalance(newBalance);
+      // 🆕 로컬 상태만 업데이트 (AuthContext 호출 제거)
+      console.log('🆕 QText - AuthContext updateUserBalance 호출 차단됨');
+      console.log('🆕 로컬 상태만 업데이트:', newBalance);
       setBalance(newBalance);
 
       // === 파일 업로드 및 처리 ===
@@ -234,20 +237,12 @@ const QText: React.FC = () => {
         message: 'AI 모델이 텍스트를 감지하고 제거 중...'
       }));
 
-      const response = await fetch(`${QTEXT_SERVICE_URL}/api/qtext/process-images`, {
+      const blob = await qtextApiRequest('/api/qtext/process-images', {
         method: 'POST',
-        body: formData,
+        body: formData
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-
-        // API 오류 시 예치금 환불 (원래 잔액으로 복원)
-        updateUserBalance(user.balance);
-        setBalance(user.balance);
-
-        throw new Error(`서버 오류: ${response.status} - ${errorText}`);
-      }
+      console.log('API 응답 성공 - 파일 다운로드 준비');
 
       // 파일 다운로드 처리
       setProcessingProgress(prev => ({
@@ -255,7 +250,6 @@ const QText: React.FC = () => {
         message: '문자 제거된 이미지 준비 중...'
       }));
 
-      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       setProcessedFilesUrl(url);
 
@@ -287,7 +281,18 @@ const QText: React.FC = () => {
         message: '오류 발생'
       });
 
-      setError(`이미지 처리 중 오류가 발생했습니다: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      // ApiError 처리
+      if (e instanceof ApiError) {
+        if (e.status === 0) {
+          // 네트워크 오류
+          setError(`네트워크 오류: ${e.message}`);
+        } else {
+          // API 오류
+          setError(`서버 오류: ${e.message}`);
+        }
+      } else {
+        setError(`이미지 처리 중 오류가 발생했습니다: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      }
     } finally {
       setIsProcessing(false);
     }

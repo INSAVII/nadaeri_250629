@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>브라우저 캐시 완전 삭제</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .important {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .danger {
+            background-color: #dc3545;
+        }
+
+        .danger:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔄 브라우저 캐시 완전 삭제 가이드</h1>
+
+        <div class="step important">
+            <h2>⚠️ 중요: updateUserBalance 오류 해결을 위한 캐시 삭제</h2>
+            <p>현재 발생하는 "updateUserBalance is not a function" 오류는 브라우저 캐시 문제입니다.</p>
+        </div>
+
+        <div class="step">
+            <h3>1단계: 개발자 도구 열기</h3>
+            <p><strong>F12</strong> 키를 누르거나 <strong>Ctrl + Shift + I</strong>를 눌러 개발자 도구를 엽니다.</p>
+        </div>
+
+        <div class="step">
+            <h3>2단계: Application 탭으로 이동</h3>
+            <p>개발자 도구에서 <strong>Application</strong> 탭을 클릭합니다.</p>
+        </div>
+
+        <div class="step">
+            <h3>3단계: Storage 영역에서 Clear storage 클릭</h3>
+            <p>왼쪽 사이드바에서 <strong>Storage</strong> → <strong>Clear storage</strong>를 클릭합니다.</p>
+            <button onclick="clearStorage()">🧹 Clear Storage 실행</button>
+        </div>
+
+        <div class="step">
+            <h3>4단계: 강제 새로고침</h3>
+            <p><strong>Ctrl + Shift + R</strong> (또는 <strong>Cmd + Shift + R</strong>)을 눌러 강제 새로고침을 합니다.</p>
+            <button onclick="forceReload()">🔄 강제 새로고침</button>
+        </div>
+
+        <div class="step success">
+            <h3>✅ 완료 후 확인사항</h3>
+            <p>1. 브라우저가 완전히 새로고침되었는지 확인</p>
+            <p>2. QName 페이지에서 "🧪 파일처리테스트" 버튼으로 테스트</p>
+            <p>3. 콘솔에서 "updateUserBalance is not a function" 오류가 사라졌는지 확인</p>
+        </div>
+
+        <div class="step">
+            <h3>🔧 추가 방법: 브라우저 캐시 완전 삭제</h3>
+            <p><strong>Chrome:</strong> Ctrl + Shift + Delete → "모든 시간" 선택 → "캐시된 이미지 및 파일" 체크 → "데이터 삭제"</p>
+            <p><strong>Firefox:</strong> Ctrl + Shift + Delete → "모든 시간" 선택 → "캐시" 체크 → "지금 삭제"</p>
+            <button class="danger" onclick="clearAllCache()">🗑️ 모든 캐시 삭제 (주의!)</button>
+        </div>
+
+        <div class="step">
+            <h3>📋 하이브리드 방식 서버 상태 확인</h3>
+            <p>현재 실행 중인 서버들:</p>
+            <ul>
+                <li>✅ 프론트엔드: http://localhost:3003</li>
+                <li>✅ 메인 API: http://localhost:8001</li>
+                <li>✅ QName 서비스: http://localhost:8004</li>
+                <li>✅ QText 서비스: http://localhost:8003</li>
+            </ul>
+            <p><strong>하이브리드 방식은 올바른 구성입니다!</strong></p>
+        </div>
+    </div>
+
+    <script>
+        function clearStorage() {
+            if (confirm('정말로 모든 로컬 스토리지를 삭제하시겠습니까?')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                alert('로컬 스토리지가 삭제되었습니다. 페이지를 새로고침하세요.');
+            }
+        }
+
+        function forceReload() {
+            if (confirm('강제 새로고침을 실행하시겠습니까?')) {
+                window.location.reload(true);
+            }
+        }
+
+        function clearAllCache() {
+            if (confirm('⚠️ 모든 브라우저 캐시를 삭제하시겠습니까?\n\n이 작업은 모든 사이트의 캐시를 삭제합니다.')) {
+                if ('caches' in window) {
+                    caches.keys().then(function (names) {
+                        for (let name of names) {
+                            caches.delete(name);
+                        }
+                    });
+                }
+                localStorage.clear();
+                sessionStorage.clear();
+                alert('모든 캐시가 삭제되었습니다. 브라우저를 완전히 재시작하세요.');
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -18,7 +18,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   console.log('ProtectedRoute:', {
     pathname: location.pathname,
     isAuthenticated,
-    user: user ? { userId: user.userId, role: user.role } : null,
+    user: user ? { userId: user.id, role: user.role } : null,
     isLoading,
     requireAdmin
   });
@@ -63,7 +63,7 @@ export const PublicOnlyRoute: React.FC<PublicOnlyRouteProps> = ({ children }) =>
   // 디버깅 로그 추가
   console.log('PublicOnlyRoute 상태:', {
     isAuthenticated,
-    user: user ? { userId: user.userId, role: user.role } : null
+    user: user ? { userId: user.id, role: user.role } : null
   });  // 로그인된 경우 역할별로 리다이렉트
   if (isAuthenticated) {
     if (user?.role === 'admin') {

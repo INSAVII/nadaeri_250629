@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QName 서비스 연결 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔍 QName 서비스 연결 테스트</h1>
+        <p>QName 서비스와의 연결 상태를 단계별로 테스트합니다.</p>
+
+        <div class="test-section info">
+            <h3>📋 테스트 항목</h3>
+            <ol>
+                <li>기본 연결 테스트 (포트 8004)</li>
+                <li>Health 엔드포인트 테스트</li>
+                <li>CORS 설정 확인</li>
+                <li>파일 업로드 엔드포인트 테스트</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 테스트 실행</h3>
+            <button onclick="runAllTests()">전체 테스트 실행</button>
+            <button onclick="testHealth()">Health 테스트만</button>
+            <button onclick="testFileUpload()">파일 업로드 테스트</button>
+            <button onclick="clearLog()">로그 지우기</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 테스트 결과</h3>
+            <div id="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 상세 로그</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const QNAME_SERVICE_URL = 'http://localhost:8004';
+        let testResults = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('log');
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(logEntry.trim());
+        }
+
+        function addResult(testName, success, message) {
+            testResults.push({ testName, success, message, timestamp: new Date() });
+            updateResults();
+        }
+
+        function updateResults() {
+            const resultsElement = document.getElementById('results');
+            const successCount = testResults.filter(r => r.success).length;
+            const totalCount = testResults.length;
+
+            resultsElement.innerHTML = `
+                <div class="${successCount === totalCount ? 'success' : 'error'}">
+                    <h4>테스트 결과: ${successCount}/${totalCount} 성공</h4>
+                    ${testResults.map(result => `
+                        <div style="margin: 5px 0; padding: 5px; background: ${result.success ? '#d4edda' : '#f8d7da'}; border-radius: 3px;">
+                            <strong>${result.testName}</strong>: ${result.success ? '✅ 성공' : '❌ 실패'}
+                            <br><small>${result.message}</small>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        async function testHealth() {
+            log('Health 엔드포인트 테스트 시작');
+            try {
+                const response = await fetch(`${QNAME_SERVICE_URL}/health`);
+                log(`Health 응답 상태: ${response.status} ${response.statusText}`);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`Health 응답 데이터: ${JSON.stringify(data, null, 2)}`);
+                    addResult('Health 테스트', true, `상태: ${data.status}, 메시지: ${data.message}`);
+                } else {
+                    addResult('Health 테스트', false, `HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                log(`Health 테스트 오류: ${error.message}`, 'error');
+                addResult('Health 테스트', false, `연결 실패: ${error.message}`);
+            }
+        }
+
+        async function testFileUpload() {
+            log('파일 업로드 엔드포인트 테스트 시작');
+            try {
+                // 간단한 테스트 파일 생성
+                const testData = [
+                    ['상품코드', '메인키워드'],
+                    ['TEST001', '테스트 키워드']
+                ];
+
+                const csvContent = testData.map(row => row.join(',')).join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const file = new File([blob], 'test.csv', { type: 'text/csv' });
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                log(`테스트 파일 생성: ${file.name}, 크기: ${file.size} bytes`);
+
+                const response = await fetch(`${QNAME_SERVICE_URL}/api/qname/process-file`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                log(`파일 업로드 응답 상태: ${response.status} ${response.statusText}`);
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    log(`파일 업로드 성공: 응답 크기 ${blob.size} bytes, 타입: ${blob.type}`);
+                    addResult('파일 업로드 테스트', true, `응답 크기: ${blob.size} bytes`);
+                } else {
+                    const errorText = await response.text();
+                    log(`파일 업로드 실패: ${errorText}`, 'error');
+                    addResult('파일 업로드 테스트', false, `HTTP ${response.status}: ${errorText}`);
+                }
+            } catch (error) {
+                log(`파일 업로드 테스트 오류: ${error.message}`, 'error');
+                addResult('파일 업로드 테스트', false, `연결 실패: ${error.message}`);
+            }
+        }
+
+        async function runAllTests() {
+            log('=== 전체 테스트 시작 ===');
+            testResults = [];
+
+            await testHealth();
+            await testFileUpload();
+
+            log('=== 전체 테스트 완료 ===');
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+            testResults = [];
+            updateResults();
+        }
+
+        // 페이지 로드 시 자동으로 Health 테스트 실행
+        window.onload = function () {
+            log('QName 서비스 연결 테스트 도구 로드됨');
+            log(`QName 서비스 URL: ${QNAME_SERVICE_URL}`);
+            testHealth();
+        };
+    </script>
+</body>
+
+</html>

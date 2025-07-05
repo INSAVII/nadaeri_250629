@@ -17,7 +17,7 @@
  * 문제 해결자: AI Assistant
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { STORAGE_KEYS, getApiUrl, IS_DEVELOPMENT } from '../config/constants';
 import { validateUserData } from '../utils/authHelpers';
 import { AuthUser, convertToAuthUser, convertFromAuthUser } from '../types/user';
@@ -43,6 +43,7 @@ interface AuthContextType {
   forceReset?: () => void;
   refreshBalance?: () => Promise<boolean>;
   updateBalance?: (user: AuthUser, newBalance: number) => Promise<boolean>; // 새로운 단순 예치금 업데이트
+  updateUserBalance: (newBalance: number) => Promise<boolean>; // 큐네임 페이지용 예치금 업데이트
   refreshUserData?: () => Promise<boolean>; // 사용자 정보 완전 새로고침
   // 프로그램 권한 관리 함수 (새로 추가)
   fetchProgramPermissions?: () => Promise<{ free: boolean; month1: boolean; month3: boolean } | null>;
@@ -59,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   // 🛡️ 무한루프 재발 방지: 초기화 횟수 제한
-  const initCountRef = React.useRef(0);
+  const initCountRef = useRef(0);
   const MAX_INIT_ATTEMPTS = 3;
 
   // 🚫 자동 로그인 완전 비활성화
@@ -133,6 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const parsed = JSON.parse(savedUser);
             if (parsed && parsed.token) {
               console.log('AuthContext - localStorage에서 사용자 데이터 복원:', parsed);
+              // 🆕 userId를 id와 동일하게 설정하여 통일
+              if (parsed.id && !parsed.userId) {
+                parsed.userId = parsed.id;
+              }
               setUser(parsed);
             } else {
               console.log('AuthContext - localStorage에 유효한 토큰이 없음');
@@ -382,29 +387,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 백엔드 응답을 표준 AuthUser 형식으로 변환
         const authUser: AuthUser = {
           id: data.user.id,
-          userId: data.user.userId || data.user.id,
+          userId: data.user.id,
           name: data.user.name,
           email: data.user.email,
-          phone: data.user.phone || '010-0000-0000',
-          role: data.user.role || 'user',
-          balance: data.user.balance || 0,
-          is_active: data.user.is_active !== false,
+          phone: data.user.phone || "010-0000-0000",
+          role: data.user.role,
+          balance: data.user.balance,
+          is_active: data.user.is_active,
           created_at: data.user.created_at,
           last_login_at: data.user.last_login_at,
           token: data.access_token,
-          // 프로그램 권한 정보 추가
-          programPermissions: data.user.programPermissions || {
-            free: false,
-            month1: false,
-            month3: false
-          }
+          programPermissions: data.user.programPermissions
         };
 
         console.log('🎯 AuthContext - 변환된 사용자 데이터 상세:', {
           originalRole: data.user.role,
           finalRole: authUser.role,
           isActive: authUser.is_active,
-          userId: authUser.userId,
+          userId: authUser.id, // 🆕 user.id 사용으로 통일
           name: authUser.name,
           email: authUser.email,
           balance: authUser.balance,
@@ -427,7 +427,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (saveResult) {
           console.log('🎉 AuthContext - 로그인 완료, 저장된 사용자:', {
-            userId: authUser.userId,
+            userId: authUser.id, // 🆕 user.id 사용으로 통일
             name: authUser.name,
             role: authUser.role,
             isAdmin: authUser.role === 'admin',
@@ -542,7 +542,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 백엔드 응답을 표준 AuthUser 형식으로 변환
         const authUser: AuthUser = {
           id: data.user.id,
-          userId: data.user.userId || data.user.id,
+          userId: data.user.id,
           name: data.user.name,
           email: data.user.email,
           phone: data.user.phone || '010-0000-0000',
@@ -552,7 +552,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           created_at: data.user.created_at,
           last_login_at: data.user.last_login_at,
           token: data.access_token,
-          // 프로그램 권한 정보 추가
           programPermissions: data.user.programPermissions || {
             free: false,
             month1: false,
@@ -564,7 +563,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           originalRole: data.user.role,
           finalRole: authUser.role,
           isActive: authUser.is_active,
-          userId: authUser.userId,
+          userId: authUser.id, // 🆕 user.id 사용으로 통일
           programPermissions: authUser.programPermissions
         });
 
@@ -667,7 +666,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateBalance = useCallback(async (user: AuthUser, newBalance: number) => {
     try {
       console.log('💰 AuthContext - 예치금 업데이트 시작:', {
-        userId: user.userId,
+        userId: user.id,
         oldBalance: user.balance,
         newBalance,
         currentRole: user.role,
@@ -699,7 +698,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('✅ AuthContext - 예치금 업데이트 완료:', {
         newBalance,
         preservedRole: updatedUser.role,
-        userId: updatedUser.userId,
+        userId: updatedUser.id, // 🆕 user.id 사용으로 통일
         roleCheck: updatedUser.role === 'admin' ? 'ADMIN' : 'USER'
       });
       return true;
@@ -708,6 +707,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
   }, []);
+
+  // 💰 큐네임 페이지용 예치금 업데이트 함수 (안정화)
+  const updateUserBalance = useCallback(async (newBalance: number) => {
+    try {
+      console.log('💰 updateUserBalance 함수 호출됨:', {
+        newBalance,
+        hasUser: !!user,
+        userId: user?.id,
+        currentBalance: user?.balance,
+        timestamp: new Date().toISOString()
+      });
+
+      // 🆕 호출 스택 추적
+      const stack = new Error().stack;
+      console.log('💰 updateUserBalance 호출 스택:', stack);
+
+      // 🆕 강력한 유효성 검사
+      if (!user) {
+        console.error('❌ 사용자가 로그인되지 않음');
+        return false;
+      }
+
+      if (typeof newBalance !== 'number' || isNaN(newBalance)) {
+        console.error('❌ 잘못된 예치금 값:', newBalance);
+        return false;
+      }
+
+      if (newBalance < 0) {
+        console.error('❌ 음수 예치금은 허용되지 않음:', newBalance);
+        return false;
+      }
+
+      console.log('💰 단순한 예치금 업데이트:', {
+        oldBalance: user.balance,
+        newBalance,
+        userId: user.id
+      });
+
+      // 🆕 단순한 사용자 정보 업데이트
+      const updatedUser = {
+        ...user,
+        balance: newBalance
+      };
+
+      setUser(updatedUser);
+
+      console.log('✅ 예치금 업데이트 완료:', newBalance);
+      return true;
+    } catch (error) {
+      console.error('❌ 예치금 업데이트 오류:', error);
+      console.error('❌ 오류 스택:', error instanceof Error ? error.stack : '스택 없음');
+      return false;
+    }
+  }, [user]); // user 의존성 유지
 
   // 🔄 사용자 정보 완전 새로고침 (프로그램 권한 포함)
   const refreshUserData = useCallback(async () => {
@@ -894,6 +947,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     forceReset,
     refreshBalance,
     updateBalance, // 새로운 단순 예치금 업데이트 함수 추가
+    updateUserBalance, // 큐네임 페이지용 예치금 업데이트 함수 추가
     refreshUserData, // 사용자 정보 완전 새로고침 함수 추가
     fetchProgramPermissions, // 프로그램 권한 조회 함수 추가
     updateProgramPermissions, // 프로그램 권한 관리 함수 추가

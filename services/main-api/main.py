@@ -152,7 +152,8 @@ if __name__ == "__main__":
     
     try:
         # reload=False로 설정하여 자동 재시작 비활성화
-        uvicorn.run("main:app", host=host, port=port, log_level="info", reload=False)
+        # log_level을 warning으로 설정하여 INFO 레벨 경고 숨김
+        uvicorn.run("main:app", host=host, port=port, log_level="warning", reload=False)
     except Exception as e:
         logger.error(f"서버 시작 실패: {str(e)}")
         raise

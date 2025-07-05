@@ -14,7 +14,7 @@ export const PublicOnlyRoute: React.FC<PublicOnlyRouteProps> = ({ children }) =>
   // 디버깅 로그 (단순화)
   console.log('PublicOnlyRoute:', {
     isAuthenticated,
-    user: user ? { userId: user.userId, role: user.role } : null,
+    user: user ? { userId: user.id, role: user.role } : null,
     isLoading,
     redirectCount: redirectCountRef.current
   });

@@ -8,21 +8,24 @@ export default function AdminMenuDebugger() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const info = {
-        timestamp: new Date().toLocaleTimeString(),
-        user: user ? {
-          userId: user.userId,
-          role: user.role,
-          name: user.name
-        } : null,
-        isAuthenticated,
-        isAdmin: user?.role === 'admin',
-        domElements: {
-          adminDropdown: document.querySelector('.admin-dropdown-menu') ? 'found' : 'not found',
-          qtextMenuItem: document.querySelector('.qtext-admin-menu-item') ? 'found' : 'not found'
-        }
+      const debugInfo = user ? {
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        balance: user.balance,
+        isAuthenticated: true,
+        timestamp: new Date().toISOString()
+      } : {
+        userId: 'None',
+        name: 'None',
+        email: 'None',
+        role: 'None',
+        balance: 0,
+        isAuthenticated: false,
+        timestamp: new Date().toISOString()
       };
-      setDebugInfo(info);
+      setDebugInfo(debugInfo);
     }, 1000);
 
     return () => clearInterval(interval);
@@ -58,19 +61,16 @@ export default function AdminMenuDebugger() {
         <strong>Authenticated:</strong> {debugInfo.isAuthenticated ? '✅' : '❌'}
       </div>
       <div>
-        <strong>User:</strong> {debugInfo.user ? `${debugInfo.user.name} (${debugInfo.user.userId})` : 'None'}
+        <strong>User:</strong> {debugInfo.name}
       </div>
       <div>
-        <strong>Role:</strong> {debugInfo.user?.role || 'None'}
+        <strong>Role:</strong> {debugInfo.role}
       </div>
       <div>
-        <strong>Is Admin:</strong> {debugInfo.isAdmin ? '✅' : '❌'}
+        <strong>Email:</strong> {debugInfo.email}
       </div>
       <div>
-        <strong>Admin Dropdown:</strong> {debugInfo.domElements?.adminDropdown}
-      </div>
-      <div>
-        <strong>QText Menu Item:</strong> {debugInfo.domElements?.qtextMenuItem}
+        <strong>Balance:</strong> {debugInfo.balance}
       </div>
     </div>
   );

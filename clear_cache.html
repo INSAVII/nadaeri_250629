@@ -1,12 +1,212 @@
-<!DOCTYPE html> 
-<html> 
-<head><title>Cache Clear</title></head> 
-<body> 
-<h1>Clearing all cache...</h1> 
-<script> 
-localStorage.clear(); 
-sessionStorage.clear(); 
-console.log('All cache cleared!'); 
-alert('All cache cleared! Please close this tab and refresh your main page.'); 
-</script> 
-</body></html> 
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>브라우저 캐시 완전 삭제</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .step {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .danger {
+            background: #dc3545;
+        }
+
+        .danger:hover {
+            background: #c82333;
+        }
+
+        .info {
+            background: #17a2b8;
+        }
+
+        .info:hover {
+            background: #138496;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🧹 브라우저 캐시 완전 삭제 도구</h1>
+        <p>이 도구는 브라우저 캐시를 완전히 삭제하여 "updateUserBalance is not a function" 오류를 해결합니다.</p>
+
+        <div class="step warning">
+            <h3>⚠️ 주의사항</h3>
+            <p>캐시를 삭제하면 모든 로그인 정보와 설정이 초기화됩니다. 다시 로그인해야 합니다.</p>
+        </div>
+
+        <div class="step">
+            <h3>1단계: 브라우저 캐시 삭제</h3>
+            <p>아래 버튼을 클릭하여 브라우저 캐시를 삭제하세요:</p>
+            <button onclick="clearAllCache()" class="danger">🗑️ 모든 캐시 삭제</button>
+            <button onclick="clearLocalStorage()" class="danger">🗑️ 로컬스토리지 삭제</button>
+            <button onclick="clearSessionStorage()" class="danger">🗑️ 세션스토리지 삭제</button>
+        </div>
+
+        <div class="step">
+            <h3>2단계: 강제 새로고침</h3>
+            <p>캐시 삭제 후 아래 버튼을 클릭하여 강제 새로고침하세요:</p>
+            <button onclick="forceReload()" class="info">🔄 강제 새로고침</button>
+        </div>
+
+        <div class="step">
+            <h3>3단계: 수동 캐시 삭제 (권장)</h3>
+            <p>브라우저에서 직접 캐시를 삭제하는 것이 가장 확실합니다:</p>
+            <ul>
+                <li><strong>Chrome/Edge:</strong> Ctrl + Shift + Delete → "모든 시간" 선택 → "캐시된 이미지 및 파일" 체크 → "데이터 삭제"</li>
+                <li><strong>Firefox:</strong> Ctrl + Shift + Delete → "모든 시간" 선택 → "캐시" 체크 → "지금 삭제"</li>
+                <li><strong>Safari:</strong> 개발자 메뉴 → "캐시 비우기"</li>
+            </ul>
+        </div>
+
+        <div class="step success">
+            <h3>4단계: 테스트</h3>
+            <p>캐시 삭제 후 다음을 확인하세요:</p>
+            <ol>
+                <li>http://localhost:3003 접속</li>
+                <li>관리자로 다시 로그인</li>
+                <li>QName 페이지에서 파일 업로드 테스트</li>
+                <li>"updateUserBalance is not a function" 오류가 사라졌는지 확인</li>
+            </ol>
+        </div>
+
+        <div id="status" class="step" style="display: none;">
+            <h3>상태</h3>
+            <div id="statusContent"></div>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const statusContent = document.getElementById('statusContent');
+            statusDiv.style.display = 'block';
+            statusDiv.className = `step ${type}`;
+            statusContent.innerHTML = message;
+        }
+
+        function clearAllCache() {
+            try {
+                // localStorage 삭제
+                localStorage.clear();
+
+                // sessionStorage 삭제
+                sessionStorage.clear();
+
+                // IndexedDB 삭제 (가능한 경우)
+                if ('indexedDB' in window) {
+                    indexedDB.databases().then(databases => {
+                        databases.forEach(db => {
+                            indexedDB.deleteDatabase(db.name);
+                        });
+                    });
+                }
+
+                // 캐시 API 삭제 (가능한 경우)
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => {
+                            caches.delete(name);
+                        });
+                    });
+                }
+
+                showStatus('✅ 모든 캐시가 삭제되었습니다!', 'success');
+            } catch (error) {
+                showStatus('❌ 캐시 삭제 중 오류가 발생했습니다: ' + error.message, 'warning');
+            }
+        }
+
+        function clearLocalStorage() {
+            try {
+                localStorage.clear();
+                showStatus('✅ 로컬스토리지가 삭제되었습니다!', 'success');
+            } catch (error) {
+                showStatus('❌ 로컬스토리지 삭제 중 오류가 발생했습니다: ' + error.message, 'warning');
+            }
+        }
+
+        function clearSessionStorage() {
+            try {
+                sessionStorage.clear();
+                showStatus('✅ 세션스토리지가 삭제되었습니다!', 'success');
+            } catch (error) {
+                showStatus('❌ 세션스토리지 삭제 중 오류가 발생했습니다: ' + error.message, 'warning');
+            }
+        }
+
+        function forceReload() {
+            try {
+                // 강제 새로고침
+                window.location.reload(true);
+            } catch (error) {
+                showStatus('❌ 새로고침 중 오류가 발생했습니다: ' + error.message, 'warning');
+            }
+        }
+
+        // 페이지 로드 시 현재 캐시 상태 확인
+        window.onload = function () {
+            const localStorageSize = JSON.stringify(localStorage).length;
+            const sessionStorageSize = JSON.stringify(sessionStorage).length;
+
+            showStatus(`
+                <p><strong>현재 캐시 상태:</strong></p>
+                <ul>
+                    <li>로컬스토리지 크기: ${localStorageSize} 바이트</li>
+                    <li>세션스토리지 크기: ${sessionStorageSize} 바이트</li>
+                    <li>캐시된 페이지: ${navigator.userAgent.includes('Chrome') ? 'Chrome' : '기타 브라우저'}</li>
+                </ul>
+            `, 'info');
+        };
+    </script>
+</body>
+
+</html>

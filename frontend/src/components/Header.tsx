@@ -42,7 +42,7 @@ export default function Header() {
     if (user?.role === 'admin') {
       console.log('✅ Header.tsx - 관리자 역할 감지됨!', {
         role: user.role,
-        userId: user.userId,
+        userId: user.id, // 🆕 user.id 사용으로 통일
         name: user.name
       });
     } else if (user?.role) {
@@ -158,6 +158,20 @@ export default function Header() {
     }
     return location.pathname.startsWith(path);
   };
+
+  // 사용자 정보를 localStorage에 저장
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('currentUser', JSON.stringify({
+        id: user.id,
+        userId: user.id, // 🆕 user.id와 동일하게 설정
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        balance: user.balance
+      }));
+    }
+  }, [user]);
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">

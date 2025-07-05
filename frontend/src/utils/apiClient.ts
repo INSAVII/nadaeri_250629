@@ -283,3 +283,167 @@ export const authenticatedRequest = <T = any>(
 
   return apiRequest<T>(endpoint, { ...options, token });
 };
+
+// 🆕 QName 서비스용 API 클라이언트
+export const qnameApiRequest = async <T = any>(
+  endpoint: string,
+  options: RequestOptions = {}
+): Promise<T> => {
+  const { getQNameApiUrl } = await import('../config/constants');
+  const baseUrl = getQNameApiUrl();
+
+  const {
+    method = 'GET',
+    headers = {},
+    body,
+    timeout = 300000 // QName은 5분 타임아웃
+  } = options;
+
+  const url = `${baseUrl}${endpoint}`;
+  const defaultHeaders: Record<string, string> = {};
+
+  // FormData인 경우 Content-Type을 설정하지 않음
+  if (!(body instanceof FormData)) {
+    defaultHeaders['Content-Type'] = 'application/json';
+  }
+
+  // AbortController로 타임아웃 처리
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    console.log(`🌐 QName API 요청: ${method} ${url}`);
+
+    const response = await fetch(url, {
+      method,
+      headers: { ...defaultHeaders, ...headers },
+      body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let errorMessage: string = 'QName 서비스 오류';
+      let errorData: any;
+
+      try {
+        errorData = await response.json();
+        errorMessage = errorData.message || errorData.detail || errorMessage;
+      } catch {
+        errorMessage = response.statusText || errorMessage;
+      }
+
+      throw new ApiError(response.status, errorMessage, errorData);
+    }
+
+    // 파일 다운로드인 경우 blob 반환
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+      return await response.blob() as T;
+    }
+
+    // 일반 JSON 응답
+    const responseData = await response.json();
+    console.log(`✅ QName API 응답 성공: ${method} ${url}`);
+
+    return responseData;
+
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    // 네트워크 오류 처리
+    if (error instanceof TypeError || (error as any)?.name === 'AbortError') {
+      throw new ApiError(0, 'QName 서비스 연결에 실패했습니다. 서비스가 실행 중인지 확인해주세요.');
+    }
+
+    // 기타 오류
+    throw new ApiError(500, error instanceof Error ? error.message : 'QName 서비스 처리 중 오류가 발생했습니다.');
+  }
+};
+
+// 🆕 QText 서비스용 API 클라이언트
+export const qtextApiRequest = async <T = any>(
+  endpoint: string,
+  options: RequestOptions = {}
+): Promise<T> => {
+  const { getQTextApiUrl } = await import('../config/constants');
+  const baseUrl = getQTextApiUrl();
+
+  const {
+    method = 'GET',
+    headers = {},
+    body,
+    timeout = 300000 // QText도 5분 타임아웃
+  } = options;
+
+  const url = `${baseUrl}${endpoint}`;
+  const defaultHeaders: Record<string, string> = {};
+
+  // FormData인 경우 Content-Type을 설정하지 않음
+  if (!(body instanceof FormData)) {
+    defaultHeaders['Content-Type'] = 'application/json';
+  }
+
+  // AbortController로 타임아웃 처리
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    console.log(`🌐 QText API 요청: ${method} ${url}`);
+
+    const response = await fetch(url, {
+      method,
+      headers: { ...defaultHeaders, ...headers },
+      body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let errorMessage: string = 'QText 서비스 오류';
+      let errorData: any;
+
+      try {
+        errorData = await response.json();
+        errorMessage = errorData.message || errorData.detail || errorMessage;
+      } catch {
+        errorMessage = response.statusText || errorMessage;
+      }
+
+      throw new ApiError(response.status, errorMessage, errorData);
+    }
+
+    // 파일 다운로드인 경우 blob 반환
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/zip')) {
+      return await response.blob() as T;
+    }
+
+    // 일반 JSON 응답
+    const responseData = await response.json();
+    console.log(`✅ QText API 응답 성공: ${method} ${url}`);
+
+    return responseData;
+
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    // 네트워크 오류 처리
+    if (error instanceof TypeError || (error as any)?.name === 'AbortError') {
+      throw new ApiError(0, 'QText 서비스 연결에 실패했습니다. 서비스가 실행 중인지 확인해주세요.');
+    }
+
+    // 기타 오류
+    throw new ApiError(500, error instanceof Error ? error.message : 'QText 서비스 처리 중 오류가 발생했습니다.');
+  }
+};

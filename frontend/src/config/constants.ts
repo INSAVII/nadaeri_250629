@@ -2,8 +2,8 @@
 // 애플리케이션 상수 정의
 
 // 환경 변수 감지
-export const IS_DEVELOPMENT = process.env.NODE_ENV === 'development' || 
-  window.location.hostname === 'localhost' || 
+export const IS_DEVELOPMENT = process.env.NODE_ENV === 'development' ||
+  window.location.hostname === 'localhost' ||
   window.location.hostname === '127.0.0.1';
 
 export const IS_PRODUCTION = process.env.NODE_ENV === 'production';
@@ -15,9 +15,47 @@ export const getApiUrl = (): string => {
     // Vercel 등 배포 환경에서는 환경변수나 고정 URL 사용
     return process.env.REACT_APP_API_URL || 'https://api.qclick.com';
   }
-  
+
   // 개발 환경 - 로컬 서버
   return 'http://localhost:8001';
+};
+
+// 🆕 큐네임 서비스 API URL 동적 결정 함수
+export const getQNameApiUrl = (): string => {
+  try {
+    // 프로덕션 환경
+    if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
+      // 배포 환경에서는 실제 큐네임 서비스 URL 사용
+      const envUrl = (window as any).REACT_APP_QNAME_API_URL || process.env?.REACT_APP_QNAME_API_URL;
+      return envUrl || 'https://qname-service.onrender.com';
+    }
+
+    // 개발 환경 - 로컬 큐네임 서버
+    return 'http://localhost:8004';
+  } catch (error) {
+    console.error('getQNameApiUrl 오류:', error);
+    // 오류 발생 시 기본값 반환
+    return 'http://localhost:8004';
+  }
+};
+
+// 🆕 큐텍스트 서비스 API URL 동적 결정 함수
+export const getQTextApiUrl = (): string => {
+  try {
+    // 프로덕션 환경
+    if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
+      // 배포 환경에서는 실제 큐텍스트 서비스 URL 사용
+      const envUrl = (window as any).REACT_APP_QTEXT_API_URL || process.env?.REACT_APP_QTEXT_API_URL;
+      return envUrl || 'https://qtext-service.onrender.com';
+    }
+
+    // 개발 환경 - 로컬 큐텍스트 서버
+    return 'http://localhost:8003';
+  } catch (error) {
+    console.error('getQTextApiUrl 오류:', error);
+    // 오류 발생 시 기본값 반환
+    return 'http://localhost:8003';
+  }
 };
 
 // API 관련 상수

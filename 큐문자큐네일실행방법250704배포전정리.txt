@@ -1,0 +1,68 @@
+문자제거 실행 
+
+백엔드실행
+cd "D:\250624_cms01\services\qtext-service"
+python main.py
+
+
+프론트엔드 실행
+cd "D:\250624_cms01\frontend"
+npm run dev
+
+http://localhost:3002
+
+
+상품명짖기
+백엔드 실행
+PS D:\250624_cms01>
+cd "D:\250624_cms01\services\main-api"
+python main.py
+
+포엔드실행 
+PS D:\250624_cms01>
+cd "D:\250624_cms01\frontend"
+npm start
+
+http://localhost:3003
+큐네임 서비스: http://localhost:8004
+
+
+QText 서비스 실행 (가장 중요)
+taskkill /F /IM python.exe
+taskkill /F /IM node.exe
+
+# Python 프로세스 확인
+Get-Process python -ErrorAction SilentlyContinue
+
+# 또는 전체 프로세스에서 python 검색
+Get-Process | Where-Object {$_.ProcessName -like "*python*"}
+
+# Node.js 프로세스 확인
+Get-Process node -ErrorAction SilentlyContinue
+
+
+캐시정리법5단계 
+
+1단계 디랙토리변경 
+cd "D:\250624_cms01\frontend"
+
+2.캐시 다랙토리 삭제 
+# Parcel 캐시 삭제
+Remove-Item ".parcel-cache" -Recurse -Force -ErrorAction SilentlyContinue
+
+# 빌드 출력 디렉토리 삭제
+Remove-Item "dist" -Recurse -Force -ErrorAction SilentlyContinue
+
+3단계: npm 캐시 정리
+npm cache clean --force
+
+4단계: Node.js 프로세스 종료
+taskkill /F /IM node.exe
+
+4단계까지 하고 서버 실행하면됨.
+
+
+
+
+
+

@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import ErrorBoundary from './components/ui/ErrorBoundary';
+import ErrorBoundary, { NetworkStatusMonitor, ErrorLogViewer } from './components/ui/ErrorBoundary';
 import Header from './components/Header';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -1190,6 +1190,14 @@ const App: React.FC = () => {
         </div>
         {/* 개발 환경에서만 디버깅 정보 표시 */}
         <AdminMenuDebugger />
+
+        {/* 네트워크 상태 모니터링 */}
+        <NetworkStatusMonitor>
+          <div></div>
+        </NetworkStatusMonitor>
+
+        {/* 개발환경 오류 로그 뷰어 */}
+        <ErrorLogViewer />
       </PriceProvider>
     </AuthProvider>
   );
