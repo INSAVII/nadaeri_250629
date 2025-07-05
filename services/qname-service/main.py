@@ -9,6 +9,7 @@ import logging
 from datetime import datetime
 import glob
 from pathlib import Path
+from processor import OptimizedQNameProcessor, check_api_keys
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -38,9 +39,6 @@ if not env_loaded:
     load_dotenv()  # 기본 동작
 
 logger.info("큐네임 서비스 환경변수 로드 완료")
-
-# 큐네임 프로세서 임포트
-from processor import process_file, check_api_keys
 
 app = FastAPI(
     title="QName Service", 
@@ -81,7 +79,7 @@ async def process_excel_file(
         logger.info(f"요청 시간: {datetime.now().isoformat()}")
         
         # 파일 형식 검증
-        if not file.filename.endswith(('.xlsx', '.xls')):
+        if not file.filename.endswith((".xlsx", ".xls")):
             raise HTTPException(status_code=400, detail="엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.")
         
         # 이전 임시 파일들 정리
@@ -104,13 +102,14 @@ async def process_excel_file(
         
         logger.info(f"파일 저장 완료: {len(content)} bytes")
         
-        # 파일 처리
+        # 파일 처리 (비동기)
         logger.info(f"=== 파일 처리 시작 ===")
         logger.info(f"임시 파일 경로: {temp_file_path}")
         logger.info(f"현재 작업 디렉토리: {os.getcwd()}")
         logger.info(f"임시 파일 크기: {os.path.getsize(temp_file_path)} bytes")
         
-        result = process_file(temp_file_path)
+        processor = OptimizedQNameProcessor()
+        result = await processor.process_excel_file(temp_file_path)
         
         logger.info(f"=== 파일 처리 결과 ===")
         logger.info(f"성공 여부: {result['success']}")
@@ -182,8 +181,9 @@ async def generate_single_name(
         temp_file = f"temp_single_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         temp_df.to_excel(temp_file, index=False)
         
-        # 파일 처리
-        result = process_file(temp_file)
+        # 파일 처리 (비동기)
+        processor = OptimizedQNameProcessor()
+        result = await processor.process_excel_file(temp_file)
         
         # 임시 파일 삭제
         try:
