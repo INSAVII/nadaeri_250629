@@ -26,6 +26,7 @@ EXPOSE 8001
 # 환경 변수 설정
 ENV PYTHONPATH=/app
 ENV ENV=production
+ENV PORT=8000
 
 # 헬스체크 추가
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
