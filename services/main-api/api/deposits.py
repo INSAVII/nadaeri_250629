@@ -715,12 +715,21 @@ async def create_bank_transfer_request(
 메모: {request.note or '없음'}
         """.strip()
         
-        # SMS 발송 (실제 구현 시 SMS 서비스 연동)
+        # SMS 발송
         try:
-            # 🆕 SMS 발송 로직 (예시 - 실제 SMS 서비스로 교체 필요)
-            # send_sms_to_admin(admin_phone, sms_message)  # 실제 SMS 서비스 연동 시 활성화
-            logger.info(f"SMS 발송 예정: {admin_phone}")
-            logger.info(f"SMS 내용: {sms_message}")
+            from sms_service import sms_service
+            
+            sms_results = sms_service.send_bank_transfer_notification(
+                user_name=current_user.name,
+                user_id=request.userId,
+                depositor_name=request.depositorName,
+                amount=request.amount,
+                phone_number=request.phoneNumber,
+                note=request.note
+            )
+            
+            logger.info(f"SMS 발송 결과: 관리자={sms_results['admin_sent']}, 입금자={sms_results['user_sent']}")
+            
         except Exception as sms_error:
             logger.error(f"SMS 발송 실패: {sms_error}")
             # SMS 실패해도 입금 신청은 성공으로 처리
