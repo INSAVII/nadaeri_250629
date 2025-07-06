@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isInitialized) return;
 
-    console.log('🚫 AuthContext - 자동 로그인 비활성화됨');
+    console.log('🔄 AuthContext - 인증 초기화 시작');
 
     // 강제 초기화 플래그 확인
     const forceInit = sessionStorage.getItem('forceInit');
@@ -78,9 +78,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.clear();
       setUser(null);
     } else {
-      // 🚫 자동 로그인 비활성화 - 수동 로그인만 허용
-      console.log('🚫 자동 로그인 비활성화 - 수동 로그인 필요');
-      setUser(null);
+      // ✅ localStorage에서 사용자 데이터 복원 시도
+      const savedUser = localStorage.getItem(STORAGE_KEYS.USER_DATA);
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          if (parsed && parsed.token) {
+            console.log('✅ AuthContext - localStorage에서 사용자 데이터 복원:', parsed);
+            // 🆕 userId를 id와 동일하게 설정하여 통일
+            if (parsed.id && !parsed.userId) {
+              parsed.userId = parsed.id;
+            }
+            setUser(parsed);
+          } else {
+            console.log('❌ AuthContext - localStorage에 유효한 토큰이 없음');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('❌ AuthContext - localStorage 파싱 오류:', error);
+          setUser(null);
+        }
+      } else {
+        console.log('ℹ️ AuthContext - localStorage에 사용자 데이터 없음, 로그인 필요');
+        setUser(null);
+      }
     }
 
     setIsInitialized(true);

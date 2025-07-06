@@ -4,14 +4,15 @@
 import { API_CONFIG, STORAGE_KEYS } from '../config/constants';
 
 /**
- * 🚫 인증 토큰을 포함한 기본 헤더 반환 - localStorage 사용 금지
+ * ✅ 인증 토큰을 포함한 기본 헤더 반환
  */
 export const getAuthHeaders = (): HeadersInit => {
-  console.log('🚫 apiUtils - getAuthHeaders 호출됨 (localStorage 사용 금지)');
-  // localStorage에서 토큰을 가져오지 않음 - 자동 로그인 방지
+  console.log('✅ apiUtils - getAuthHeaders 호출됨');
+  const token = localStorage.getItem('token') || localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+
   return {
-    'Content-Type': 'application/json'
-    // Authorization 헤더 제거하여 토큰 기반 자동 로그인 방지
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` })
   };
 };
 

@@ -215,6 +215,13 @@ export default function Header() {
 
             {/* 서비스 메뉴들 - 모든 사용자에게 표시 */}
             <Link
+              to={user?.role === 'admin' ? '/admin/qname' : '/qname'}
+              className={`px-3 py-2 rounded-md text-base font-light ${isActive('/qname') || isActive('/app/qname') || isActive('/admin/qname') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+            >
+              큐네임
+            </Link>
+            <Link
               to={user?.role === 'admin' ? '/admin/qcapture' : '/qcapture'}
               className={`px-3 py-2 rounded-md text-base font-light ${isActive('/qcapture') || isActive('/app/qcapture') || isActive('/admin/qcapture') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
                 }`}
@@ -227,13 +234,6 @@ export default function Header() {
                 }`}
             >
               큐문자
-            </Link>
-            <Link
-              to={user?.role === 'admin' ? '/admin/qname' : '/qname'}
-              className={`px-3 py-2 rounded-md text-base font-light ${isActive('/qname') || isActive('/app/qname') || isActive('/admin/qname') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
-                }`}
-            >
-              큐네임
             </Link>
 
             <Link
@@ -384,6 +384,14 @@ export default function Header() {
 
             {/* 서비스 메뉴들 - 모든 사용자에게 표시 */}
             <Link
+              to={user?.role === 'admin' ? '/admin/qname' : '/qname'}
+              className={`block px-3 py-2 rounded-md text-base font-light ${isActive('/qname') || isActive('/app/qname') || isActive('/admin/qname') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              큐네임
+            </Link>
+            <Link
               to={user?.role === 'admin' ? '/admin/qcapture' : '/qcapture'}
               className={`block px-3 py-2 rounded-md text-base font-light ${isActive('/qcapture') || isActive('/app/qcapture') || isActive('/admin/qcapture') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
                 }`}
@@ -398,14 +406,6 @@ export default function Header() {
               onClick={() => setIsMobileMenuOpen(false)}
             >
               큐문자
-            </Link>
-            <Link
-              to={user?.role === 'admin' ? '/admin/qname' : '/qname'}
-              className={`block px-3 py-2 rounded-md text-base font-light ${isActive('/qname') || isActive('/app/qname') || isActive('/admin/qname') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
-                }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              큐네임
             </Link>
             <Link
               to="/board"
