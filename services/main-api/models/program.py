@@ -105,3 +105,16 @@ class ProgramFile(Base):
     upload_date = Column(DateTime(timezone=True), server_default=func.now())  # 업로드 날짜
     file_content = Column(Text)  # 파일 내용 (base64 인코딩, 작은 파일용)
     content_type = Column(String, default="application/octet-stream")  # 파일 타입
+
+class PriceSettings(Base):
+    __tablename__ = "price_settings"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    service_type = Column(String, nullable=False, unique=True)  # qcapture_month1, qcapture_month3
+    price = Column(Integer, nullable=False)  # 가격 (원)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    updated_by = Column(String, nullable=True)  # 업데이트한 사용자 ID
+    
+    def __repr__(self):
+        return f"<PriceSettings(id={self.id}, service_type={self.service_type}, price={self.price})>"

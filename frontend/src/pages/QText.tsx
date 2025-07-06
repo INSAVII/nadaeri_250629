@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePrice } from '../context/PriceContext';
-import { getQTextApiUrl } from '../config/constants';
-import { qtextApiRequest, ApiError } from '../utils/apiClient';
+import { getQTextApiUrl, getApiUrl } from '../config/constants';
+import { qtextApiRequest, apiPost, ApiError } from '../utils/apiClient';
 
 // 파일 검증 결과 타입 정의
 interface FileValidation {
@@ -14,8 +14,27 @@ interface FileValidation {
   supportedTypes: string[];
 }
 
-// API 설정 - 하이브리드 방식에 맞춰 동적 설정
+// QText 작업 타입 정의
+interface QTextJob {
+  id: string;
+  user_id: string;
+  file_count: number;
+  unit_price: number;
+  total_amount: number;
+  status: string;
+  original_files?: string;
+  processed_files?: string;
+  result_file_path?: string;
+  error_message?: string;
+  processing_started_at?: string;
+  processing_completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// API 설정
 const QTEXT_SERVICE_URL = getQTextApiUrl();
+const MAIN_API_URL = getApiUrl();
 
 const QText: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -27,6 +46,9 @@ const QText: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [balance, setBalance] = useState(user?.balance || 0);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // 현재 작업 상태
+  const [currentJob, setCurrentJob] = useState<QTextJob | null>(null);
 
   // 파일 검증 관련 상태
   const [fileValidation, setFileValidation] = useState<FileValidation>({
@@ -69,6 +91,7 @@ const QText: React.FC = () => {
     setSuccess('');
     setProcessingComplete(false);
     setProcessedFilesUrl(null);
+    setCurrentJob(null);
 
     if (e.target.files && e.target.files.length > 0) {
       const selectedFiles = e.target.files;
@@ -101,6 +124,7 @@ const QText: React.FC = () => {
     setSuccess('');
     setProcessingComplete(false);
     setProcessedFilesUrl(null);
+    setCurrentJob(null);
     setFileValidation({
       isValid: false,
       totalFiles: 0,
@@ -204,50 +228,51 @@ const QText: React.FC = () => {
     setProcessingProgress({
       current: 0,
       total: fileValidation.totalFiles,
-      message: '예치금 차감 중...'
+      message: '1/3 단계: QText 작업 생성 중...'
     });
 
     try {
-      // === 예치금 차감 (처리 시작 전) ===
-      const totalCost = fileValidation.estimatedCost;
-      const fileCount = fileValidation.totalFiles;
-      const newBalance = user.balance - totalCost;
+      // === 1단계: QText 작업 생성 (메인 API) ===
+      console.log('=== QText 작업 생성 시작 ===');
 
-      // 🆕 로컬 상태만 업데이트 (AuthContext 호출 제거)
-      console.log('🆕 QText - AuthContext updateUserBalance 호출 차단됨');
-      console.log('🆕 로컬 상태만 업데이트:', newBalance);
-      setBalance(newBalance);
+      const jobData = {
+        file_count: fileValidation.totalFiles,
+        unit_price: qtextPrice || 100
+      };
 
-      // === 파일 업로드 및 처리 ===
+      const jobResponse = await apiPost('/api/qtext/jobs', jobData, user.token);
+      const job: QTextJob = jobResponse;
+
+      setCurrentJob(job);
+      console.log('QText 작업 생성 완료:', job.id);
+
+      // === 2단계: 이미지 처리 (QText 서비스) ===
+      setProcessingProgress(prev => ({
+        ...prev,
+        message: '2/3 단계: AI 모델이 텍스트를 감지하고 제거 중...'
+      }));
+
       // FormData 생성
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) {
         formData.append('files', files[i]);
       }
+      formData.append('user_id', user.id);
+      formData.append('user_token', user.token);
+      formData.append('job_id', job.id);
 
-      // 사용자 정보 추가
-      if (user) {
-        formData.append('user_name', user.name || '사용자');
-        formData.append('user_id', user.id || 'unknown');
-      }
-
-      // 처리 중 메시지 업데이트
-      setProcessingProgress(prev => ({
-        ...prev,
-        message: 'AI 모델이 텍스트를 감지하고 제거 중...'
-      }));
-
+      console.log('QText 서비스 호출 시작');
       const blob = await qtextApiRequest('/api/qtext/process-images', {
         method: 'POST',
         body: formData
       });
 
-      console.log('API 응답 성공 - 파일 다운로드 준비');
+      console.log('QText 서비스 처리 완료');
 
-      // 파일 다운로드 처리
+      // === 3단계: 결과 처리 ===
       setProcessingProgress(prev => ({
         ...prev,
-        message: '문자 제거된 이미지 준비 중...'
+        message: '3/3 단계: 문자 제거된 이미지 준비 중...'
       }));
 
       const url = window.URL.createObjectURL(blob);
@@ -255,13 +280,16 @@ const QText: React.FC = () => {
 
       // 처리 완료 상태 설정
       setProcessingProgress({
-        current: fileCount,
-        total: fileCount,
+        current: fileValidation.totalFiles,
+        total: fileValidation.totalFiles,
         message: '처리 완료!'
       });
 
       setProcessingComplete(true);
-      setSuccess(`문자 제거 완료! ${fileCount}개 파일 처리, ${totalCost.toLocaleString()}원 차감, 남은 예치금: ${newBalance.toLocaleString()}원`);
+      setSuccess(`문자 제거 완료! ${fileValidation.totalFiles}개 파일 처리, ${fileValidation.estimatedCost.toLocaleString()}원 차감`);
+
+      // 잔액 업데이트 (작업 완료 시 자동으로 차감됨)
+      setBalance(prev => prev - fileValidation.estimatedCost);
 
       // 파일 상태 초기화
       setFiles(null);
@@ -274,7 +302,9 @@ const QText: React.FC = () => {
         supportedTypes: ['JPG', 'PNG', 'GIF', 'JPEG']
       });
 
-    } catch (e) {
+    } catch (e: any) {
+      console.error('=== QText 처리 오류 ===', e);
+
       setProcessingProgress({
         current: 0,
         total: 0,
@@ -284,10 +314,8 @@ const QText: React.FC = () => {
       // ApiError 처리
       if (e instanceof ApiError) {
         if (e.status === 0) {
-          // 네트워크 오류
           setError(`네트워크 오류: ${e.message}`);
         } else {
-          // API 오류
           setError(`서버 오류: ${e.message}`);
         }
       } else {
@@ -305,9 +333,26 @@ const QText: React.FC = () => {
     }
 
     try {
+      // 🆕 사용자 친화적인 파일명 생성
+      let downloadFilename = '문자제거완료_이미지들.zip';
+
+      if (currentJob && user) {
+        const currentTime = new Date().toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).replace(/[:\s]/g, '').replace(/\//g, '');
+
+        downloadFilename = `${user.userId || user.id}_${currentTime}_${currentJob.file_count}개이미지.zip`;
+      }
+
       const link = document.createElement('a');
       link.href = processedFilesUrl;
-      link.download = '문자제거완료_이미지들.zip';
+      link.download = downloadFilename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -328,12 +373,12 @@ const QText: React.FC = () => {
           </div>
           <div>
             <p className="text-lg text-blue-600 font-bold">
-              큐캡쳐로 캡쳐한이미지를 대량 문자제거처리해서 목록이미지로 사용하게 합니다 최대400개까지 업로드하세요
+              큐캡쳐로 캡쳐한이미지를 대량 문자제거처리해서 목록이미지로 사용하게 합니다 최대100개까지 업로드하세요
             </p>
           </div>
         </div>
 
-        {/* 상태 배지 및 가격 정보 (QName 스타일) */}
+        {/* 상태 배지 및 가격 정보 */}
         <div className="flex items-center justify-between space-x-2 mb-4">
           <div className="flex items-center space-x-2">
             <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-light rounded">문자 제거 대기</span>
@@ -481,6 +526,9 @@ const QText: React.FC = () => {
             <div className="text-sm text-green-700 font-light">
               <p>✅ AI 문자 제거가 완료되었습니다.</p>
               <p className="text-xs text-green-600 mt-1">문자가 제거된 이미지들을 다운로드하세요.</p>
+              {currentJob && (
+                <p className="text-xs text-green-500 mt-1">작업 ID: {currentJob.id}</p>
+              )}
             </div>
             <button
               onClick={handleDownloadProcessedFiles}

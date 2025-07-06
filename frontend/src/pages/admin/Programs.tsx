@@ -113,7 +113,18 @@ export default function AdminPrograms() {
       // 1. 백엔드 API 호출로 파일 업로드
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('license_type', programType);
+
+      // 🆕 올바른 license_type 매핑
+      let licenseType = '';
+      if (programType === 'qcapture_free') {
+        licenseType = 'qcapture_free';
+      } else if (programType === 'qcapture_1month') {
+        licenseType = 'qcapture_month1';  // 🆕 수정: qcapture_1month → qcapture_month1
+      } else if (programType === 'qcapture_3month') {
+        licenseType = 'qcapture_month3';
+      }
+
+      formData.append('license_type', licenseType);
       formData.append('name', getProgramDisplayName(programType));
 
       const response = await fetch(`${getApiUrl()}/api/programs/upload-program`, {

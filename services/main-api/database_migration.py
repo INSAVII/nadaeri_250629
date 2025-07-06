@@ -407,6 +407,21 @@ def create_program_files_table():
         logger.error(f"❌ 프로그램 파일 테이블 생성 실패: {e}")
         raise
 
+def create_bank_transfer_requests_table():
+    """무통장 입금 신청 테이블을 생성합니다."""
+    try:
+        logger.info("무통장 입금 신청 테이블 생성 시작...")
+        
+        # BankTransferRequest 테이블 생성
+        from models.transaction import BankTransferRequest
+        BankTransferRequest.__table__.create(bind=engine, checkfirst=True)
+        
+        logger.info("✅ 무통장 입금 신청 테이블 생성 완료")
+        
+    except Exception as e:
+        logger.error(f"❌ 무통장 입금 신청 테이블 생성 실패: {e}")
+        raise
+
 def run_migrations():
     """모든 마이그레이션을 실행합니다."""
     try:
@@ -414,6 +429,9 @@ def run_migrations():
         
         # 프로그램 파일 테이블 생성
         create_program_files_table()
+        
+        # 무통장 입금 신청 테이블 생성
+        create_bank_transfer_requests_table()
         
         # 1. 데이터베이스 연결 확인
         if not check_database_connection():

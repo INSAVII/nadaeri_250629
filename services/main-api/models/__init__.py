@@ -7,6 +7,7 @@ from .transaction import Transaction, TransactionType
 from .program import Program, UserProgram
 from .service_usage import ServiceUsage
 from .board import Board
+from .qtext_job import QTextJob
 
 # 모델 목록
 __all__ = [
@@ -17,7 +18,8 @@ __all__ = [
     "Program",
     "UserProgram", 
     "ServiceUsage",
-    "Board"
+    "Board",
+    "QTextJob"
 ]
 
 # from .payment import Payment  # 결제 기능 미사용, payment.py 삭제 대응

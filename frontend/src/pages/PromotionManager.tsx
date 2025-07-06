@@ -31,54 +31,46 @@ export default function PromotionManager() {
   // 현재 홍보문구 로드
   const loadCurrentPromotion = async () => {
     try {
-      // TODO: db 기반으로 전환시 구축 - 실제 API 호출
-      // const response = await fetch('http://localhost:8001/api/promotion/current');
-      // if (response.ok) {
-      //   const data = await response.json();
-      //   const promotionData = data.promotion || defaultPromotion;
-      //   setCurrentPromotion(promotionData);
-      //   setDraftPromotion(promotionData);
-      // }
-
-      // Mock 데이터: localStorage에서 홍보문구 로드
-      const savedPromotion = localStorage.getItem('qclick_promotion');
-      if (savedPromotion) {
-        try {
-          const promotionData = JSON.parse(savedPromotion);
-          setCurrentPromotion(promotionData);
-          setDraftPromotion(promotionData);
-          return;
-        } catch (parseError) {
-          console.warn('저장된 홍보문구 파싱 실패:', parseError);
-        }
+      // 실제 API 호출
+      const response = await fetch('/api/promotion/current');
+      if (response.ok) {
+        const data = await response.json();
+        const promotionData = data.promotion;
+        setCurrentPromotion(promotionData);
+        setDraftPromotion(promotionData);
+        return;
+      } else {
+        console.warn('API 응답 오류:', response.status);
       }
-
-      // 기본값 설정
-      const defaultPromotion = {
-        text: '대량가공판매자님을위한 상품명짖기, 목록이미지캡쳐 자동저장, 카테번호, 키워드추출 자동화',
-        fontSize: 'normal' as const,
-        color: 'default' as const,
-        fontWeight: 'normal' as const
-      };
-      setCurrentPromotion(defaultPromotion);
-      setDraftPromotion(defaultPromotion);
-
-      // localStorage에 기본값 저장
-      localStorage.setItem('qclick_promotion', JSON.stringify(defaultPromotion));
     } catch (error) {
-      console.warn('홍보문구 로드 실패 (기본값 사용):', error);
-      // 기본값 설정으로 계속 진행
-      const defaultPromotion = {
-        text: '대량가공판매자님을위한 상품명짖기, 목록이미지캡쳐 자동저장, 카테번호, 키워드추출 자동화',
-        fontSize: 'normal' as const,
-        color: 'default' as const,
-        fontWeight: 'normal' as const
-      };
-      setCurrentPromotion(defaultPromotion);
-      setDraftPromotion(defaultPromotion);
-      setMessage('홍보문구를 불러올 수 없어 기본값을 사용합니다.');
-      setTimeout(() => setMessage(''), 3000);
+      console.warn('API 호출 실패:', error);
     }
+
+    // API 실패시 localStorage에서 홍보문구 로드 (fallback)
+    const savedPromotion = localStorage.getItem('qclick_promotion');
+    if (savedPromotion) {
+      try {
+        const promotionData = JSON.parse(savedPromotion);
+        setCurrentPromotion(promotionData);
+        setDraftPromotion(promotionData);
+        return;
+      } catch (parseError) {
+        console.warn('저장된 홍보문구 파싱 실패:', parseError);
+      }
+    }
+
+    // 기본값 설정
+    const defaultPromotion = {
+      text: '대량가공판매자님을위한 상품명짖기, 목록이미지캡쳐 자동저장, 카테번호, 키워드추출 자동화',
+      fontSize: 'normal' as const,
+      color: 'default' as const,
+      fontWeight: 'normal' as const
+    };
+    setCurrentPromotion(defaultPromotion);
+    setDraftPromotion(defaultPromotion);
+
+    // localStorage에 기본값 저장 (fallback용)
+    localStorage.setItem('qclick_promotion', JSON.stringify(defaultPromotion));
   };
 
   // 사이트 개시 (홍보문구 적용)
@@ -90,24 +82,24 @@ export default function PromotionManager() {
 
     setIsLoading(true);
     try {
-      // TODO: db 기반으로 전환시 구축 - 실제 API 호출
-      // const response = await fetch('http://localhost:8001/api/promotion/publish', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ promotion: draftPromotion }),
-      // });
-      // if (response.ok) {
-      //   setCurrentPromotion(draftPromotion);
-      //   setMessage('홍보문구가 성공적으로 사이트에 적용되었습니다.');
-      // } else {
-      //   setMessage('홍보문구 적용에 실패했습니다.');
-      // }
+      // 실제 API 호출
+      const response = await fetch('/api/promotion/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promotion: draftPromotion }),
+      });
 
-      // Mock 데이터: localStorage에 홍보문구 저장
-      localStorage.setItem('qclick_promotion', JSON.stringify(draftPromotion));
-      setCurrentPromotion(draftPromotion);
-      setMessage('홍보문구가 성공적으로 사이트에 적용되었습니다.');
-      setTimeout(() => setMessage(''), 3000);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentPromotion(draftPromotion);
+        setMessage('홍보문구가 성공적으로 사이트에 적용되었습니다.');
+
+        // localStorage에도 저장 (fallback용)
+        localStorage.setItem('qclick_promotion', JSON.stringify(draftPromotion));
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setMessage(errorData.detail || '홍보문구 적용에 실패했습니다.');
+      }
     } catch (error) {
       console.warn('홍보문구 적용 실패:', error);
       setMessage('홍보문구 적용 중 오류가 발생했습니다. 다시 시도해주세요.');

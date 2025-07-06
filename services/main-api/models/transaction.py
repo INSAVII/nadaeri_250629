@@ -1,9 +1,10 @@
-from sqlalchemy import Column, String, Integer, DateTime, Float, ForeignKey, Enum
+from sqlalchemy import Column, String, Integer, DateTime, Float, ForeignKey, Enum, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
 import enum
 from database import Base
+from datetime import datetime
 
 def generate_uuid():
     return str(uuid.uuid4())
@@ -93,3 +94,21 @@ class Transaction(Base):
             "description": self.description,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
+
+# 🆕 무통장 입금 신청 모델
+class BankTransferRequest(Base):
+    __tablename__ = "bank_transfer_requests"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    depositor_name = Column(String, nullable=False)
+    amount = Column(Integer, nullable=False)
+    phone_number = Column(String, nullable=False)
+    note = Column(Text, nullable=True)
+    status = Column(String, default="pending")  # pending, confirmed, rejected
+    created_at = Column(DateTime, default=datetime.utcnow)
+    confirmed_at = Column(DateTime, nullable=True)
+    confirmed_by = Column(String, nullable=True)
+    
+    # 관계 설정
+    user = relationship("User", back_populates="bank_transfer_requests")

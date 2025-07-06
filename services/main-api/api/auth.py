@@ -97,30 +97,53 @@ class UserResponse(BaseModel):
     @classmethod
     def from_orm(cls, user):
         """User 모델에서 UserResponse 생성 (표준 구조)"""
-        return cls(
-            id=user.id,
-            userId=user.id,  # id와 동일
-            name=user.name,
-            email=user.email,
-            phone=user.phone or "010-0000-0000",  # 기본값 제공
-            role=user.role,
-            balance=user.balance,
-            is_active=user.is_active,
-            created_at=user.created_at,
-            last_login_at=user.updated_at,  # 임시로 updated_at 사용
-            region=user.region,
-            age=user.age,
-            gender=user.gender,
-            work_type=user.work_type,
-            has_business=user.has_business,
-            business_number=user.business_number,
-            # 프로그램 권한 정보 추가
-            programPermissions={
-                'free': user.program_permissions_free or False,
-                'month1': user.program_permissions_month1 or False,
-                'month3': user.program_permissions_month3 or False
+        try:
+            # 프로그램 권한 정보 안전하게 추출
+            program_permissions = {
+                'free': getattr(user, 'program_permissions_free', False) or False,
+                'month1': getattr(user, 'program_permissions_month1', False) or False,
+                'month3': getattr(user, 'program_permissions_month3', False) or False
             }
-        )
+            
+            return cls(
+                id=user.id,
+                userId=user.id,  # id와 동일
+                name=user.name,
+                email=user.email,
+                phone=user.phone or "010-0000-0000",  # 기본값 제공
+                role=user.role,
+                balance=user.balance,
+                is_active=user.is_active,
+                created_at=user.created_at,
+                last_login_at=user.updated_at,  # 임시로 updated_at 사용
+                region=user.region,
+                age=user.age,
+                gender=user.gender,
+                work_type=user.work_type,
+                has_business=user.has_business,
+                business_number=user.business_number,
+                # 프로그램 권한 정보 추가
+                programPermissions=program_permissions
+            )
+        except Exception as e:
+            logger.error(f"UserResponse.from_orm 오류: {str(e)}")
+            # 기본값으로 생성
+            return cls(
+                id=user.id,
+                userId=user.id,
+                name=user.name or "",
+                email=user.email or "",
+                phone=user.phone or "010-0000-0000",
+                role=user.role or "user",
+                balance=user.balance or 0.0,
+                is_active=user.is_active or True,
+                created_at=user.created_at or datetime.utcnow(),
+                programPermissions={
+                    'free': False,
+                    'month1': False,
+                    'month3': False
+                }
+            )
     
     class Config:
         from_attributes = True  # orm_mode의 새 이름
@@ -390,6 +413,8 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """로그인"""
     try:
+        logger.info(f"로그인 시도: username={form_data.username}")
+        
         user = authenticate_user(db, form_data.username, form_data.password)
         if not user:
             raise HTTPException(
@@ -407,9 +432,34 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
             data={"sub": user.email}, expires_delta=access_token_expires
         )
         
-        logger.info(f"로그인 성공: {user.email}")
+        logger.info(f"로그인 성공: {user.email}, UserResponse 생성 시작")
+        
+        # UserResponse 생성 시 안전하게 처리
+        try:
+            user_response = UserResponse.from_orm(user)
+            logger.info(f"UserResponse 생성 성공: programPermissions={user_response.programPermissions}")
+        except Exception as e:
+            logger.error(f"UserResponse 생성 실패: {str(e)}")
+            # 기본 UserResponse 생성
+            user_response = UserResponse(
+                id=user.id,
+                userId=user.id,
+                name=user.name or "",
+                email=user.email or "",
+                phone=user.phone or "010-0000-0000",
+                role=user.role or "user",
+                balance=user.balance or 0.0,
+                is_active=user.is_active or True,
+                created_at=user.created_at or datetime.utcnow(),
+                programPermissions={
+                    'free': False,
+                    'month1': False,
+                    'month3': False
+                }
+            )
+        
         return LoginResponse(
-            user=UserResponse.from_orm(user),
+            user=user_response,
             access_token=access_token,
             token_type="bearer"
         )

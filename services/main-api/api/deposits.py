@@ -7,11 +7,13 @@ import uuid
 from fastapi.responses import JSONResponse
 from sqlalchemy import func
 import logging
+import requests
+import json
 
 from database import get_db
 from models.user import User
 from models.program import Program, UserProgram
-from models.transaction import Transaction, TransactionType
+from models.transaction import Transaction, TransactionType, BankTransferRequest
 from api.auth import get_current_admin_user, get_current_active_user
 
 # 로깅 설정
@@ -69,6 +71,19 @@ class ProgramDownloadRequest(BaseModel):
     program_id: str
     license_type: str  # free, month1, month3
     prices: Optional[dict] = None  # 프론트엔드에서 전송하는 가격 정보
+
+# 🆕 무통장 입금 신청 요청 모델
+class BankTransferRequestCreate(BaseModel):
+    userId: str
+    depositorName: str
+    amount: int
+    phoneNumber: str
+    note: Optional[str] = ""
+
+class BankTransferResponse(BaseModel):
+    success: bool
+    message: str
+    request_id: Optional[str] = None
 
 # API 엔드포인트
 @router.get("/users", response_model=List[UserWithProgramsResponse])
@@ -640,3 +655,258 @@ async def download_program_with_balance_deduction(
         db.rollback()
         logger.error(f"프로그램 다운로드 중 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"프로그램 다운로드 중 오류 발생: {str(e)}")
+
+# 🆕 무통장 입금 신청 API (회원가입 + 로그인 필수)
+@router.post("/bank-transfer-request", response_model=BankTransferResponse)
+async def create_bank_transfer_request(
+    request: BankTransferRequestCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """무통장 입금 신청을 생성하고 관리자에게 SMS 알림을 발송합니다."""
+    try:
+        # 로그인한 사용자의 경우 자동으로 userId 설정
+        if not request.userId:
+            request.userId = current_user.id
+            logger.info(f"로그인한 사용자 자동 설정: user_id={current_user.id}")
+        
+        # userId 검증 (필수)
+        if not request.userId:
+            raise HTTPException(status_code=400, detail="사용자 ID가 필요합니다.")
+        
+        # 로그인한 사용자의 userId와 일치하는지 확인
+        if request.userId != current_user.id:
+            logger.warning(f"사용자 ID 불일치: 요청={request.userId}, 로그인={current_user.id}")
+            raise HTTPException(status_code=403, detail="사용자 ID가 로그인 정보와 일치하지 않습니다.")
+        
+        # 사용자 계정 활성화 상태 확인
+        if not current_user.is_active:
+            raise HTTPException(
+                status_code=400, 
+                detail="비활성화된 계정입니다. 관리자에게 문의해주세요."
+            )
+        
+        logger.info(f"무통장 입금 신청: user_id={request.userId}, amount={request.amount}, depositor={request.depositorName}")
+        
+        # 1. 데이터베이스에 입금 신청 기록
+        transfer_request = BankTransferRequest(
+            user_id=request.userId,
+            depositor_name=request.depositorName,
+            amount=request.amount,
+            phone_number=request.phoneNumber,
+            note=request.note,
+            status="pending",
+            created_at=datetime.utcnow()
+        )
+        
+        db.add(transfer_request)
+        db.commit()
+        db.refresh(transfer_request)
+        
+        # 2. 관리자에게 SMS 발송
+        admin_phone = "010-5904-2213"  # 관리자 전화번호
+        sms_message = f"""
+[나대리que] 무통장 입금 신청
+사용자ID: {request.userId}
+사용자명: {current_user.name}
+입금자명: {request.depositorName}
+금액: {request.amount:,}원
+연락처: {request.phoneNumber}
+메모: {request.note or '없음'}
+        """.strip()
+        
+        # SMS 발송 (실제 구현 시 SMS 서비스 연동)
+        try:
+            # 🆕 SMS 발송 로직 (예시 - 실제 SMS 서비스로 교체 필요)
+            # send_sms_to_admin(admin_phone, sms_message)  # 실제 SMS 서비스 연동 시 활성화
+            logger.info(f"SMS 발송 예정: {admin_phone}")
+            logger.info(f"SMS 내용: {sms_message}")
+        except Exception as sms_error:
+            logger.error(f"SMS 발송 실패: {sms_error}")
+            # SMS 실패해도 입금 신청은 성공으로 처리
+        
+        return BankTransferResponse(
+            success=True,
+            message="입금 신청이 완료되었습니다. 입금 후 관리자 확인 시 예치금이 충전됩니다.",
+            request_id=str(transfer_request.id)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"무통장 입금 신청 실패: {e}")
+        raise HTTPException(status_code=500, detail="입금 신청 처리 중 오류가 발생했습니다.")
+
+# 🆕 SMS 발송 함수 (실제 SMS 서비스로 교체 필요)
+def send_sms_to_admin(phone_number: str, message: str):
+    """
+    관리자에게 SMS를 발송하는 함수
+    실제 구현 시 네이버 클라우드 플랫폼(SENS) 또는 다른 SMS 서비스 사용
+    """
+    # 예시 구현 - 실제 SMS 서비스로 교체 필요
+    logger.info(f"SMS 발송 시뮬레이션: {phone_number}")
+    logger.info(f"SMS 내용: {message}")
+    
+    # 실제 SMS 발송을 위한 코드 예시:
+    """
+    # 네이버 클라우드 플랫폼 SENS 사용 예시
+    import requests
+    
+    url = "https://sens.apigw.ntruss.com/sms/v2/services/{serviceId}/messages"
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "x-ncp-apigw-timestamp": str(int(time.time() * 1000)),
+        "x-ncp-iam-access-key": "YOUR_ACCESS_KEY",
+        "x-ncp-apigw-signature-v2": signature
+    }
+    
+    data = {
+        "type": "SMS",
+        "contentType": "COMM",
+        "countryCode": "82",
+        "from": "발신번호",
+        "content": message,
+        "messages": [{"to": phone_number}]
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
+    """
+
+# 🆕 무통장 입금 신청 목록 조회 API (관리자용)
+@router.get("/bank-transfer-requests", response_model=List[dict])
+async def get_bank_transfer_requests(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+):
+    """무통장 입금 신청 목록을 조회합니다."""
+    try:
+        requests = db.query(BankTransferRequest).order_by(BankTransferRequest.created_at.desc()).all()
+        
+        return [
+            {
+                "id": req.id,
+                "user_id": req.user_id,
+                "depositor_name": req.depositor_name,
+                "amount": req.amount,
+                "phone_number": req.phone_number,
+                "note": req.note,
+                "status": req.status,
+                "created_at": req.created_at.isoformat() if req.created_at else None,
+                "confirmed_at": req.confirmed_at.isoformat() if req.confirmed_at else None,
+                "confirmed_by": req.confirmed_by
+            }
+            for req in requests
+        ]
+        
+    except Exception as e:
+        logger.error(f"입금 신청 목록 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="입금 신청 목록 조회 중 오류가 발생했습니다.")
+
+# 🆕 무통장 입금 확인 API (관리자용)
+@router.post("/bank-transfer-requests/{request_id}/confirm", response_model=StandardResponse)
+async def confirm_bank_transfer(
+    request_id: int,
+    request: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+):
+    """무통장 입금을 확인하고 사용자 예치금을 충전합니다."""
+    try:
+        from models.transaction import BankTransferRequest
+        
+        # 입금 신청 조회
+        transfer_request = db.query(BankTransferRequest).filter(BankTransferRequest.id == request_id).first()
+        if not transfer_request:
+            raise HTTPException(status_code=404, detail="입금 신청을 찾을 수 없습니다.")
+        
+        if transfer_request.status != "pending":
+            raise HTTPException(status_code=400, detail="이미 처리된 입금 신청입니다.")
+        
+        # 사용자 조회
+        user = db.query(User).filter(User.id == transfer_request.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+        
+        # 예치금 충전
+        amount = request.get("amount", transfer_request.amount)
+        description = request.get("description", f"무통장 입금 확인: {transfer_request.depositor_name}")
+        
+        old_balance = user.balance
+        user.balance += amount
+        
+        # 거래 내역 기록
+        transaction = Transaction.create_deposit_transaction(
+            user,
+            amount,
+            f"bank_transfer_{transfer_request.id}",
+            description
+        )
+        db.add(transaction)
+        
+        # 입금 신청 상태 업데이트
+        transfer_request.status = "confirmed"
+        transfer_request.confirmed_at = datetime.utcnow()
+        transfer_request.confirmed_by = current_admin.id
+        
+        db.commit()
+        
+        logger.info(f"입금 확인 완료: request_id={request_id}, user_id={user.id}, amount={amount}, balance={old_balance}->{user.balance}")
+        
+        return StandardResponse(
+            success=True,
+            message=f"입금이 확인되었습니다. {amount:,}원이 충전되었습니다.",
+            data={
+                "user_id": user.id,
+                "amount": amount,
+                "balance_before": old_balance,
+                "balance_after": user.balance
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"입금 확인 처리 실패: {e}")
+        raise HTTPException(status_code=500, detail="입금 확인 처리 중 오류가 발생했습니다.")
+
+# 🆕 무통장 입금 거부 API (관리자용)
+@router.post("/bank-transfer-requests/{request_id}/reject", response_model=StandardResponse)
+async def reject_bank_transfer(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+):
+    """무통장 입금 신청을 거부합니다."""
+    try:
+        from models.transaction import BankTransferRequest
+        
+        # 입금 신청 조회
+        transfer_request = db.query(BankTransferRequest).filter(BankTransferRequest.id == request_id).first()
+        if not transfer_request:
+            raise HTTPException(status_code=404, detail="입금 신청을 찾을 수 없습니다.")
+        
+        if transfer_request.status != "pending":
+            raise HTTPException(status_code=400, detail="이미 처리된 입금 신청입니다.")
+        
+        # 입금 신청 상태 업데이트
+        transfer_request.status = "rejected"
+        transfer_request.confirmed_at = datetime.utcnow()
+        transfer_request.confirmed_by = current_admin.id
+        
+        db.commit()
+        
+        logger.info(f"입금 거부 완료: request_id={request_id}, user_id={transfer_request.user_id}")
+        
+        return StandardResponse(
+            success=True,
+            message="입금 신청이 거부되었습니다."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"입금 거부 처리 실패: {e}")
+        raise HTTPException(status_code=500, detail="입금 거부 처리 중 오류가 발생했습니다.")

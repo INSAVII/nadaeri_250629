@@ -6,6 +6,21 @@ cd "D:\250624_cms01\services\qtext-service"
 python main.py
 
 
+PS D:\250624_cms01> cd services\main-api
+PS D:\250624_cms01\services\main-api> python main.py
+
+# 또 다른 새 PowerShell 창을 열고
+PS C:\Users\PC> cd "D:\250624_cms01\frontend"
+PS D:\250624_cms01\frontend> npm start
+
+
+
+
+
+
+
+
+
 프론트엔드 실행
 cd "D:\250624_cms01\frontend"
 npm run dev

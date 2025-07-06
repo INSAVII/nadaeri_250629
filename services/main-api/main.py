@@ -42,7 +42,7 @@ except ImportError:
 
 logger.info("서버 초기화 시작")
 
-# API 라우터 임포트 (큐네임, 큐문자 제외)
+# API 라우터 임포트
 from api.auth import router as auth_router
 from api.payments import router as payments_router
 from api.deposits import router as deposits_router
@@ -50,6 +50,7 @@ from api.deposits import router as deposits_router
 from api.promotions import router as promotions_router
 from api.boards import router as boards_router
 from api.programs import router as programs_router
+from api.qtext import router as qtext_router
 
 # 데이터베이스
 from database import engine, get_db
@@ -89,7 +90,7 @@ if os.path.exists("static"):
 else:
     logger.warning("static 디렉토리가 존재하지 않습니다. 정적 파일 서빙을 건너뜁니다.")
 
-# API 라우터 등록 (큐네임, 큐문자 제외)
+# API 라우터 등록
 app.include_router(auth_router, prefix="/api/auth", tags=["인증"])
 app.include_router(payments_router, prefix="/api/payments", tags=["결제"])
 app.include_router(deposits_router, prefix="/api/deposits", tags=["예치금"])
@@ -97,6 +98,7 @@ app.include_router(deposits_router, prefix="/api/deposits", tags=["예치금"])
 app.include_router(promotions_router, prefix="/api/promotion", tags=["홍보문구"])
 app.include_router(boards_router, tags=["게시판"])
 app.include_router(programs_router, prefix="/api/programs", tags=["프로그램"])
+app.include_router(qtext_router, tags=["QText"])
 
 @app.get("/", tags=["루트"])
 async def root():

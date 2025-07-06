@@ -84,11 +84,10 @@ const QCapture: React.FC = () => {
   // 내장 서비스 함수들 - programService 대체
   const getPublicPrograms = async (type: string): Promise<ProgramFile[]> => {
     try {
-      // 🆕 백엔드 API에서 프로그램 정보 가져오기
-      const response = await fetch(`${getApiUrl()}/api/programs/programs`, {
+      // 🆕 백엔드 API에서 프로그램 정보 가져오기 (공개 접근 가능)
+      const response = await fetch(`${getApiUrl()}/api/programs/public-programs`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${user?.token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -107,93 +106,19 @@ const QCapture: React.FC = () => {
           isActive: program.is_active,
           isPublished: program.is_active,
           license_type: program.license_type === 'qcapture_free' ? 'free' :
-            program.license_type === 'qcapture_month1' ? '1month' : '3month',
+            program.license_type === 'qcapture_month1' ? 'month1' : 'month3',
           filename: program.filename,
           fileSize: program.file_size
         }));
       } else {
-        console.error('프로그램 목록 가져오기 실패:', response.status);
-        // 실패 시 기본값 반환
-        return [
-          {
-            id: '1',
-            name: '큐캡쳐 무료',
-            version: '1.0',
-            type: 'qcapture',
-            url: '/downloads/qcapture/free/qcapture_free_v1.0.exe',
-            isActive: false,
-            isPublished: false,
-            license_type: 'free',
-            filename: 'qcapture_free_v1.0.exe',
-            fileSize: 0
-          },
-          {
-            id: '2',
-            name: '큐캡쳐 1개월',
-            version: '2.1',
-            type: 'qcapture',
-            url: '/downloads/qcapture/month1/qcapture_1month_v2.1.exe',
-            isActive: false,
-            isPublished: false,
-            license_type: '1month',
-            filename: 'qcapture_1month_v2.1.exe',
-            fileSize: 0
-          },
-          {
-            id: '3',
-            name: '큐캡쳐 3개월',
-            version: '3.0',
-            type: 'qcapture',
-            url: '/downloads/qcapture/month3/qcapture_3month_v3.0.exe',
-            isActive: false,
-            isPublished: false,
-            license_type: '3month',
-            filename: 'qcapture_3month_v3.0.exe',
-            fileSize: 0
-          }
-        ];
+        console.error('프로그램 목록 가져오기 실패:', response.status, response.statusText);
+        // 실패 시 빈 배열 반환 (기본값 반환하지 않음)
+        return [];
       }
     } catch (error) {
       console.error('프로그램 목록 가져오기 오류:', error);
-      // 오류 시 기본값 반환
-      return [
-        {
-          id: '1',
-          name: '큐캡쳐 무료',
-          version: '1.0',
-          type: 'qcapture',
-          url: '/downloads/qcapture/free/qcapture_free_v1.0.exe',
-          isActive: false,
-          isPublished: false,
-          license_type: 'free',
-          filename: 'qcapture_free_v1.0.exe',
-          fileSize: 0
-        },
-        {
-          id: '2',
-          name: '큐캡쳐 1개월',
-          version: '2.1',
-          type: 'qcapture',
-          url: '/downloads/qcapture/month1/qcapture_1month_v2.1.exe',
-          isActive: false,
-          isPublished: false,
-          license_type: '1month',
-          filename: 'qcapture_1month_v2.1.exe',
-          fileSize: 0
-        },
-        {
-          id: '3',
-          name: '큐캡쳐 3개월',
-          version: '3.0',
-          type: 'qcapture',
-          url: '/downloads/qcapture/month3/qcapture_3month_v3.0.exe',
-          isActive: false,
-          isPublished: false,
-          license_type: '3month',
-          filename: 'qcapture_3month_v3.0.exe',
-          fileSize: 0
-        }
-      ];
+      // 오류 시 빈 배열 반환 (기본값 반환하지 않음)
+      return [];
     }
   };
 
@@ -228,7 +153,7 @@ const QCapture: React.FC = () => {
     }
 
     if (subscription.month1) {
-      const month1Program = publicPrograms.find(p => p.license_type === '1month');
+      const month1Program = publicPrograms.find(p => p.license_type === 'month1');
       if (month1Program) {
         userProgs.push({
           id: `user_${user.id}_1month`,
@@ -242,7 +167,7 @@ const QCapture: React.FC = () => {
     }
 
     if (subscription.month3) {
-      const month3Program = publicPrograms.find(p => p.license_type === '3month');
+      const month3Program = publicPrograms.find(p => p.license_type === 'month3');
       if (month3Program) {
         userProgs.push({
           id: `user_${user.id}_3month`,
@@ -361,6 +286,18 @@ const QCapture: React.FC = () => {
           licenseType === 'month3' ? permissionStates.month3 : false;
       if (!hasPermission) {
         setMessage(`❌ ${programName} 사용 권한이 없습니다. 관리자에게 문의하세요.`);
+        return;
+      }
+
+      // 파일 존재 여부 확인
+      const programFile = publicPrograms.find(p =>
+        (licenseType === 'free' && p.license_type === 'free') ||
+        (licenseType === 'month1' && p.license_type === 'month1') ||
+        (licenseType === 'month3' && p.license_type === 'month3')
+      );
+
+      if (!programFile || !programFile.isActive) {
+        setMessage(`❌ ${programName} 파일이 업로드되지 않았습니다. 관리자에게 문의하세요.`);
         return;
       }
 
@@ -660,7 +597,7 @@ const QCapture: React.FC = () => {
                       큐캡쳐 무료
                     </label>
                     <p className="text-sm text-gray-600">
-                      파일명: {publicPrograms.find(p => p.license_type === 'free')?.filename || 'qcapture_free_v1.0.exe'}
+                      파일명: {publicPrograms.find(p => p.license_type === 'free')?.filename || '업로드된 파일 없음'}
                       {publicPrograms.find(p => p.license_type === 'free')?.fileSize && (
                         <span className="ml-2 text-gray-500">
                           ({(publicPrograms.find(p => p.license_type === 'free')?.fileSize! / 1024 / 1024).toFixed(1)}MB)
@@ -681,12 +618,12 @@ const QCapture: React.FC = () => {
                 </div>
                 <div className="w-1/2 flex justify-end">
                   <button
-                    className={`py-2 px-4 rounded-lg font-semibold transition-colors w-full max-w-xs ${isAuthenticated && permissionStates.free && publicPrograms.find(p => p.license_type === 'free')?.isActive
+                    className={`py-2 px-4 rounded-lg font-semibold transition-colors w-full max-w-xs ${isAuthenticated && permissionStates.free
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     onClick={() => handleDownload('free', '큐캡쳐 무료')}
-                    disabled={!isAuthenticated || !permissionStates.free || !publicPrograms.find(p => p.license_type === 'free')?.isActive}
+                    disabled={!isAuthenticated || !permissionStates.free}
                   >
                     다운로드
                   </button>
@@ -708,10 +645,10 @@ const QCapture: React.FC = () => {
                       큐캡쳐 1개월
                     </label>
                     <p className="text-sm text-gray-600">
-                      파일명: {publicPrograms.find(p => p.license_type === '1month')?.filename || 'qcapture_1month_v2.1.exe'}
-                      {publicPrograms.find(p => p.license_type === '1month')?.fileSize && (
+                      파일명: {publicPrograms.find(p => p.license_type === 'month1')?.filename || '업로드된 파일 없음'}
+                      {publicPrograms.find(p => p.license_type === 'month1')?.fileSize && (
                         <span className="ml-2 text-gray-500">
-                          ({(publicPrograms.find(p => p.license_type === '1month')?.fileSize! / 1024 / 1024).toFixed(1)}MB)
+                          ({(publicPrograms.find(p => p.license_type === 'month1')?.fileSize! / 1024 / 1024).toFixed(1)}MB)
                         </span>
                       )}
                     </p>
@@ -720,7 +657,7 @@ const QCapture: React.FC = () => {
                     <p className={`text-sm mt-1 ${permissionStates.month1 ? 'text-green-600' : 'text-gray-500'}`}>
                       {permissionStates.month1 ? '✓ 사용 가능' : '사용 불가'}
                     </p>
-                    {!publicPrograms.find(p => p.license_type === '1month')?.isActive && (
+                    {!publicPrograms.find(p => p.license_type === 'month1')?.isActive && (
                       <p className="text-xs mt-1 text-orange-600">
                         ⚠️ 관리자가 파일을 업로드하지 않았습니다
                       </p>
@@ -756,10 +693,10 @@ const QCapture: React.FC = () => {
                       큐캡쳐 3개월
                     </label>
                     <p className="text-sm text-gray-600">
-                      파일명: {publicPrograms.find(p => p.license_type === '3month')?.filename || 'qcapture_3month_v3.0.exe'}
-                      {publicPrograms.find(p => p.license_type === '3month')?.fileSize && (
+                      파일명: {publicPrograms.find(p => p.license_type === 'month3')?.filename || '업로드된 파일 없음'}
+                      {publicPrograms.find(p => p.license_type === 'month3')?.fileSize && (
                         <span className="ml-2 text-gray-500">
-                          ({(publicPrograms.find(p => p.license_type === '3month')?.fileSize! / 1024 / 1024).toFixed(1)}MB)
+                          ({(publicPrograms.find(p => p.license_type === 'month3')?.fileSize! / 1024 / 1024).toFixed(1)}MB)
                         </span>
                       )}
                     </p>
@@ -768,7 +705,7 @@ const QCapture: React.FC = () => {
                     <p className={`text-sm mt-1 ${permissionStates.month3 ? 'text-green-600' : 'text-gray-500'}`}>
                       {permissionStates.month3 ? '✓ 사용 가능' : '사용 불가'}
                     </p>
-                    {!publicPrograms.find(p => p.license_type === '3month')?.isActive && (
+                    {!publicPrograms.find(p => p.license_type === 'month3')?.isActive && (
                       <p className="text-xs mt-1 text-orange-600">
                         ⚠️ 관리자가 파일을 업로드하지 않았습니다
                       </p>
@@ -777,12 +714,12 @@ const QCapture: React.FC = () => {
                 </div>
                 <div className="w-1/2 flex justify-end">
                   <button
-                    className={`py-2 px-4 rounded-lg font-semibold transition-colors w-full max-w-xs ${isAuthenticated && permissionStates.month3 && publicPrograms.find(p => p.license_type === '3month')?.isActive
+                    className={`py-2 px-4 rounded-lg font-semibold transition-colors w-full max-w-xs ${isAuthenticated && permissionStates.month3
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     onClick={() => handleDownload('month3', '큐캡쳐 3개월')}
-                    disabled={!isAuthenticated || !permissionStates.month3 || !publicPrograms.find(p => p.license_type === '3month')?.isActive}
+                    disabled={!isAuthenticated || !permissionStates.month3}
                   >
                     다운로드
                   </button>
@@ -836,8 +773,8 @@ const QCapture: React.FC = () => {
 
                   // 각 프로그램별 상세 상태
                   const freeProgram = publicPrograms.find(p => p.license_type === 'free');
-                  const month1Program = publicPrograms.find(p => p.license_type === '1month');
-                  const month3Program = publicPrograms.find(p => p.license_type === '3month');
+                  const month1Program = publicPrograms.find(p => p.license_type === 'month1');
+                  const month3Program = publicPrograms.find(p => p.license_type === 'month3');
 
                   console.log('무료 프로그램:', {
                     found: !!freeProgram,

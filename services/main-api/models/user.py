@@ -34,10 +34,12 @@ class User(Base):
     program_permissions_month3 = Column(Boolean, default=False)
     
     # 활성화된 관계 설정
-    transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
+    transactions = relationship("Transaction", back_populates="user")
     user_programs = relationship("UserProgram", back_populates="user", cascade="all, delete-orphan")
     programs = relationship("Program", back_populates="creator")
-    service_usages = relationship("ServiceUsage", back_populates="user", cascade="all, delete-orphan")
+    service_usages = relationship("ServiceUsage", back_populates="user")
+    qtext_jobs = relationship("QTextJob", back_populates="user", cascade="all, delete-orphan")
+    bank_transfer_requests = relationship("BankTransferRequest", back_populates="user")
     
     @property
     def is_admin(self):

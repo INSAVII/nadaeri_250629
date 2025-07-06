@@ -18,11 +18,13 @@ import QText from './pages/QText';
 import QTextProcess from './pages/QTextProcess';
 import QName from './pages/QName';
 import PromotionManager from './pages/PromotionManager';
+import BankTransfer from './pages/BankTransfer';
 import AdminDashboard from './pages/admin/Dashboard';
 import CMS from './pages/admin/CMS';
 import AdminPrograms from './pages/admin/Programs';
 import AdminJobs from './pages/admin/Jobs';
 import ProgramPermissionManager from './pages/admin/ProgramPermissionManager';
+import BankTransferManager from './pages/admin/BankTransferManager';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PriceProvider } from './context/PriceContext';
 import AdminMenuDebugger from './components/AdminMenuDebugger';
@@ -1146,6 +1148,14 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/admin/bank-transfer"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <BankTransferManager />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route
                 path="/promotion-manager"
@@ -1182,6 +1192,13 @@ const App: React.FC = () => {
               {/* 기존 회원관리/예치금관리 페이지를 CMS로 리다이렉트 */}
               <Route path="/admin/users" element={<Navigate to="/admin/cms" replace />} />
               <Route path="/admin/deposits" element={<Navigate to="/admin/cms" replace />} />
+
+              {/* �� 무통장 입금 신청 페이지 */}
+              <Route path="/bank-transfer" element={
+                <ProtectedRoute>
+                  <BankTransfer />
+                </ProtectedRoute>
+              } />
 
               {/* Catch-all route for unmatched paths */}
               <Route path="*" element={<NotFound />} />

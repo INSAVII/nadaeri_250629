@@ -1,78 +1,52 @@
 #!/usr/bin/env python3
 """
-프로그램 권한 상태 진단 스크립트
+프로그램 권한 상태 확인 스크립트
 """
 
-from database import engine
-from models.program import Program, UserProgram
-from models.user import User
+import os
+import sys
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
+from database import Base, engine
+from models.user import User
 
 def check_program_permissions():
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    """사용자들의 프로그램 권한 상태를 확인합니다."""
+    
+    # 데이터베이스 세션 생성
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = SessionLocal()
     
     try:
-        print("=== 프로그램 권한 상태 진단 ===\n")
+        print("=== 프로그램 권한 상태 확인 ===")
         
-        # 1. 프로그램 테이블 확인
-        print("1. 프로그램 목록:")
-        programs = session.query(Program).all()
-        if programs:
-            for p in programs:
-                print(f"   - ID: {p.id}, Name: {p.name}, Type: {p.type}, License: {p.license_type}, Active: {p.is_active}")
-        else:
-            print("   ❌ 프로그램이 없습니다!")
+        # 모든 사용자 조회
+        users = db.query(User).all()
         
+        print(f"총 사용자 수: {len(users)}")
         print()
         
-        # 2. 사용자 목록 확인
-        print("2. 사용자 목록:")
-        users = session.query(User).all()
-        if users:
-            for u in users:
-                print(f"   - ID: {u.id}, Email: {u.email}, Role: {u.role}, Active: {u.is_active}")
-        else:
-            print("   ❌ 사용자가 없습니다!")
+        for user in users:
+            print(f"사용자: {user.name} ({user.email})")
+            print(f"  - 무료 권한: {user.program_permissions_free}")
+            print(f"  - 1개월 권한: {user.program_permissions_month1}")
+            print(f"  - 3개월 권한: {user.program_permissions_month3}")
+            print()
         
-        print()
+        # 권한별 통계
+        free_count = sum(1 for user in users if user.program_permissions_free)
+        month1_count = sum(1 for user in users if user.program_permissions_month1)
+        month3_count = sum(1 for user in users if user.program_permissions_month3)
         
-        # 3. 사용자 프로그램 권한 확인
-        print("3. 사용자 프로그램 권한:")
-        user_programs = session.query(UserProgram).all()
-        if user_programs:
-            for up in user_programs:
-                print(f"   - User: {up.user_id}, Program: {up.program_id}, Allowed: {up.is_allowed}, Expires: {up.expires_at}")
-        else:
-            print("   ❌ 사용자 프로그램 권한이 없습니다!")
-        
-        print()
-        
-        # 4. 특정 사용자의 권한 확인 (admin)
-        print("4. admin 사용자의 프로그램 권한:")
-        admin_programs = session.query(UserProgram).filter(UserProgram.user_id == "admin").all()
-        if admin_programs:
-            for ap in admin_programs:
-                print(f"   - Program: {ap.program_id}, Allowed: {ap.is_allowed}, Expires: {ap.expires_at}")
-        else:
-            print("   ❌ admin 사용자의 프로그램 권한이 없습니다!")
-        
-        print()
-        
-        # 5. 테이블 구조 확인
-        print("5. 테이블 구조 확인:")
-        try:
-            result = session.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-            tables = [row[0] for row in result]
-            print(f"   데이터베이스 테이블: {', '.join(tables)}")
-        except Exception as e:
-            print(f"   ❌ 테이블 구조 확인 실패: {e}")
+        print("=== 권한별 통계 ===")
+        print(f"무료 권한 보유자: {free_count}명")
+        print(f"1개월 권한 보유자: {month1_count}명")
+        print(f"3개월 권한 보유자: {month3_count}명")
         
     except Exception as e:
-        print(f"❌ 진단 중 오류 발생: {e}")
+        print(f"오류 발생: {e}")
     finally:
-        session.close()
+        db.close()
 
 if __name__ == "__main__":
     check_program_permissions() 

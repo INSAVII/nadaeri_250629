@@ -13,7 +13,7 @@ export const getApiUrl = (): string => {
   // 프로덕션 환경
   if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
     // Vercel 등 배포 환경에서는 환경변수나 고정 URL 사용
-    return process.env.REACT_APP_API_URL || 'https://api.qclick.com';
+    return process.env.REACT_APP_API_URL || 'https://api.나대리.kr';
   }
 
   // 개발 환경 - 로컬 서버
@@ -27,7 +27,7 @@ export const getQNameApiUrl = (): string => {
     if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
       // 배포 환경에서는 실제 큐네임 서비스 URL 사용
       const envUrl = (window as any).REACT_APP_QNAME_API_URL || process.env?.REACT_APP_QNAME_API_URL;
-      return envUrl || 'https://qname-service.onrender.com';
+      return envUrl || 'https://qname.나대리.kr';
     }
 
     // 개발 환경 - 로컬 큐네임 서버
@@ -46,7 +46,7 @@ export const getQTextApiUrl = (): string => {
     if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
       // 배포 환경에서는 실제 큐텍스트 서비스 URL 사용
       const envUrl = (window as any).REACT_APP_QTEXT_API_URL || process.env?.REACT_APP_QTEXT_API_URL;
-      return envUrl || 'https://qtext-service.onrender.com';
+      return envUrl || 'https://qtext.나대리.kr';
     }
 
     // 개발 환경 - 로컬 큐텍스트 서버

@@ -354,9 +354,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       console.log('🔍 AuthContext - 응답 데이터 원본:', data);
 
+      // 🆕 응답 구조 검증 강화
+      console.log('🔍 AuthContext - 응답 구조 분석:', {
+        responseOk: response.ok,
+        hasUser: !!data.user,
+        hasToken: !!data.access_token,
+        userType: typeof data.user,
+        tokenType: typeof data.access_token,
+        dataKeys: Object.keys(data),
+        userKeys: data.user ? Object.keys(data.user) : null
+      });
+
       if (response.ok && data.user && data.access_token) {
         console.log('🎯 AuthContext - 백엔드 로그인 응답 전체:', data);
         console.log('🎯 AuthContext - 사용자 데이터 상세:', data.user);
+
+        // 🆕 사용자 데이터 구조 검증
+        if (!data.user.id || !data.user.name || !data.user.role) {
+          console.error('❌ 사용자 데이터에 필수 필드가 없음:', {
+            hasId: !!data.user.id,
+            hasName: !!data.user.name,
+            hasRole: !!data.user.role,
+            userData: data.user
+          });
+          return false;
+        }
 
         // 토큰 검증 강화
         if (!data.access_token || typeof data.access_token !== 'string') {
@@ -384,6 +406,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           tokenStart: data.access_token.substring(0, 20) + '...'
         });
 
+        // 🆕 프로그램 권한 정보 검증
+        console.log('🔍 AuthContext - 프로그램 권한 정보 확인:', {
+          hasProgramPermissions: !!data.user.programPermissions,
+          programPermissionsType: typeof data.user.programPermissions,
+          programPermissionsValue: data.user.programPermissions
+        });
+
         // 백엔드 응답을 표준 AuthUser 형식으로 변환
         const authUser: AuthUser = {
           id: data.user.id,
@@ -397,7 +426,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           created_at: data.user.created_at,
           last_login_at: data.user.last_login_at,
           token: data.access_token,
-          programPermissions: data.user.programPermissions
+          programPermissions: data.user.programPermissions || {
+            free: false,
+            month1: false,
+            month3: false
+          }
         };
 
         console.log('🎯 AuthContext - 변환된 사용자 데이터 상세:', {
@@ -443,12 +476,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
       } else {
+        // 🆕 실패 응답 구조 상세 분석
         console.error('❌ AuthContext - 로그인 실패 (응답 구조 문제):', {
           responseOk: response.ok,
+          responseStatus: response.status,
+          responseStatusText: response.statusText,
           hasUser: !!data.user,
           hasToken: !!data.access_token,
-          data
+          dataKeys: Object.keys(data),
+          data: data,
+          errorDetail: data.detail || data.message || '알 수 없는 오류'
         });
+
+        // 🆕 HTTP 상태 코드별 오류 메시지
+        if (response.status === 401) {
+          console.error('❌ 인증 실패: 이메일 또는 비밀번호가 올바르지 않습니다');
+        } else if (response.status === 400) {
+          console.error('❌ 요청 오류:', data.detail || data.message);
+        } else if (response.status === 500) {
+          console.error('❌ 서버 오류:', data.detail || data.message);
+        } else {
+          console.error('❌ 예상치 못한 오류:', response.status, data);
+        }
+
         return false;
       }
     } catch (error) {

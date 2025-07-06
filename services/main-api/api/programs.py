@@ -5,12 +5,16 @@ from typing import List, Optional
 import os
 import base64
 import uuid
+import logging
 from datetime import datetime
 
 from database import get_db
-from models.program import ProgramFile, Program
+from models.program import ProgramFile, Program, PriceSettings
 from api.auth import get_current_admin_user, get_current_active_user
 from models.user import User
+
+# 로거 설정
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -127,7 +131,31 @@ async def get_programs(
     db: Session = Depends(get_db)
 ):
     """
-    활성화된 프로그램 파일 목록을 조회합니다.
+    활성화된 프로그램 파일 목록을 조회합니다. (관리자 전용)
+    """
+    try:
+        programs = db.query(ProgramFile).filter(ProgramFile.is_active == True).all()
+        return [
+            ProgramFileResponse(
+                id=program.id,
+                name=program.name,
+                filename=program.filename,
+                file_size=program.file_size,
+                license_type=program.license_type,
+                is_active=program.is_active,
+                upload_date=program.upload_date
+            )
+            for program in programs
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"프로그램 목록 조회 중 오류가 발생했습니다: {str(e)}")
+
+@router.get("/public-programs", response_model=List[ProgramFileResponse])
+async def get_public_programs(
+    db: Session = Depends(get_db)
+):
+    """
+    활성화된 프로그램 파일 목록을 조회합니다. (공개 접근 가능)
     """
     try:
         programs = db.query(ProgramFile).filter(ProgramFile.is_active == True).all()
@@ -226,21 +254,6 @@ async def user_download_program(
         elif license_type == "month3" and not current_user.program_permissions_month3:
             raise HTTPException(status_code=403, detail="3개월 프로그램 사용 권한이 없습니다.")
 
-        # license_type에 따른 프로그램 ID 결정 (실제 데이터베이스 ID 사용)
-        if license_type == 'free':
-            program_id = 'free'  # 실제 데이터베이스 ID
-        elif license_type == 'month1':
-            program_id = 'month1'  # 실제 데이터베이스 ID
-        elif license_type == 'month3':
-            program_id = 'month3'  # 실제 데이터베이스 ID
-        else:
-            raise HTTPException(status_code=400, detail="유효하지 않은 라이센스 타입입니다")
-
-        # 데이터베이스에서 프로그램 조회
-        program = db.query(Program).filter(Program.id == program_id).first()
-        if not program:
-            raise HTTPException(status_code=404, detail=f"프로그램을 찾을 수 없습니다 (ID: {program_id})")
-
         # 🆕 license_type을 실제 데이터베이스 형식으로 매핑
         db_license_type = None
         if license_type == 'free':
@@ -274,7 +287,7 @@ async def user_download_program(
                 "file_path": program_file.file_path,
                 "content_type": program_file.content_type,
                 "file_size": program_file.file_size,
-                "program_name": program.name
+                "program_name": program_file.name
             }
         }
 
@@ -336,4 +349,112 @@ async def download_actual_file(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"파일 다운로드 중 오류가 발생했습니다: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"파일 다운로드 중 오류가 발생했습니다: {str(e)}")
+
+# 가격 설정 Pydantic 모델
+class PriceSettingsRequest(BaseModel):
+    qcapture_month1_price: int
+    qcapture_month3_price: int
+
+class PriceSettingsResponse(BaseModel):
+    success: bool
+    message: str
+    prices: PriceSettingsRequest
+
+# 가격 설정 조회 API
+@router.get("/price-settings", response_model=PriceSettingsResponse)
+async def get_price_settings(
+    db: Session = Depends(get_db)
+):
+    """
+    현재 가격 설정을 조회합니다.
+    """
+    try:
+        # 데이터베이스에서 가격 설정 조회
+        # 1개월 가격 조회
+        month1_price_setting = db.query(PriceSettings).filter(
+            PriceSettings.service_type == "qcapture_month1"
+        ).first()
+        
+        # 3개월 가격 조회
+        month3_price_setting = db.query(PriceSettings).filter(
+            PriceSettings.service_type == "qcapture_month3"
+        ).first()
+        
+        # 기본값 설정
+        month1_price = month1_price_setting.price if month1_price_setting else 50000
+        month3_price = month3_price_setting.price if month3_price_setting else 120000
+        
+        prices = PriceSettingsRequest(
+            qcapture_month1_price=month1_price,
+            qcapture_month3_price=month3_price
+        )
+        
+        return PriceSettingsResponse(
+            success=True,
+            message="가격 설정 조회 성공",
+            prices=prices
+        )
+    except Exception as e:
+        logger.error(f"가격 설정 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="가격 설정 조회에 실패했습니다.")
+
+# 가격 설정 업데이트 API (관리자 전용)
+@router.put("/price-settings", response_model=PriceSettingsResponse)
+async def update_price_settings(
+    prices: PriceSettingsRequest,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    가격 설정을 업데이트합니다. (관리자 전용)
+    """
+    try:
+        # 1개월 가격 업데이트
+        month1_setting = db.query(PriceSettings).filter(
+            PriceSettings.service_type == "qcapture_month1"
+        ).first()
+        
+        if month1_setting:
+            month1_setting.price = prices.qcapture_month1_price
+            month1_setting.updated_by = current_user.id
+        else:
+            month1_setting = PriceSettings(
+                service_type="qcapture_month1",
+                price=prices.qcapture_month1_price,
+                updated_by=current_user.id
+            )
+            db.add(month1_setting)
+        
+        # 3개월 가격 업데이트
+        month3_setting = db.query(PriceSettings).filter(
+            PriceSettings.service_type == "qcapture_month3"
+        ).first()
+        
+        if month3_setting:
+            month3_setting.price = prices.qcapture_month3_price
+            month3_setting.updated_by = current_user.id
+        else:
+            month3_setting = PriceSettings(
+                service_type="qcapture_month3",
+                price=prices.qcapture_month3_price,
+                updated_by=current_user.id
+            )
+            db.add(month3_setting)
+        
+        db.commit()
+        
+        logger.info(f"가격 설정 업데이트 완료: {current_user.id} - 1개월: {prices.qcapture_month1_price}원, 3개월: {prices.qcapture_month3_price}원")
+        
+        return PriceSettingsResponse(
+            success=True,
+            message="가격 설정이 업데이트되었습니다.",
+            prices=PriceSettingsRequest(
+                qcapture_month1_price=prices.qcapture_month1_price,
+                qcapture_month3_price=prices.qcapture_month3_price
+            )
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"가격 설정 업데이트 실패: {e}")
+        raise HTTPException(status_code=500, detail="가격 설정 업데이트에 실패했습니다.") 

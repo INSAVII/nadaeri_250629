@@ -309,6 +309,16 @@ export default function Header() {
                           >
                             홍보문구관리
                           </Link>
+                          <Link
+                            to="/admin/bank-transfer"
+                            className="block px-3 py-2 rounded-md text-base font-light text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                            onClick={() => {
+                              setIsAdminMenuOpen(false);
+                              setIsMobileMenuOpen(false);
+                            }}
+                          >
+                            💰 무통장입금관리
+                          </Link>
                         </div>
                       </div>
                     )}
@@ -440,6 +450,13 @@ export default function Header() {
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     📢 홍보문구관리
+                  </Link>
+                  <Link
+                    to="/admin/bank-transfer"
+                    className="block px-3 py-2 rounded-md text-base font-light text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    💰 무통장입금관리
                   </Link>
                 </div>
               </>

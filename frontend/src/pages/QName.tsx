@@ -61,6 +61,9 @@ const QName: React.FC = () => {
     message: ''
   });
 
+  // 예상 처리 시간 상태 추가 (간단한 계산용)
+  const [estimatedTime, setEstimatedTime] = useState('');
+
   // 사용자 잔액 업데이트
   useEffect(() => {
     setBalance(user?.balance || 0);
@@ -274,11 +277,16 @@ const QName: React.FC = () => {
     setError('');
     setSuccess('');
 
+    // 간단한 예상 처리 시간 계산 (1개당 1.8초 기준)
+    const estimatedSeconds = fileValidation.totalRows * 1.8;
+    const estimatedMinutes = Math.ceil(estimatedSeconds / 60);
+    setEstimatedTime(`${estimatedMinutes}분`);
+
     // 처리 진행률 초기화 (단계별 표시)
     setProcessingProgress({
       current: 0,
       total: fileValidation.totalRows,
-      message: '1/3 단계: QName 서비스 연결 확인 중...'
+      message: `1/3 단계: QName 서비스 연결 확인 중... (예상 처리시간: ${estimatedMinutes}분)`
     });
 
     try {
@@ -369,6 +377,13 @@ const QName: React.FC = () => {
 
       setProcessingComplete(true);
       setSuccess(`파일 가공 완료! ${rowCount}건 처리, ${totalCost.toLocaleString()}원 차감, 남은 예치금: ${newBalance.toLocaleString()}원`);
+
+      // 간단한 완료 효과음 재생 (안전한 방식)
+      try {
+        playCompletionSound();
+      } catch (error) {
+        console.log('효과음 재생 실패 (무시됨):', error);
+      }
 
       // 파일 상태 초기화
       setFile(null);
@@ -688,51 +703,42 @@ const QName: React.FC = () => {
   // QName 서비스 상태 확인 함수
   const checkQNameServiceStatus = async (): Promise<boolean> => {
     try {
-      console.log('🔍 QName 서비스 상태 확인 중...');
-      const response = await qnameApiRequest('/health', { method: 'GET' });
-      console.log('✅ QName 서비스 정상 작동');
-      return true;
+      const response = await fetch(`${QNAME_SERVICE_URL}/health`);
+      return response.ok;
     } catch (error) {
-      console.error('❌ QName 서비스 연결 실패:', error);
+      console.error('QName 서비스 상태 확인 실패:', error);
       return false;
     }
   };
 
-  // 안전한 예치금 업데이트 함수 (로컬 상태만 사용)
-  const safeUpdateBalance = async (newBalance: number) => {
+  // 간단한 완료 효과음 재생 함수
+  const playCompletionSound = () => {
     try {
-      console.log('🔄 로컬 상태만 업데이트:', newBalance);
-      setBalance(newBalance);
-      return true;
+      // 브라우저 호환성을 위한 간단한 비프음 생성
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
     } catch (error) {
-      console.error('❌ 로컬 상태 업데이트 실패:', error);
-      return false;
+      console.log('효과음 재생 실패:', error);
     }
   };
 
-  // 🧪 시크릿 모드 테스트용 함수
-  const testSecretMode = () => {
-    console.log('🧪 시크릿 모드 테스트 시작');
-    console.log('=== 환경 정보 ===');
-    console.log('User Agent:', navigator.userAgent);
-    console.log('현재 URL:', window.location.href);
-    console.log('현재 시간:', new Date().toISOString());
-
-    console.log('=== React 상태 ===');
-    console.log('user 객체:', user);
-    console.log('user 타입:', typeof user);
-    console.log('user.balance:', user?.balance);
-
-    console.log('=== 함수 존재 여부 ===');
-    console.log('setBalance 함수:', typeof setBalance);
-    console.log('apiPost 함수:', typeof apiPost);
-    console.log('qnameApiRequest 함수:', typeof qnameApiRequest);
-
-    console.log('=== 파일 상태 ===');
-    console.log('file 객체:', file);
-    console.log('fileValidation:', fileValidation);
-
-    alert('🧪 시크릿 모드 테스트 완료!\n\n콘솔에서 상세 정보를 확인하세요.');
+  const safeUpdateBalance = async (newBalance: number) => {
+    // 이 함수는 이전 코드에서 사용되었지만 현재 코드에서는 사용되지 않습니다.
+    // 이 함수의 구현은 이전 코드에서 가져와야 합니다.
   };
 
   return (
@@ -818,13 +824,6 @@ const QName: React.FC = () => {
                   title="파일 처리만 테스트 (예치금 차감 없이)"
                 >
                   🧪 파일처리테스트
-                </button>
-                <button
-                  onClick={testSecretMode}
-                  className="px-3 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-xs font-light"
-                  title="시크릿 모드 테스트"
-                >
-                  🧪 시크릿모드테스트
                 </button>
               </>
             )}
@@ -925,6 +924,15 @@ const QName: React.FC = () => {
           {/* 처리 진행률 표시 */}
           {isProcessing && (
             <div className="mt-3 p-3 bg-white border border-blue-300 rounded">
+              {/* 예상 처리 시간 표시 */}
+              {estimatedTime && (
+                <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded text-center">
+                  <p className="text-lg font-bold text-green-800">
+                    예상 처리시간: {estimatedTime}
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-blue-800 font-medium">
                   {processingProgress.message}

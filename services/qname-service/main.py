@@ -239,6 +239,37 @@ async def qname_health_check():
             "message": f"상태 확인 중 오류가 발생했습니다: {str(e)}"
         }
 
+@app.get("/api/qname/queue-status", tags=["큐네임"])
+async def get_queue_status():
+    """현재 처리 대기량을 조회합니다."""
+    try:
+        # 현재 처리 중인 작업 수 (임시로 0으로 설정, 실제로는 세션 관리 필요)
+        processing_count = 0
+        
+        # 대기 중인 작업 수 (임시로 0으로 설정, 실제로는 큐 시스템 필요)
+        waiting_count = 0
+        
+        # 총 대기량
+        total_queue_count = processing_count + waiting_count
+        
+        logger.info(f"큐 상태 조회: 처리중={processing_count}, 대기중={waiting_count}, 총={total_queue_count}")
+        
+        return {
+            "status": "success",
+            "data": {
+                "processing_count": processing_count,
+                "waiting_count": waiting_count,
+                "total_queue_count": total_queue_count,
+                "message": f"현재 총 처리대기량은 {total_queue_count}개 입니다"
+            }
+        }
+    except Exception as e:
+        logger.error(f"큐 상태 조회 중 오류 발생: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"큐 상태 조회 중 오류가 발생했습니다: {str(e)}"
+        }
+
 # 서버 실행
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8004))
