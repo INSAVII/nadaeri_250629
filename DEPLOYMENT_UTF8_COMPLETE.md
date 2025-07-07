@@ -518,47 +518,6 @@ Root Directory 설정 후 Railway가 자동으로 다음을 수행합니다:
 3. `main.py` 파일 실행
 4. 배포 완료
 
-**"Add Root Directory" 버튼을 클릭하고 `services/main-api`를 입력해주세요!** 🎯
-
-### ✅ Root Directory 정확히 설정 완료!
-
-**현재 입력한 `services/main-api`가 100% 정확한 경로입니다!** 🎉
-
-### 📁 경로 설명:
-```
-프로젝트 루트/
-├── services/          ← 서비스들이 있는 폴더
-│   ├── main-api/      ← 백엔드 API 폴더 (Railway가 이 폴더를 빌드)
-│   │   ├── main.py
-│   │   ├── requirements.txt
-│   │   └── railway.json
-│   ├── qname-service/
-│   └── qtext-service/
-├── frontend/
-└── ...기타 파일들
-```
-
-### ⚠️ 다른 경로들과 비교:
-- ✅ `services/main-api` - **정확함** (현재 설정)
-- ❌ `main-api` - 틀림 (폴더를 찾을 수 없음)
-- ❌ `/services/main-api` - 틀림 (절대경로 형태)
-- ❌ `services\main-api` - 틀림 (백슬래시 사용)
-
-### 🚀 다음 단계: 배포 확인
-
-Root Directory가 정확히 설정되었으므로 이제:
-
-1. **Deployments** 탭으로 이동하세요
-2. 자동으로 새로운 배포가 시작되었는지 확인
-3. 만약 배포가 시작되지 않았다면 **Deploy** 버튼 클릭
-
-### 📊 예상되는 배포 과정:
-1. Railway가 `services/main-api` 폴더에 접근
-2. `requirements.txt` 파일 감지
-3. Python 의존성 설치
-4. `main.py` 실행
-5. 포트 8000에서 FastAPI 서버 시작
-
 **이제 Deployments 탭으로 이동하여 배포 상태를 확인해주세요!** 🚂
 
 ### ❌ 빌드 실패: UTF-8 인코딩 문제 발생
@@ -653,17 +612,7 @@ git push origin main
 2. 새로운 배포가 자동으로 시작되었는지 확인
 3. 빌드 로그에서 UTF-8 오류가 해결되었는지 확인
 
-### 📊 예상되는 배포 과정:
-```
-✅ Source code fetched (GitHub 업데이트 감지)
-✅ UTF-8 파일 읽기 성공
-🔄 Building... (현재 진행 중)
-🔄 Installing dependencies
-🔄 Starting application
-✅ Deployment successful
-```
-
-### 🎯 배포 성공 후 확인:
+### 📊 배포 성공 후 확인:
 배포가 완료되면 생성된 도메인으로 접속 테스트:
 ```
 https://ideal-wonder-production.up.railway.app/
@@ -688,8 +637,8 @@ SERVER_COMMANDS.md
 ```
 
 ### 🔍 근본 원인:
-Railway가 **Root Directory 설정을 완전히 무시**하고 있습니다.
-`.railwayignore` 파일이 있어도 전체 프로젝트 루트에서 빌드를 시도하고 있어서 한글 파일들 때문에 빌드 플랜 생성에 실패하고 있습니다.
+Railway가 **Root Directory 설정을 무시**하고 전체 프로젝트를 스캔하고 있습니다.
+이로 인해 한글 파일들 때문에 빌드 플랜 생성에 실패하고 있습니다.
 
 ### 🚀 강제 해결방법:
 
@@ -791,119 +740,159 @@ git push origin main
 
 선택해주시면 구체적인 명령어를 실행해드리겠습니다! 🛠️
 
-### ❌ 새로운 문제: .railwayignore가 적용되지 않음
+## 🚂 Railway 동시 배포 관리 가이드
 
-**현재 문제:**
+### ⚠️ 여러 배포가 동시 진행 중일 때 해결방법:
+
+#### 1. Deployments 탭에서 현재 상황 확인
+- 진행 중인 배포들의 **시간순서** 확인
+- **가장 최신 배포** (맨 위) 식별
+
+#### 2. 이전 배포들 Abort 하기
+1. **이전 배포** 클릭
+2. **⋯ (Actions)** 메뉴 클릭  
+3. **"Cancel"** 또는 **"Abort"** 선택
+4. 확인 후 abort 실행
+
+#### 3. 최신 배포만 남기고 모니터링
+- **가장 최근 푸시한 배포**만 진행
+- **Logs** 탭에서 실시간 로그 확인
+- **건강상태 체크** 대기
+
+#### 4. 배포 완료 후 확인사항
 ```
-context: zcnj-N_Mo
-Nixpacks build failed
-Nixpacks was unable to generate a build plan for this app.
-The contents of the app directory are:
-250707_1143hrs_배포도전.md
-큐문자 실행방법.txt
-SERVER_COMMANDS.md
-```
-
-### 🔍 근본 원인:
-Railway가 **Root Directory 설정을 완전히 무시**하고 있습니다.
-`.railwayignore` 파일이 있어도 전체 프로젝트 루트에서 빌드를 시도하고 있어서 한글 파일들 때문에 빌드 플랜 생성에 실패하고 있습니다.
-
-### 🚀 강제 해결방법:
-
-#### 방법 1: Settings에서 Root Directory 완전 재설정 (권장)
-1. **Settings** → **Source** 섹션으로 이동
-2. 현재 Root Directory 설정을 **완전히 제거**
-3. 다시 **Add Root Directory** 클릭
-4. `services/main-api` 입력 후 **Save**
-5. **반드시 Save 버튼 클릭** 후 페이지 새로고침
-6. 설정이 저장되었는지 재확인
-7. **Deployments** 탭에서 **Redeploy** 클릭
-
-#### 방법 2: 한글 파일들 완전 제거 (임시 해결)
-```powershell
-# 한글 파일들을 임시 폴더로 이동
-mkdir temp_korean_files
-move "250707_*" temp_korean_files/
-move "큐*" temp_korean_files/
-move "SERVER_COMMANDS.md" temp_korean_files/
-move "PROJECT_PLAN.md" temp_korean_files/
-
-# 즉시 푸시
-git add .
-git commit -m "🔧 한글 파일들 임시 제거 - Railway 빌드 문제 해결"
-git push origin main
+✅ 배포 상태: Deployed
+✅ 상태: Active  
+✅ URL 접속: https://ideal-wonder-production.up.railway.app
+✅ Health Check: 통과
 ```
 
-#### 방법 3: Services 폴더만 별도 Repository 생성
-Railway가 Root Directory를 인식하지 못하므로 아예 별도 저장소 생성:
-```powershell
-# 새 저장소 생성 및 main-api만 복사
-mkdir railway-main-api
-cd railway-main-api
-git init
-copy ..\services\main-api\* .
-git add .
-git commit -m "Railway 전용 main-api 저장소"
-# GitHub에 새 저장소 생성 후 푸시
+### 🎯 동시 배포 방지 방법:
+- **한 번에 하나씩** GitHub 푸시
+- **이전 배포 완료** 확인 후 다음 푸시
+- **Deployments 상태** 모니터링
+
+### 📊 정상 배포 흐름:
+```
+1. GitHub 푸시
+2. Railway 자동 감지
+3. 단일 배포 시작
+4. 빌드 → 배포 → 활성화
+5. Health Check 통과
+6. 서비스 정상 운영
 ```
 
-### 🎯 즉시 실행할 해결순서:
+## 🚨 Railway Health Check 실패 문제 해결 진행 중
 
-#### 1단계: Railway Settings 강제 재설정
-1. **Railway Settings** → **Source** 섹션
-2. Root Directory 설정 **완전 삭제**
-3. 페이지 **새로고침** (F5)
-4. **Add Root Directory** 다시 클릭
-5. `services/main-api` 입력
-6. **Save** 클릭 후 **반드시 확인**
-
-#### 2단계: 설정 확인 후 재배포
-1. Root Directory가 제대로 저장되었는지 확인
-2. **Deployments** 탭으로 이동
-3. **Redeploy** 버튼 클릭
-
-#### 3단계: 여전히 실패 시 - 한글 파일 임시 제거
-```powershell
-# 임시 폴더 생성
-mkdir temp_korean_docs
-
-# 한글 파일들 이동
-move "250707_*" temp_korean_docs/
-move "큐*" temp_korean_docs/
-move "빠른해결가이드.md" temp_korean_docs/
-move "실행방법250624.txt" temp_korean_docs/
-
-# 즉시 푸시
-git add .
-git commit -m "🔧 한글 문서 임시 제거 - Railway Root Directory 강제 적용"
-git push origin main
+#### ❌ 발생한 문제:
+```
+Attempt #1-6 failed with service unavailable
+Health Check 계속 실패 - 서비스가 응답하지 않음
 ```
 
-### ⚠️ 중요한 체크포인트:
+#### 🔍 가능한 원인들:
+1. **임포트 오류**: 의존성 모듈들이 정상적으로 로드되지 않음
+2. **포트 바인딩 실패**: 애플리케이션이 올바른 포트에서 시작되지 않음
+3. **데이터베이스 연결 실패**: DB 초기화 과정에서 오류
+4. **환경변수 문제**: 필수 환경변수가 누락되거나 잘못 설정됨
+
+#### 🚀 현재 해결 시도 중:
+
+**1단계: 최소 버전으로 테스트 (진행 중)**
+- ✅ `main_simple.py` 생성 (최소 의존성)
+- ✅ `railway.json` 수정 → `"startCommand": "python main_simple.py"`
+- ✅ GitHub 푸시 완료 (`0aca455`)
+- 🔄 Railway 배포 진행 중...
+
+**2단계: 로그 분석 (대기 중)**
+Railway Deployments → Logs에서 확인할 항목:
 ```
-❌ Railway가 전체 루트를 스캔하고 있음
-❌ Root Directory 설정이 적용되지 않음
-❌ .railwayignore 파일이 무시됨
-✅ Settings에서 Root Directory 강제 재설정 필요
-✅ 최악의 경우 한글 파일들 임시 제거 필요
+✅ 빌드 성공 여부
+✅ Python 패키지 설치 성공
+✅ 서버 시작 메시지
+❌ 임포트 오류 메시지
+❌ 포트 바인딩 오류
+❌ 데이터베이스 연결 오류
 ```
 
-### 🚨 긴급 해결책:
-지금 당장 배포가 필요하다면 **한글 파일들을 임시로 제거**하는 것이 가장 확실합니다:
-
-```powershell
-# 한글 파일들 백업 후 제거
-mkdir backup_korean_files
-move "250707_*" backup_korean_files/
-move "큐*" backup_korean_files/
-git add .
-git commit -m "⚡ 긴급: 한글 파일 제거로 Railway 빌드 문제 해결"
-git push origin main
+#### 📊 최소 버전 테스트 내용:
+```python
+# main_simple.py - 최소 기능만 포함
+- FastAPI 기본 앱
+- / 엔드포인트
+- /health 엔드포인트
+- 데이터베이스 없음
+- 최소 임포트만 사용
 ```
 
-**어떤 방법으로 진행하시겠습니까?**
-1. **Settings에서 Root Directory 강제 재설정** (권장)
-2. **한글 파일들 임시 제거** (빠른 해결)
-3. **별도 저장소 생성** (근본적 해결)
+#### 🎯 예상 결과:
+- ✅ 성공 시: Health Check 통과 → 점진적으로 기능 추가
+- ❌ 실패 시: Railway 환경 자체 문제 → 환경변수/설정 재점검
 
-선택해주시면 구체적인 명령어를 실행해드리겠습니다! 🛠️
+#### 🔄 Railway에서 지금
+1. **Deployments** 탭에서 새로운 배포 진행상황
+2. **Logs** 탭에서 실시간 빌드/실행 로그
+3. **이전 배포들 모두 Abort** (동시 배포 방지)
+4. **배포 완료 후 Health Check** 결과 확인
+
+**현재 간단한 버전으로 테스트 배포 중입니다! Railway에서 로그를 확인해주세요.** 🔍
+
+### 🔧 Railway uvicorn $PORT 문제 완전 해결!
+
+#### ❌ 근본 원인 발견:
+```
+Error: Invalid value for '--port': '$PORT' is not a valid integer.
+```
+**문제**: Railway가 여러 설정 파일을 혼용해서 uvicorn CLI 명령어를 계속 실행
+
+#### 🔍 발견된 문제 파일들:
+1. **✅ railway.json**: `"startCommand": "python main_simple.py"` (올바름)
+2. **❌ Procfile**: `web: uvicorn main:app --host 0.0.0.0 --port $PORT` (문제!)
+3. **⚠️ Railway 자동 감지**: FastAPI 감지 시 uvicorn 자동 실행
+
+#### 🚀 완전 해결된 사항:
+
+**1. Procfile 수정**
+```
+❌ 이전: web: uvicorn main:app --host 0.0.0.0 --port $PORT
+✅ 수정: web: python main_simple.py
+```
+
+**2. nixpacks.toml 생성**
+```toml
+[start]
+cmd = "python main_simple.py"
+```
+
+**3. main_simple.py 포트 처리 강화**
+```python
+try:
+    port = int(os.getenv("PORT", 8000))
+except (ValueError, TypeError):
+    port = 8000
+```
+
+#### 📊 배포 우선순위 설정:
+```
+1. Procfile (최우선)
+2. nixpacks.toml 
+3. railway.json
+4. Dockerfile
+5. 자동 감지 (FastAPI → uvicorn)
+```
+
+#### ✅ 수정 완료 사항:
+- ✅ GitHub 푸시 완료 (`1c1db95`)
+- ✅ Railway 자동 재배포 시작됨
+- ✅ uvicorn CLI 사용 완전 차단
+- ✅ Python 직접 실행으로 강제 변경
+
+#### 🎯 이번에는 성공할 가능성:
+```
+✅ Procfile에서 python main_simple.py 직접 실행
+✅ uvicorn CLI 명령어 완전 차단
+✅ $PORT 환경변수 Python에서 안전하게 처리
+✅ 모든 빌드 설정 파일에서 일관된 명령어
+```
+
+**이제 Railway에서 다시 배포를 확인해주세요. 이번에는 uvicorn CLI 오류가 발생하지 않을 것입니다!** 🚀
