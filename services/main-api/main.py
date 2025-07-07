@@ -146,13 +146,19 @@ async def debug_login(
 
 # 서버 실행 (Railway 배포용)
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))  # Railway $PORT 환경변수를 정수로 변환
+    port_env = os.getenv("PORT", "8000")
+    port = int(port_env)  # Railway $PORT 환경변수를 정수로 변환
     host = os.getenv("HOST", "0.0.0.0")
+    
+    print(f"[RAILWAY DEBUG] PORT 환경변수 원본: '{port_env}'")
+    print(f"[RAILWAY DEBUG] PORT 정수 변환: {port}")
+    print(f"[RAILWAY DEBUG] HOST: '{host}'")
+    print(f"[RAILWAY DEBUG] 서버 시작 시도: {host}:{port}")
     
     logger.info(f"서버 시작: {host}:{port}")
     logger.info(f"환경: {os.getenv('ENVIRONMENT', 'development')}")
     logger.info(f"데이터베이스: {os.getenv('DATABASE_URL', 'sqlite:///./qclick.db')[:50]}...")
-    logger.info(f"PORT 환경변수 원본: {os.getenv('PORT', '기본값8000')}")
+    logger.info(f"PORT 환경변수 원본: {port_env}")
     
     try:
         # reload=False로 설정하여 자동 재시작 비활성화
