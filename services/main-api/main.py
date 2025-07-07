@@ -146,7 +146,7 @@ async def debug_login(
 
 # 서버 실행 (Railway 배포용)
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8001))
+    port = int(os.getenv("PORT", 8000))  # Railway 기본 포트 8000으로 통일
     host = os.getenv("HOST", "0.0.0.0")
     
     logger.info(f"서버 시작: {host}:{port}")
