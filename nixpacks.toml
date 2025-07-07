@@ -1,0 +1,15 @@
+[phases.setup]
+nixpkgs = ['python311']
+
+[phases.install]
+cmds = ['cd services/main-api && pip install -r requirements.txt']
+
+[phases.build]
+cmds = ['cd services/main-api']
+
+[start]
+cmd = 'cd services/main-api && uvicorn main:app --host 0.0.0.0 --port $PORT'
+
+[variables]
+PYTHONPATH = '/app/services/main-api'
+PYTHONUNBUFFERED = '1'
