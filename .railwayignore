@@ -1,0 +1,18 @@
+# Railway 빌드에서 제외할 파일들
+*.md
+*.txt
+*.bat
+docs/
+deployment/
+250707_*
+큐*
+SERVER_COMMANDS.md
+PROJECT_PLAN.md
+CMS_GUIDE.md
+docker-compose.yml
+STATIC_HTML_ACCESS_GUIDE.md
+backup_original/
+all_text_files.txt
+setup_utf8_deploy.sh
+vercel_utf8.json
+railway_utf8.json
