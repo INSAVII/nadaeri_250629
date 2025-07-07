@@ -15,7 +15,9 @@
     "clean-all": "rimraf dist .parcel-cache node_modules/.cache",
     "preview": "serve dist",
     "analyze": "parcel build src/index.html --reporter @parcel/reporter-bundle-analyzer",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "install-fast": "npm install --prefer-offline --no-audit --no-fund --no-optional",
+    "install-clean": "rimraf node_modules package-lock.json && npm install --prefer-offline --no-audit --no-fund"
   },
   "dependencies": {
     "axios": "^1.10.0",

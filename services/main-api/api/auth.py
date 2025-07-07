@@ -360,7 +360,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/signup", response_model=SignupResponse)
 async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
-    """회원가입"""
+    """회원가입 - 신규 가입 시 자동으로 예치금 10,000원과 무료 프로그램 권한 부여"""
     try:
         # 기존 사용자 확인
         existing_user = get_user(db, email=user_data.email)
@@ -371,7 +371,7 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
         if existing_user_id:
             raise HTTPException(status_code=400, detail="이미 사용 중인 사용자 ID입니다")
         
-        # 새 사용자 생성
+        # 새 사용자 생성 (자동 혜택 포함)
         hashed_password = User.get_password_hash(user_data.password)
         db_user = User(
             id=user_data.userId,
@@ -384,7 +384,11 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
             gender=user_data.gender,
             work_type=user_data.workType,
             has_business=user_data.hasBusiness,
-            business_number=user_data.businessNumber
+            business_number=user_data.businessNumber,
+            # 🎁 신규 가입 혜택: 자동 예치금 10,000원
+            balance=10000.0,
+            # 🎁 신규 가입 혜택: 무료 프로그램 다운로드 권한
+            program_permissions_free=True
         )
         
         db.add(db_user)
@@ -396,6 +400,8 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
         access_token = create_access_token(
             data={"sub": db_user.email}, expires_delta=access_token_expires
         )
+        
+        logger.info(f"신규 회원가입 완료: {db_user.email}, 예치금: {db_user.balance}원, 무료권한: {db_user.program_permissions_free}")
         
         return SignupResponse(
             user=UserResponse.from_orm(db_user),

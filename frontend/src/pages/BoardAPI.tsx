@@ -32,14 +32,14 @@ const BoardAPI: React.FC = () => {
                 skip: (currentPage - 1) * postsPerPage,
                 limit: postsPerPage
             });
-            
+
             const data = await boardService.getBoards({
                 category: currentCategory === '전체' ? undefined : currentCategory,
                 search: searchQuery || undefined,
                 skip: (currentPage - 1) * postsPerPage,
                 limit: postsPerPage
             });
-            
+
             console.log('게시글 로드 성공:', data);
             setPosts(data);
         } catch (err: any) {
@@ -53,9 +53,18 @@ const BoardAPI: React.FC = () => {
         }
     };
 
-    // 초기 로드 및 변경 시 재로드
+    // 초기 로드 및 변경 시 재로드 (디바운스 + 최소 검색어 길이 제한)
     useEffect(() => {
-        loadPosts();
+        const timer = setTimeout(() => {
+            const trimmedSearch = searchQuery.trim();
+            
+            // 최소 2글자 이상이거나 검색어가 비어있을 때만 검색 실행
+            if (trimmedSearch.length >= 2 || trimmedSearch.length === 0) {
+                loadPosts();
+            }
+        }, 800); // 디바운스 시간을 800ms로 증가
+
+        return () => clearTimeout(timer);
     }, [currentCategory, searchQuery, currentPage]);
 
     // 카테고리별 게시글 필터링
@@ -138,6 +147,39 @@ const BoardAPI: React.FC = () => {
     // 파일 확장자 가져오기
     const getFileExtension = (filename: string) => {
         return filename.split('.').pop()?.toLowerCase() || '';
+    };
+
+    // 작성자 이름 마스킹 처리 (익명 보장)
+    const maskAuthorName = (name: string) => {
+        if (!name || name.length <= 1) return name;
+
+        // 한글 이름 처리 (예: 최호진 -> 최*진)
+        if (/^[가-힣]+$/.test(name)) {
+            if (name.length === 2) {
+                return name.charAt(0) + '*';
+            } else if (name.length >= 3) {
+                return name.charAt(0) + '*'.repeat(name.length - 2) + name.charAt(name.length - 1);
+            }
+        }
+
+        // 영문 이름 처리 (예: John Doe -> J*** D**)
+        if (/^[a-zA-Z\s]+$/.test(name)) {
+            return name.split(' ').map(word => {
+                if (word.length <= 1) return word;
+                return word.charAt(0) + '*'.repeat(word.length - 1);
+            }).join(' ');
+        }
+
+        // 기타 경우 (이메일 등)
+        if (name.includes('@')) {
+            const [local, domain] = name.split('@');
+            if (local.length <= 1) return name;
+            return local.charAt(0) + '*'.repeat(local.length - 1) + '@' + domain;
+        }
+
+        // 기본 처리
+        if (name.length <= 2) return name;
+        return name.charAt(0) + '*'.repeat(name.length - 2) + name.charAt(name.length - 1);
     };
 
     // 파일 타입별 아이콘 가져오기
@@ -326,8 +368,8 @@ const BoardAPI: React.FC = () => {
                         {(['공지사항', '자료실', '업데이트', '전체'] as CategoryType[]).map((category) => {
                             const categoryInfo = getCategoryInfo(category);
                             const isActive = currentCategory === category;
-                            const categoryCount = category === '전체' 
-                                ? posts.length 
+                            const categoryCount = category === '전체'
+                                ? posts.length
                                 : posts.filter(p => p.category === category).length;
 
                             return (
@@ -367,7 +409,7 @@ const BoardAPI: React.FC = () => {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => handleSearchChange(e.target.value)}
-                            placeholder={`${getCategoryInfo(currentCategory).name}에서 검색...`}
+                            placeholder={`${getCategoryInfo(currentCategory).name}에서 검색... (2글자 이상 입력)`}
                             className="w-full px-3 py-1.5 pl-8 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                             disabled={loading}
                         />
@@ -437,7 +479,7 @@ const BoardAPI: React.FC = () => {
                                         </h3>
                                     </div>
                                     <div className="col-span-2 text-center text-sm text-gray-600">
-                                        {post.author}
+                                        {maskAuthorName(post.author)}
                                     </div>
                                     <div className="col-span-2 text-center text-sm text-gray-600">
                                         {new Date(post.created_at).toLocaleDateString()}
@@ -529,7 +571,7 @@ const BoardAPI: React.FC = () => {
                                 <div className="flex-1">
                                     <h2 className="text-xl font-light text-gray-900 mb-2">{selectedPost.title}</h2>
                                     <div className="flex items-center space-x-4 text-sm text-gray-600">
-                                        <span>👤 {selectedPost.author}</span>
+                                        <span>👤 {maskAuthorName(selectedPost.author)}</span>
                                         <span>📅 {new Date(selectedPost.created_at).toLocaleDateString()}</span>
                                         {selectedPost.view_count && (
                                             <span>👁️ 조회 {selectedPost.view_count}</span>

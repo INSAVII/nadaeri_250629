@@ -178,7 +178,15 @@ export default function Signup() {
       const success = await signup(formData);
       if (success) {
         navigate('/login', {
-          state: { message: '회원가입이 완료되었습니다. 로그인해주세요.' }
+          state: {
+            message: `🎉 회원가입이 완료되었습니다!
+            
+🎁 신규 가입 혜택이 자동으로 지급되었습니다:
+• 예치금 10,000원
+• 무료 프로그램 다운로드 권한
+
+로그인 후 바로 서비스를 이용하실 수 있습니다.`
+          }
         });
       }
     } catch (err) {
@@ -189,6 +197,19 @@ export default function Signup() {
     <div className="qc-container py-6">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-semibold mb-8 text-center text-gray-800">회원가입</h1>
+
+        {/* 🎁 신규 가입 혜택 안내 */}
+        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center mb-2">
+            <span className="text-2xl mr-2">🎁</span>
+            <h2 className="text-lg font-semibold text-blue-800">신규 가입 혜택</h2>
+          </div>
+          <div className="text-sm text-blue-700 space-y-1">
+            <p>• <strong>예치금 10,000원</strong> 자동 지급</p>
+            <p>• <strong>무료 프로그램 다운로드 권한</strong> 즉시 부여</p>
+            <p>• 가입 즉시 모든 서비스 이용 가능</p>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="border rounded-lg p-8 shadow-sm bg-white">
           {error && (

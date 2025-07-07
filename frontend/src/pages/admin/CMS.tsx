@@ -747,15 +747,20 @@ export default function CMSPage() {
         }
     };
 
-    // 검색어 변경 시 자동 검색 (디바운스)
+    // 검색어 변경 시 자동 검색 (디바운스 + 최소 길이 제한)
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (searchTerm.trim()) {
-                handleSearch();
-            } else {
-                loadData(); // 검색어가 없으면 전체 데이터 로드
+            const trimmedSearch = searchTerm.trim();
+
+            // 최소 2글자 이상이거나 검색어가 비어있을 때만 검색 실행
+            if (trimmedSearch.length >= 2 || trimmedSearch.length === 0) {
+                if (trimmedSearch) {
+                    handleSearch();
+                } else {
+                    loadData(); // 검색어가 없으면 전체 데이터 로드
+                }
             }
-        }, 500);
+        }, 800); // 디바운스 시간을 800ms로 증가
 
         return () => clearTimeout(timer);
     }, [searchTerm]);
@@ -934,7 +939,7 @@ export default function CMSPage() {
                             <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <input
                                     type="text"
-                                    placeholder="이름 또는 이메일로 검색..."
+                                    placeholder="이름 또는 이메일로 검색... (2글자 이상)"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"

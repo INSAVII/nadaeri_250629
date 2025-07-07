@@ -155,15 +155,15 @@ const Board: React.FC = () => {
         return posts.filter(post => post.category === currentCategory);
     };
 
-    // 검색 필터링 함수 (간소화)
+    // 검색 필터링 함수 (디바운스 적용)
     const getFilteredPosts = () => {
         const categoryPosts = getCategoryPosts();
 
-        if (!searchQuery.trim()) {
+        if (!debouncedSearchQuery.trim()) {
             return categoryPosts;
         }
 
-        const query = searchQuery.toLowerCase().trim();
+        const query = debouncedSearchQuery.toLowerCase().trim();
 
         return categoryPosts.filter(post =>
             post.title.toLowerCase().includes(query) ||
@@ -200,7 +200,18 @@ const Board: React.FC = () => {
         setCurrentPage(1);
     };
 
-    // 검색어 변경 시 페이지 초기화
+    // 검색어 변경 시 페이지 초기화 (디바운스 적용)
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+    // 디바운스 처리
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
     const handleSearchChange = (query: string) => {
         setSearchQuery(query);
         setCurrentPage(1);
@@ -251,6 +262,39 @@ const Board: React.FC = () => {
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    // 작성자 이름 마스킹 처리 (익명 보장)
+    const maskAuthorName = (name: string) => {
+        if (!name || name.length <= 1) return name;
+
+        // 한글 이름 처리 (예: 최호진 -> 최*진)
+        if (/^[가-힣]+$/.test(name)) {
+            if (name.length === 2) {
+                return name.charAt(0) + '*';
+            } else if (name.length >= 3) {
+                return name.charAt(0) + '*'.repeat(name.length - 2) + name.charAt(name.length - 1);
+            }
+        }
+
+        // 영문 이름 처리 (예: John Doe -> J*** D**)
+        if (/^[a-zA-Z\s]+$/.test(name)) {
+            return name.split(' ').map(word => {
+                if (word.length <= 1) return word;
+                return word.charAt(0) + '*'.repeat(word.length - 1);
+            }).join(' ');
+        }
+
+        // 기타 경우 (이메일 등)
+        if (name.includes('@')) {
+            const [local, domain] = name.split('@');
+            if (local.length <= 1) return name;
+            return local.charAt(0) + '*'.repeat(local.length - 1) + '@' + domain;
+        }
+
+        // 기본 처리
+        if (name.length <= 2) return name;
+        return name.charAt(0) + '*'.repeat(name.length - 2) + name.charAt(name.length - 1);
     };
 
     // 파일 확장자 가져오기
@@ -565,7 +609,7 @@ const Board: React.FC = () => {
                                         </h3>
                                     </div>
                                     <div className="col-span-2 text-center text-sm text-gray-600">
-                                        {post.author}
+                                        {maskAuthorName(post.author)}
                                     </div>
                                     <div className="col-span-2 text-center text-sm text-gray-600">
                                         {post.date}
@@ -653,7 +697,7 @@ const Board: React.FC = () => {
                                 <div className="flex-1">
                                     <h2 className="text-xl font-light text-gray-900 mb-2">{selectedPost.title}</h2>
                                     <div className="flex items-center space-x-4 text-sm text-gray-600">
-                                        <span>👤 {selectedPost.author}</span>
+                                        <span>👤 {maskAuthorName(selectedPost.author)}</span>
                                         <span>📅 {selectedPost.date}</span>
                                         {selectedPost.attachments.length > 0 && (
                                             <span>📎 첨부파일 {selectedPost.attachments.length}개</span>

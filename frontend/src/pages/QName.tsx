@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePrice } from '../context/PriceContext';
-import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { getQNameApiUrl, getApiUrl } from '../config/constants';
 import { apiPost, qnameApiRequest, ApiError } from '../utils/apiClient';
+import * as XLSX from 'xlsx';
 
 // 파일 검증 결과 타입 정의
 interface FileValidation {
@@ -14,6 +14,30 @@ interface FileValidation {
   canProcess: boolean;
   reason: string;
 }
+
+// 표준 양식 헤더 및 안내문 정의
+const STANDARD_HEADER = [
+  '상품코드', '메인키워드', 'NAVERCODE', '카테분류형식', 'SEO상품명', '연관검색어', '네이버태그'
+];
+
+// 안내문 각 셀 분산 (엑셀용)
+const STANDARD_GUIDE_ROW = [
+  '*메인키워드는 좋은상품명을찾기위해서 매우중요한입력값입니다.',
+  '*가장핵심적인 상품명을표현하는단어+용도재질+특징 등으로 최소3단어이상구성',
+  '*상품코드는 도매몰상품코드또는자체상품코드사용',
+  '*약95%이상의 카테고리번호가 일치합니다.',
+  '*과도한 400개 이상을 한번에 처리하지마시고 조금 여유를가지고 기다려주세요.',
+  '*3행부터 상품코드와 메인키워드를 입력하고 업로드 해주세요.',
+  ''
+];
+
+// 표준 헤더 및 예시 데이터(캡처와 동일)
+const SIMPLE_HEADER = [
+  '상품코드', '메인키워드', 'NAVERCODE', '카테분류형식', 'SEO상품명', '연관검색어', '네이버태그'
+];
+const SIMPLE_EXAMPLE = [
+  'Manipalja104', '청소 블랙 솔 세탁', '', '', '', '', ''
+];
 
 // 안전한 API URL 설정
 const getSafeQNameApiUrl = (): string => {
@@ -64,7 +88,7 @@ const QName: React.FC = () => {
   // 예상 처리 시간 상태 추가 (간단한 계산용)
   const [estimatedTime, setEstimatedTime] = useState('');
 
-  // 사용자 잔액 업데이트
+  // 사용잔액 업데이트
   useEffect(() => {
     setBalance(user?.balance || 0);
   }, [user]);
@@ -132,109 +156,113 @@ const QName: React.FC = () => {
 
   const validateExcelFile = async (file: File): Promise<FileValidation> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        try {
-          const data = evt.target?.result;
-          if (!data) {
-            reject('파일 읽기 실패');
-            return;
-          }
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false });
 
-          const workbook = XLSX.read(data, { type: 'binary' });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-          let totalRows = 0;
-          let isValid = false;
-          let reason = '';
-
-          // 2행부터 시작하여 A열과 B열이 모두 존재하는 셀을 카운트
-          for (let i = 1; i < json.length; i++) {
-            const row = json[i] as any[];
-            const cellA = row[0]; // A열 (상품코드)
-            const cellB = row[1]; // B열 (메인키워드)
-
-            if (cellA && cellB && cellA.toString().trim() !== '' && cellB.toString().trim() !== '') {
-              totalRows++;
-            } else {
-              break;
+            // 표준 헤더 검증 (1행)
+            const headers = jsonData[0] as string[];
+            const isHeaderMatch =
+              headers && headers.length === STANDARD_HEADER.length &&
+              headers.every((h, i) => h === STANDARD_HEADER[i]);
+            if (!isHeaderMatch) {
+              resolve({
+                isValid: false,
+                totalRows: 0,
+                estimatedCost: 0,
+                canProcess: false,
+                reason: '업로드 파일이 표준 양식과 일치하지 않습니다. 반드시 제공된 표준양식을 사용해 주세요.'
+              });
+              return;
             }
+
+            // 3행부터 데이터 입력 검증 (2행은 안내문, 3행부터 데이터)
+            const dataRows = jsonData.slice(2); // 0:헤더, 1:안내문, 2~:데이터
+            const totalRows = dataRows.length;
+
+            if (totalRows === 0) {
+              resolve({
+                isValid: false,
+                totalRows: 0,
+                estimatedCost: 0,
+                canProcess: false,
+                reason: '3행부터 데이터를 입력해야 합니다. 표준양식을 참고하세요.'
+              });
+              return;
+            }
+
+            if (totalRows > 500) {
+              resolve({
+                isValid: false,
+                totalRows: totalRows,
+                estimatedCost: totalRows * qnamePrice,
+                canProcess: false,
+                reason: '최대 500개 상품까지만 처리 가능합니다.'
+              });
+              return;
+            }
+
+            const estimatedCost = totalRows * qnamePrice;
+            const canProcess = balance >= estimatedCost;
+
+            resolve({
+              isValid: true,
+              totalRows: totalRows,
+              estimatedCost: estimatedCost,
+              canProcess: canProcess,
+              reason: canProcess ? '' : `잔액이 부족합니다. 필요: ${estimatedCost}원, 보유: ${balance}원`
+            });
+          } catch (error) {
+            resolve({
+              isValid: false,
+              totalRows: 0,
+              estimatedCost: 0,
+              canProcess: false,
+              reason: '엑셀 파일 형식이 올바르지 않습니다.'
+            });
           }
-
-          // 검증 로직
-          if (totalRows === 0) {
-            reason = '유효한 데이터가 없습니다. A열(상품코드)과 B열(메인키워드)이 모두 입력된 행이 필요합니다.';
-          } else if (totalRows > 500) {
-            reason = `처리 가능한 최대 개수(500개)를 초과했습니다. 현재: ${totalRows}개`;
-          } else {
-            isValid = true;
-          }
-
-          const estimatedCost = totalRows * qnamePrice;
-          const canProcess = isValid && user && user.balance >= estimatedCost;
-
-          if (isValid && user && user.balance < estimatedCost) {
-            reason = `예치금 부족: 필요 금액 ${estimatedCost.toLocaleString()}원, 현재 잔액 ${user.balance.toLocaleString()}원`;
-          }
-
+        };
+        reader.onerror = () => {
           resolve({
-            isValid,
-            totalRows,
-            estimatedCost,
-            canProcess: canProcess || false,
-            reason
+            isValid: false,
+            totalRows: 0,
+            estimatedCost: 0,
+            canProcess: false,
+            reason: '파일 읽기에 실패했습니다.'
           });
-        } catch (error) {
-          reject('파일 형식이 올바르지 않습니다.');
-        }
-      };
-      reader.onerror = () => reject('파일 읽기 실패');
-      reader.readAsBinaryString(file);
+        };
+        reader.readAsArrayBuffer(file);
+      } catch (error) {
+        resolve({
+          isValid: false,
+          totalRows: 0,
+          estimatedCost: 0,
+          canProcess: false,
+          reason: '파일 검증 중 오류가 발생했습니다.'
+        });
+      }
     });
   };
 
   const handleDownloadTemplate = async () => {
     try {
-      const header = [
-        '상품코드',
-        '메인키워드',
-        'NAVERCODE',
-        '카테분류형식',
-        'SEO상품명',
-        '연관검색어',
-        '네이버태그'
+      const templateData = [
+        SIMPLE_HEADER,
+        SIMPLE_EXAMPLE
       ];
-      const exampleRow = [
-        'MYSELLING1004',
-        '틈새 브러쉬 세탁용',
-        '', '', '', '', ''
-      ];
-      const csvData = [header, exampleRow];
-
       const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.aoa_to_sheet(csvData);
-
-      const colWidths = [
-        { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 20 },
-        { wch: 20 }, { wch: 20 }, { wch: 20 }
-      ];
-      worksheet['!cols'] = colWidths;
-
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'sheet1');
-      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = '상품명카테키워드표준양식.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const worksheet = XLSX.utils.aoa_to_sheet(templateData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, '표준양식');
+      XLSX.writeFile(workbook, 'QName_표준엑셀양식.xlsx');
+      setSuccess('표준 엑셀양식이 다운로드되었습니다.');
     } catch (error) {
-      console.error('다운로드 오류:', error);
-      alert('파일 다운로드에 실패했습니다. 다시 시도해주세요.');
+      setError('표준양식 다운로드 중 오류가 발생했습니다.');
     }
   };
 
@@ -458,229 +486,6 @@ const QName: React.FC = () => {
     }
   };
 
-  // 🧪 실험용 테스트 함수들
-  const testBalanceDeduction = async () => {
-    if (!user) {
-      setError('로그인이 필요합니다.');
-      return;
-    }
-
-    console.log('🧪 예치금 차감 테스트 시작');
-    setIsProcessing(true);
-    setError('');
-
-    try {
-      const testAmount = 100; // 100원 테스트
-      const newBalance = user.balance - testAmount;
-
-      console.log('🧪 테스트 차감:', {
-        currentBalance: user.balance,
-        testAmount,
-        newBalance
-      });
-
-      // 메인 API 서버 예치금 차감 테스트
-      const balanceResult = await apiPost(
-        `/api/deposits/users/${user.id}/balance`,
-        {
-          amount: -testAmount,
-          description: '테스트 차감'
-        },
-        user.token
-      );
-
-      console.log('🧪 예치금 차감 성공:', balanceResult);
-
-      // 🆕 로컬 상태만 업데이트 (AuthContext 호출 제거)
-      setBalance(newBalance);
-
-      setSuccess('🧪 예치금 차감 테스트 성공! 100원 차감됨');
-    } catch (e: any) {
-      console.error('🧪 예치금 차감 테스트 실패:', e);
-      setError(`🧪 예치금 차감 테스트 실패: ${e?.message}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const testQNameServiceConnection = async () => {
-    console.log('🧪 QName 서비스 연결 테스트 시작');
-    setIsProcessing(true);
-    setError('');
-
-    try {
-      console.log('🧪 1단계: 기본 연결 테스트');
-      const isAvailable = await checkQNameServiceStatus();
-      if (isAvailable) {
-        console.log('🧪 2단계: API URL 확인');
-        console.log('QNAME_SERVICE_URL:', QNAME_SERVICE_URL);
-
-        console.log('🧪 3단계: 직접 fetch 테스트');
-        const response = await fetch(`${QNAME_SERVICE_URL}/health`);
-        console.log('직접 fetch 응답:', {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('직접 fetch 데이터:', data);
-          setSuccess('🧪 QName 서비스 연결 성공! 모든 테스트 통과');
-        } else {
-          setError(`🧪 QName 서비스 연결 실패: ${response.status} ${response.statusText}`);
-        }
-      } else {
-        setError('🧪 QName 서비스 연결 실패');
-      }
-    } catch (e: any) {
-      console.error('🧪 QName 서비스 연결 테스트 실패:', e);
-      setError(`🧪 QName 서비스 연결 테스트 실패: ${e?.message}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // 🧪 목업 처리 함수 (초기 실험과 동일한 방식)
-  const testMockProcessing = async () => {
-    if (!file) {
-      setError('파일을 선택하세요.');
-      return;
-    }
-
-    console.log('🧪 목업 처리 테스트 시작 (초기 실험 방식)');
-    setIsProcessing(true);
-    setError('');
-
-    try {
-      // 1단계: 예치금 차감 (실제 DB)
-      const totalCost = fileValidation.estimatedCost;
-      const newBalance = user!.balance - totalCost;
-
-      console.log('🧪 1단계: 예치금 차감 시작');
-      const balanceResult = await apiPost(
-        `/api/deposits/users/${user!.id}/balance`,
-        {
-          amount: -totalCost,
-          description: '목업 처리 테스트'
-        },
-        user!.token
-      );
-
-      console.log('🧪 예치금 차감 성공:', balanceResult);
-
-      // 2단계: 목업 처리 (로컬스토리지 방식)
-      console.log('🧪 2단계: 목업 처리 시작 (초기 실험 방식)');
-
-      // 파일 읽기
-      const reader = new FileReader();
-      const fileData = await new Promise<string>((resolve, reject) => {
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.onerror = () => reject('파일 읽기 실패');
-        reader.readAsBinaryString(file);
-      });
-
-      // XLSX 파싱
-      const workbook = XLSX.read(fileData, { type: 'binary' });
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-      // 목업 처리 (초기 실험과 동일)
-      const processedData = jsonData.map((row: any, index: number) => {
-        if (index === 0) return row; // 헤더 유지
-
-        const keyword = row[1] || '테스트키워드';
-        const mockProductName = `목업_${keyword}_상품명_${index}`;
-        const mockKeywords = `목업키워드1,목업키워드2,목업키워드3`;
-        const mockTags = `목업태그1,목업태그2,목업태그3`;
-
-        return [
-          row[0] || `TEST${index}`, // 상품코드
-          keyword, // 메인키워드
-          `NAVER${index}`, // NAVERCODE
-          `카테고리${index}`, // 카테분류형식
-          mockProductName, // SEO상품명
-          mockKeywords, // 연관검색어
-          mockTags // 네이버태그
-        ];
-      });
-
-      // 결과 파일 생성
-      const resultWorkbook = XLSX.utils.book_new();
-      const resultWorksheet = XLSX.utils.aoa_to_sheet(processedData);
-      XLSX.utils.book_append_sheet(resultWorkbook, resultWorksheet, '결과');
-
-      const excelBuffer = XLSX.write(resultWorkbook, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-
-      setProcessedFileUrl(url);
-      setProcessingComplete(true);
-      setSuccess(`🧪 목업 처리 완료! ${processedData.length - 1}건 처리 (초기 실험 방식)`);
-
-    } catch (e: any) {
-      console.error('🧪 목업 처리 테스트 실패:', e);
-      setError(`🧪 목업 처리 테스트 실패: ${e?.message}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // 🧪 파일 처리만 테스트하는 함수 (예치금 차감 없이)
-  const testFileProcessingOnly = async () => {
-    if (!file) {
-      setError('파일을 선택하세요.');
-      return;
-    }
-
-    console.log('🧪 파일 처리만 테스트 시작 (예치금 차감 없이)');
-    setIsProcessing(true);
-    setError('');
-
-    try {
-      // 1단계: QName 서비스 상태 확인
-      console.log('🧪 1단계: QName 서비스 상태 확인');
-      const isAvailable = await checkQNameServiceStatus();
-      if (!isAvailable) {
-        throw new Error('QName 서비스에 연결할 수 없습니다.');
-      }
-
-      // 2단계: 파일 업로드 및 처리 (예치금 차감 없이)
-      console.log('🧪 2단계: 파일 업로드 및 처리');
-      console.log('파일 정보:', {
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      console.log('🧪 QName API 호출 시작 (예치금 차감 없이)');
-      const blob = await qnameApiRequest('/api/qname/process-file', {
-        method: 'POST',
-        body: formData
-      });
-
-      console.log('🧪 파일 처리 성공!');
-      console.log('응답 blob 크기:', blob.size);
-      console.log('응답 blob 타입:', blob.type);
-
-      // 결과 파일 생성
-      const url = window.URL.createObjectURL(blob);
-      setProcessedFileUrl(url);
-      setProcessingComplete(true);
-
-      setSuccess('🧪 파일 처리 테스트 성공! (예치금 차감 없이)');
-
-    } catch (e: any) {
-      console.error('🧪 파일 처리 테스트 실패:', e);
-      setError(`🧪 파일 처리 테스트 실패: ${e?.message}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const handleDownloadProcessedFile = () => {
     if (!processingComplete || !processedFileUrl) {
       setError('가공이 완료되지 않았습니다.');
@@ -793,40 +598,6 @@ const QName: React.FC = () => {
             >
               📥 업로드표준엑셀양식
             </button>
-
-            {/* 🧪 실험용 테스트 버튼들 (개발 전용) */}
-            {user?.role === 'admin' && (
-              <>
-                <button
-                  onClick={testBalanceDeduction}
-                  className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs font-light"
-                  title="예치금 차감 테스트"
-                >
-                  🧪 예치금차감테스트
-                </button>
-                <button
-                  onClick={testQNameServiceConnection}
-                  className="px-3 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 text-xs font-light"
-                  title="QName 서비스 연결 테스트"
-                >
-                  🧪 QName연결테스트
-                </button>
-                <button
-                  onClick={testMockProcessing}
-                  className="px-3 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs font-light"
-                  title="목업 처리 테스트 (초기 실험 방식)"
-                >
-                  🧪 목업처리테스트
-                </button>
-                <button
-                  onClick={testFileProcessingOnly}
-                  className="px-3 py-2 bg-pink-500 text-white rounded hover:bg-pink-600 text-xs font-light"
-                  title="파일 처리만 테스트 (예치금 차감 없이)"
-                >
-                  🧪 파일처리테스트
-                </button>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -1021,6 +792,22 @@ const QName: React.FC = () => {
           </div>
         </div>
       )}
+
+      <div style={{ background: '#f8f9fa', border: '1px solid #e0e0e0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+        <b>업로드 표준양식 사용법 안내</b>
+        <ul style={{ margin: 0, paddingLeft: 20 }}>
+          <li>엑셀 표준양식 파일을 다운로드하여 2행부터 데이터를 입력하세요.</li>
+          <li>표준양식의 헤더(1행)는 절대 수정하지 마세요.</li>
+          <li>.xls, .xlsx 모두 업로드 가능하며, 결과물은 항상 .xlsx로 제공됩니다.</li>
+          <li>파일을 업로드하면 자동으로 표준양식 일치 여부를 검사합니다.</li>
+          <li>양식이 다르거나 2행부터 데이터가 없으면 가공이 불가합니다.</li>
+        </ul>
+        <div style={{ marginTop: 8 }}>
+          <button onClick={handleDownloadTemplate} style={{ padding: '6px 16px', background: '#1976d2', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+            엑셀 표준양식 다운로드
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

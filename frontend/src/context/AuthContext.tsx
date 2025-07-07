@@ -36,6 +36,7 @@ interface AuthContextType {
     email?: string;
     password: string;
     confirmPassword: string;
+    phone?: string;
   }) => Promise<boolean>;
   // 개발용 디버그 함수들
   forceAdminLogin?: () => boolean;
@@ -556,6 +557,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email?: string;
     password: string;
     confirmPassword: string;
+    phone?: string;
   }): Promise<boolean> => {
     try {
       console.log('AuthContext - 회원가입 시도:', userData.userId);
@@ -576,6 +578,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: userData.name,
           email: userData.email || `${userData.userId}@example.com`,
           password: userData.password,
+          phone: userData.phone || '010-0000-0000',
         }),
       });
 

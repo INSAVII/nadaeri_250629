@@ -7,6 +7,7 @@ import Loading from '../../components/ui/Loading';
 import SuccessMessage from '../../components/ui/SuccessMessage';
 import ErrorMessage from '../../components/ui/ErrorMessage';
 
+
 interface BankTransferRequest {
     id: number;
     user_id: string;
@@ -38,6 +39,95 @@ export default function BankTransferManager() {
     const [selectedRequest, setSelectedRequest] = useState<BankTransferRequest | null>(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
+
+    // 한국 시간대로 변환하는 함수 (단순화된 형식)
+    const formatKoreanTime = (dateString: string) => {
+        const date = new Date(dateString);
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+
+        // MM/DD HHhrs 형식으로 반환
+        return `${month}/${day} ${hour}hrs`;
+    };
+
+    // CSV 다운로드 함수
+    const downloadCSV = () => {
+        if (requests.length === 0) {
+            setError('다운로드할 데이터가 없습니다.');
+            return;
+        }
+
+        try {
+            // CSV 헤더
+            const headers = [
+                '신청일시',
+                '사용자ID',
+                '사용자명',
+                '이메일',
+                '현재잔액',
+                '입금자명',
+                '금액',
+                '연락처',
+                '메모',
+                '상태',
+                '확인일시',
+                '확인자'
+            ];
+
+            // CSV 데이터 준비
+            const csvData = requests.map(request => {
+                const userInfo = users[request.user_id];
+                return [
+                    formatKoreanTime(request.created_at),
+                    request.user_id,
+                    userInfo?.name || '알 수 없음',
+                    userInfo?.email || '알 수 없음',
+                    userInfo?.balance?.toLocaleString() || '0',
+                    request.depositor_name,
+                    request.amount.toLocaleString(),
+                    request.phone_number,
+                    request.note || '',
+                    request.status === 'pending' ? '대기중' :
+                        request.status === 'confirmed' ? '확인됨' : '거부됨',
+                    request.confirmed_at ? formatKoreanTime(request.confirmed_at) : '',
+                    request.confirmed_by || ''
+                ];
+            });
+
+            // CSV 문자열 생성
+            const csvContent = [
+                headers.join(','),
+                ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+            ].join('\n');
+
+            // BOM 추가 (한글 깨짐 방지)
+            const BOM = '\uFEFF';
+            const csvWithBOM = BOM + csvContent;
+
+            // 파일명 생성 (현재 날짜 포함)
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const fileName = `무통장입금관리_${dateStr}.csv`;
+
+            // CSV 파일 다운로드
+            const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', fileName);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            setMessage('CSV 파일이 다운로드되었습니다.');
+        } catch (error) {
+            console.error('CSV 다운로드 오류:', error);
+            setError('CSV 파일 생성 중 오류가 발생했습니다.');
+        }
+    };
 
     // 입금 신청 목록 조회
     const fetchRequests = async () => {
@@ -173,12 +263,20 @@ export default function BankTransferManager() {
         <div className="qc-container py-4">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-light text-gray-800">무통장 입금 관리</h1>
-                <TextButton
-                    onClick={() => window.location.reload()}
-                    className="bg-blue-600 text-white hover:bg-blue-700"
-                >
-                    새로고침
-                </TextButton>
+                <div className="flex gap-2">
+                    <TextButton
+                        onClick={downloadCSV}
+                        className="bg-green-600 text-white hover:bg-green-700"
+                    >
+                        📊 CSV 다운로드
+                    </TextButton>
+                    <TextButton
+                        onClick={() => window.location.reload()}
+                        className="bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                        새로고침
+                    </TextButton>
+                </div>
             </div>
 
             {message && <SuccessMessage message={message} onClose={() => setMessage('')} />}
@@ -193,7 +291,13 @@ export default function BankTransferManager() {
                                     신청일시
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    사용자
+                                    사용자명
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    이메일
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    현재잔액
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     입금자명
@@ -215,7 +319,7 @@ export default function BankTransferManager() {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {requests.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                                    <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                                         입금 신청이 없습니다.
                                     </td>
                                 </tr>
@@ -223,15 +327,17 @@ export default function BankTransferManager() {
                                 requests.map((request) => (
                                     <tr key={request.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {new Date(request.created_at).toLocaleString('ko-KR')}
+                                            {formatKoreanTime(request.created_at)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <div>
-                                                <div className="font-medium">{users[request.user_id]?.name || '알 수 없음'}</div>
-                                                <div className="text-gray-500">{users[request.user_id]?.email || request.user_id}</div>
-                                                <div className="text-xs text-gray-400">
-                                                    현재 잔액: {users[request.user_id]?.balance?.toLocaleString() || 0}원
-                                                </div>
+                                            <div className="font-medium">{users[request.user_id]?.name || '알 수 없음'}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <div className="text-gray-600">{users[request.user_id]?.email || request.user_id}</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            <div className="font-medium text-blue-600">
+                                                {users[request.user_id]?.balance?.toLocaleString() || 0}원
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -271,12 +377,12 @@ export default function BankTransferManager() {
                                             )}
                                             {request.status === 'confirmed' && (
                                                 <span className="text-green-600 text-xs">
-                                                    {request.confirmed_at && new Date(request.confirmed_at).toLocaleString('ko-KR')}
+                                                    {request.confirmed_at && formatKoreanTime(request.confirmed_at)}
                                                 </span>
                                             )}
                                             {request.status === 'rejected' && (
                                                 <span className="text-red-600 text-xs">
-                                                    {request.confirmed_at && new Date(request.confirmed_at).toLocaleString('ko-KR')}
+                                                    {request.confirmed_at && formatKoreanTime(request.confirmed_at)}
                                                 </span>
                                             )}
                                         </td>

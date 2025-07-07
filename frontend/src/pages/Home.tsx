@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ServiceCard, TextButton } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import Footer from '../components/Footer';
 
 interface PromotionStyle {
   text: string;
@@ -345,6 +346,7 @@ export default function Home() {
           </div>
         </section>
       </div>
+      <Footer />
     </div>
   );
 }

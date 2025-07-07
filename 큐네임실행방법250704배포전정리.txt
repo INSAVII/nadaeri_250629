@@ -9,14 +9,22 @@ python main.py
 cd "D:\250624_cms01\services\qname-service"
 python main.py
 
+큐문자도 실행
+cd "D:\250624_cms01\services\qtext-service"
+python main.py
+
 
 cd "D:\250624_cms01\frontend"
-npm install
-npm start
 
+npm start
+npm install --legacy-peer-deps
 http://localhost:3003
 
-
+test11
+test11&&
+길동이
+gil@example.com
+0102222222
 
 
 
