@@ -146,12 +146,13 @@ async def debug_login(
 
 # 서버 실행 (Railway 배포용)
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))  # Railway 기본 포트 8000으로 통일
+    port = int(os.getenv("PORT", 8000))  # Railway $PORT 환경변수를 정수로 변환
     host = os.getenv("HOST", "0.0.0.0")
     
     logger.info(f"서버 시작: {host}:{port}")
     logger.info(f"환경: {os.getenv('ENVIRONMENT', 'development')}")
     logger.info(f"데이터베이스: {os.getenv('DATABASE_URL', 'sqlite:///./qclick.db')[:50]}...")
+    logger.info(f"PORT 환경변수 원본: {os.getenv('PORT', '기본값8000')}")
     
     try:
         # reload=False로 설정하여 자동 재시작 비활성화
