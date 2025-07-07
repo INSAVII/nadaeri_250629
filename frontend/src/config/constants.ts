@@ -13,7 +13,7 @@ export const getApiUrl = (): string => {
   // 프로덕션 환경
   if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
     // Vercel 등 배포 환경에서는 환경변수나 고정 URL 사용
-    return process.env.REACT_APP_API_URL || 'https://api.나대리.kr';
+    return process.env.REACT_APP_API_URL || 'https://ideal-wonder-production.up.railway.app';
   }
 
   // 개발 환경 - 로컬 서버
