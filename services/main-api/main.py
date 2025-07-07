@@ -103,17 +103,7 @@ app.include_router(qtext_router, tags=["QText"])
 
 @app.get("/", tags=["루트"])
 async def root():
-    import datetime
-    return {
-        "message": "★★★ QClick FastAPI 서버가 정상 작동중입니다! ★★★", 
-        "service": "QClick Main API Server",
-        "status": "RUNNING",
-        "port": "production", 
-        "version": "3.0", 
-        "timestamp": datetime.datetime.now().isoformat(),
-        "railway_deployment": "SUCCESS",
-        "debug": "이 메시지가 보이면 FastAPI가 정상 실행중입니다"
-    }
+    return {"message": "QClick 메인 API 서버에 오신 것을 환영합니다.", "port": "production", "version": "2.1", "timestamp": "2025-01-07"}
 
 @app.get("/health", tags=["상태"])
 async def health_check():
@@ -154,36 +144,15 @@ async def debug_login(
     except Exception as e:
         return {"status": "error", "message": f"로그인 처리 중 오류 발생: {str(e)}"}
 
-@app.get("/railway-test", tags=["Railway 테스트"])
-async def railway_test():
-    """Railway 배포 테스트 전용 엔드포인트"""
-    import datetime
-    import os
-    return {
-        "railway_status": "✅ Railway 배포 성공!",
-        "fastapi_running": True,
-        "current_time": datetime.datetime.now().isoformat(),
-        "port": os.getenv("PORT", "unknown"),
-        "host": os.getenv("HOST", "unknown"),
-        "deployment_id": "250107_railway_fix",
-        "message": "이 메시지가 보이면 Railway에서 FastAPI가 정상 실행중입니다!"
-    }
-
 # 서버 실행 (Railway 배포용)
 if __name__ == "__main__":
-    port_env = os.getenv("PORT", "8000")
-    port = int(port_env)  # Railway $PORT 환경변수를 정수로 변환
+    port = int(os.getenv("PORT", 8000))  # Railway $PORT 환경변수를 정수로 변환
     host = os.getenv("HOST", "0.0.0.0")
-    
-    print(f"[RAILWAY DEBUG] PORT 환경변수 원본: '{port_env}'")
-    print(f"[RAILWAY DEBUG] PORT 정수 변환: {port}")
-    print(f"[RAILWAY DEBUG] HOST: '{host}'")
-    print(f"[RAILWAY DEBUG] 서버 시작 시도: {host}:{port}")
     
     logger.info(f"서버 시작: {host}:{port}")
     logger.info(f"환경: {os.getenv('ENVIRONMENT', 'development')}")
     logger.info(f"데이터베이스: {os.getenv('DATABASE_URL', 'sqlite:///./qclick.db')[:50]}...")
-    logger.info(f"PORT 환경변수 원본: {port_env}")
+    logger.info(f"PORT 환경변수 원본: {os.getenv('PORT', '기본값8000')}")
     
     try:
         # reload=False로 설정하여 자동 재시작 비활성화
