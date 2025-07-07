@@ -103,11 +103,11 @@ app.include_router(qtext_router, tags=["QText"])
 
 @app.get("/", tags=["루트"])
 async def root():
-    return {"message": "QClick 메인 API 서버에 오신 것을 환영합니다.", "port": "production"}
+    return {"message": "QClick 메인 API 서버에 오신 것을 환영합니다.", "port": "production", "version": "2.0"}
 
 @app.get("/health", tags=["상태"])
 async def health_check():
-    return {"status": "ok", "message": "메인 API 서버가 정상 작동 중입니다.", "port": "production"}
+    return {"status": "ok", "message": "메인 API 서버가 정상 작동 중입니다.", "port": "production", "version": "2.0"}
 
 @app.get("/debug/users", tags=["디버그"])
 async def debug_users(db: Session = Depends(get_db)):
