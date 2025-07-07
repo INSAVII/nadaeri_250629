@@ -4,8 +4,8 @@
         "builder": "NIXPACKS"
     },
     "deploy": {
-        "startCommand": "python main.py",
-        "healthcheckPath": "/health",
+        "startCommand": "python -u main.py",
+        "healthcheckPath": "/railway-test",
         "healthcheckTimeout": 300,
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
