@@ -10,4 +10,5 @@ COPY services/main-api/ .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Railway $PORT 환경변수를 올바르게 처리
+CMD ["python", "main.py"]
