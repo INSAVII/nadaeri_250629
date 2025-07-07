@@ -1,0 +1,58 @@
+# .gitignore - UTF-8 인코딩 배포용
+
+# 환경변수 파일 (보안)
+.env
+.env.local
+.env.production
+*.env
+
+# 한글 파일명 파일들 (인코딩 문제 방지)
+큐*.bat
+큐*.txt
+전체시스템*.bat
+*.한글파일명.*
+
+# 개발 환경 파일들
+node_modules/
+.parcel-cache/
+dist/
+build/
+.cache/
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 임시 파일들
+temp_*
+backup_original/
+results/
+
+# 로그 파일들
+*.log
+logs/
+
+# 데이터베이스 파일
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS 생성 파일
+.DS_Store
+Thumbs.db
+
+# 배포 관련 민감 정보
+railway_secrets.txt
+vercel_secrets.txt
+api_keys.txt

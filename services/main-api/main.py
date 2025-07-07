@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from fastapi import FastAPI, Depends, HTTPException, status, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
