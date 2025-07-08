@@ -11,11 +11,9 @@
   },
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
-    "build": "echo 'Starting build...' && parcel build src/index.html --no-source-maps --no-optimize",
+    "build": "parcel build src/index.html --no-source-maps",
     "start": "node server.js",
-    "dev": "parcel src/index.html --port 3003",
-    "clean": "rimraf dist .parcel-cache",
-    "postinstall": "echo 'Dependencies installed successfully'"
+    "dev": "parcel src/index.html --port 3003"
   },
   "dependencies": {
     "@parcel/transformer-react-refresh-wrap": "^2.15.2",
