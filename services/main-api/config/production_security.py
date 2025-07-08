@@ -27,8 +27,14 @@ def setup_production_security(app: FastAPI):
         )
     
     # 2. CORS 설정 강화
-    origins = []
-    if os.getenv("ENV") == "production":
+    # 환경변수에서 CORS_ORIGINS 읽기
+    cors_origins_env = os.getenv("CORS_ORIGINS", "")
+    
+    if cors_origins_env:
+        # 환경변수가 설정된 경우 사용
+        origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+        print(f"CORS 환경변수 사용: {origins}")
+    elif os.getenv("ENV") == "production":
         origins = [
             "https://qclick.vercel.app",
             "https://qclick-admin.vercel.app",
