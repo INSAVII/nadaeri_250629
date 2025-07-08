@@ -5,13 +5,13 @@ FROM node:18-alpine as builder
 WORKDIR /app
 
 # package.json 및 package-lock.json 복사
-COPY frontend/package*.json ./
+COPY package*.json ./
 
 # 모든 의존성 설치 (devDependencies 포함)
 RUN npm ci
 
 # 소스 코드 복사
-COPY frontend/ .
+COPY . .
 
 # 프로덕션 빌드
 ENV NODE_ENV=production
@@ -24,7 +24,7 @@ FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Nginx 설정 파일 복사
-COPY frontend/nginx.conf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # 포트 노출
 EXPOSE 80
