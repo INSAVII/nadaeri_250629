@@ -29,6 +29,28 @@ http.createServer((req, res) => {
     // 파일 확장자 확인
     let extname = path.extname(filePath);
     let contentType = 'text/html';
+    
+    // 확장자별 MIME 타입 설정
+    switch (extname) {
+        case '.js':
+            contentType = 'text/javascript';
+            break;
+        case '.css':
+            contentType = 'text/css';
+            break;
+        case '.json':
+            contentType = 'application/json';
+            break;
+        case '.png':
+            contentType = 'image/png';
+            break;
+        case '.jpg':
+            contentType = 'image/jpeg';
+            break;
+        case '.svg':
+            contentType = 'image/svg+xml';
+            break;
+    }
 
     // SPA를 위한 처리: 파일이 없으면 index.html 제공
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
