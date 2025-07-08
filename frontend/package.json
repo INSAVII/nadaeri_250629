@@ -10,7 +10,7 @@
     "dev-force": "rimraf .parcel-cache dist node_modules/.cache && parcel src/index.html --port 3003 --no-cache --no-source-maps",
     "build": "parcel build src/index.html --public-url / --no-cache --no-source-maps",
     "build:win": "set NODE_ENV=production && parcel build src/index.html --public-url / --no-cache",
-    "build:vercel": "parcel build src/index.html --public-url / --no-cache --no-source-maps",
+    "build:github": "parcel build src/index.html --public-url /nadaeri_250629/ --no-cache --no-source-maps",
     "clean": "rimraf dist .parcel-cache",
     "clean-all": "rimraf dist .parcel-cache node_modules/.cache",
     "preview": "serve dist",

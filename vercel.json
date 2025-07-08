@@ -6,14 +6,15 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "frontend/dist"
+        "distDir": "frontend/dist",
+        "buildCommand": "npm run build:vercel"
       }
     }
   ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://nadaeri-250629-production.up.railway.app/api/$1"
+      "destination": "https://nadaeri250629-production.up.railway.app/api/$1"
     }
   ],
   "headers": [
@@ -36,7 +37,9 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "https://nadaeri-250629-production.up.railway.app",
+    "REACT_APP_API_URL": "https://nadaeri250629-production.up.railway.app",
+    "REACT_APP_QNAME_API_URL": "https://qname-production.up.railway.app",
+    "REACT_APP_QTEXT_API_URL": "https://qtext-production.up.railway.app", 
     "REACT_APP_ENVIRONMENT": "production",
     "LANG": "C.UTF-8",
     "LC_ALL": "C.UTF-8",
