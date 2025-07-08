@@ -10,43 +10,57 @@ export const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 // API URL 동적 결정 함수
 export const getApiUrl = (): string => {
-  // 프로덕션 환경
-  if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
-    // 한글 도메인 또는 커스텀 도메인 확인
-    if (window.location.hostname.includes('나대리.kr') || 
-        window.location.hostname.includes('xn--h32b11jwwbvvm.kr')) {
+  // 개발 환경 설정
+  const isDevelopmentMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const useProductionAPI = true; // 개발 시 true로 변경하면 프로덕션 API 사용
+
+  if (!isDevelopmentMode || useProductionAPI) {
+    // 프로덕션 환경 또는 프로덕션 API 강제 사용
+    if (window.location.hostname.includes('나대리.kr') ||
+      window.location.hostname.includes('xn--h32b11jwwbvvm.kr')) {
       return process.env.REACT_APP_API_URL || 'https://nadaeri250629-production.up.railway.app';
     }
-    // Vercel 등 배포 환경에서는 환경변수나 고정 URL 사용
     return process.env.REACT_APP_API_URL || 'https://nadaeri250629-production.up.railway.app';
   }
 
-  // 개발 환경 - 로컬 서버
+  // 개발 환경 - 로컬 서버 (아직 구현 안됨)
+  console.warn('⚠️ 로컬 백엔드가 실행되지 않았습니다. 로그인이 불가능합니다.');
+  console.info('💡 해결방법: constants.ts에서 useProductionAPI = true로 변경하세요.');
   return 'http://localhost:8001';
 };
 
 // 🆕 큐네임 서비스 API URL 동적 결정 함수
 export const getQNameApiUrl = (): string => {
   try {
-    // 프로덕션 환경
-    if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
-      // 배포 환경에서는 실제 큐네임 서비스 URL 사용
-      const envUrl = (window as any).REACT_APP_QNAME_API_URL || process.env?.REACT_APP_QNAME_API_URL;
-      return envUrl || 'https://qname.나대리.kr';
+    // 개발 환경 설정
+    const isDevelopmentMode = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const useProductionAPI = true; // 개발 시 true로 변경하면 프로덕션 API 사용
+
+    if (!isDevelopmentMode || useProductionAPI) {
+      // 프로덕션 환경 또는 프로덕션 API 강제 사용
+      // QName 서비스 별도 Railway URL 사용
+      return process.env.REACT_APP_QNAME_API_URL || 'https://qname-service-production.up.railway.app';
     }
 
     // 개발 환경 - 로컬 큐네임 서버
+    console.warn('⚠️ 로컬 큐네임 서버가 실행되지 않았습니다.');
+    console.info('💡 해결방법: constants.ts에서 useProductionAPI = true로 변경하세요.');
     return 'http://localhost:8004';
   } catch (error) {
     console.error('getQNameApiUrl 오류:', error);
-    // 오류 발생 시 기본값 반환
-    return 'http://localhost:8004';
+    // 오류 발생 시 메인 API 사용
+    return getApiUrl();
   }
 };
 
 // 🆕 큐텍스트 서비스 API URL 동적 결정 함수
 export const getQTextApiUrl = (): string => {
   try {
+    // QText는 메인 API에 통합되어 있음
+    return getApiUrl(); // 메인 API와 동일한 서버 사용
+    
+    // 원래 코드 (QText 서비스 별도 배포 시 사용)
+    /*
     // 프로덕션 환경
     if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
       // 배포 환경에서는 실제 큐텍스트 서비스 URL 사용
@@ -56,10 +70,11 @@ export const getQTextApiUrl = (): string => {
 
     // 개발 환경 - 로컬 큐텍스트 서버
     return 'http://localhost:8003';
+    */
   } catch (error) {
     console.error('getQTextApiUrl 오류:', error);
-    // 오류 발생 시 기본값 반환
-    return 'http://localhost:8003';
+    // 오류 발생 시 메인 API 사용
+    return getApiUrl();
   }
 };
 

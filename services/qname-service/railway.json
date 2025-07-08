@@ -9,19 +9,5 @@
         "healthcheckTimeout": 300,
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
-    },
-    "environments": {
-        "production": {
-            "variables": {
-                "ENVIRONMENT": "production",
-                "DEBUG": "false",
-                "LOG_LEVEL": "INFO",
-                "CORS_ORIGINS": "${CORS_ORIGINS}",
-                "GEMINI_API_KEY": "${GEMINI_API_KEY}",
-                "OPENAI_API_KEY": "${OPENAI_API_KEY}",
-                "NAVER_CLIENT_ID": "${NAVER_CLIENT_ID}",
-                "NAVER_CLIENT_SECRET": "${NAVER_CLIENT_SECRET}"
-            }
-        }
     }
 }
