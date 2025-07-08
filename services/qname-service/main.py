@@ -10,7 +10,25 @@ import logging
 from datetime import datetime
 import glob
 from pathlib import Path
-from processor import OptimizedQNameProcessor, check_api_keys
+
+# 안전한 processor 임포트
+try:
+    from processor import OptimizedQNameProcessor, check_api_keys
+    PROCESSOR_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("QName 프로세서 임포트 성공")
+except ImportError as e:
+    logger = logging.getLogger(__name__)
+    logger.warning(f"QName 프로세서 임포트 실패: {e}")
+    PROCESSOR_AVAILABLE = False
+    
+    # 더미 함수들 정의
+    def check_api_keys():
+        return False
+    
+    class OptimizedQNameProcessor:
+        async def process_excel_file(self, file_path):
+            return {"success": False, "error": "프로세서를 사용할 수 없습니다"}
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -84,8 +102,12 @@ async def health_check():
 async def service_status():
     """QName 서비스 상태 및 환경 정보 확인"""
     try:
-        # API 키 확인
-        api_status = check_api_keys()
+        # API 키 확인 (안전한 방식)
+        try:
+            api_status = check_api_keys()
+        except Exception as api_error:
+            logger.warning(f"API 키 확인 실패 (무시): {str(api_error)}")
+            api_status = False
         
         return {
             "service": "QName Service",
@@ -269,8 +291,12 @@ async def generate_single_name(
 async def qname_health_check():
     """QName 서비스의 상세 상태를 확인합니다."""
     try:
-        # API 키 확인
-        api_keys_ok = check_api_keys()
+        # API 키 확인 (안전한 방식)
+        try:
+            api_keys_ok = check_api_keys()
+        except Exception as api_error:
+            logger.warning(f"API 키 확인 실패 (무시): {str(api_error)}")
+            api_keys_ok = False
         
         return {
             "status": "ok",
