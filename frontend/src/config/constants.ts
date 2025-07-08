@@ -12,8 +12,13 @@ export const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 export const getApiUrl = (): string => {
   // 프로덕션 환경
   if (IS_PRODUCTION && !window.location.hostname.includes('localhost')) {
+    // 한글 도메인 또는 커스텀 도메인 확인
+    if (window.location.hostname.includes('나대리.kr') || 
+        window.location.hostname.includes('xn--h32b11jwwbvvm.kr')) {
+      return process.env.REACT_APP_API_URL || 'https://nadaeri250629-production.up.railway.app';
+    }
     // Vercel 등 배포 환경에서는 환경변수나 고정 URL 사용
-    return process.env.REACT_APP_API_URL || 'https://ideal-wonder-production.up.railway.app';
+    return process.env.REACT_APP_API_URL || 'https://nadaeri250629-production.up.railway.app';
   }
 
   // 개발 환경 - 로컬 서버

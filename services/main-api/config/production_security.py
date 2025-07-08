@@ -18,6 +18,10 @@ def setup_production_security(app: FastAPI):
         "nadaeri-250629.vercel.app",  # Vercel 실제 도메인
         "*.vercel.app",  # Vercel 서브도메인
         "*.up.railway.app",  # Railway 서브도메인
+        "www.나대리.kr",  # 메인 도메인
+        "나대리.kr",  # Apex 도메인
+        "www.xn--h32b11jwwbvvm.kr",  # 한글 도메인 Punycode
+        "xn--h32b11jwwbvvm.kr",  # Apex Punycode
         "qclick.com",
         "*.qclick.com",
         "qclick.vercel.app",
@@ -40,6 +44,11 @@ def setup_production_security(app: FastAPI):
         print(f"CORS 환경변수 사용: {origins}")
     elif os.getenv("ENV") == "production":
         origins = [
+            "https://www.나대리.kr",  # 메인 도메인
+            "https://나대리.kr",  # Apex 도메인
+            "https://www.xn--h32b11jwwbvvm.kr",  # 한글 도메인 Punycode
+            "https://xn--h32b11jwwbvvm.kr",  # Apex Punycode
+            "https://nadaeri-250629.vercel.app",  # 기존 Vercel 도메인
             "https://qclick.vercel.app",
             "https://qclick-admin.vercel.app",
             "https://api.qclick.com"
