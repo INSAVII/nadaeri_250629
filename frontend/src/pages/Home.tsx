@@ -37,7 +37,7 @@ export default function Home() {
   const loadPromotionText = async () => {
     try {
       // 실제 API 호출
-      const response = await fetch('/api/promotion/current');
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/promotion/current`);
       if (response.ok) {
         const data = await response.json();
         setPromotionStyle(data.promotion);
