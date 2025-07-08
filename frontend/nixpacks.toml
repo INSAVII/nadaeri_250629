@@ -1,0 +1,12 @@
+[providers]
+node = "18"
+
+[phases.build]
+cmd = "npm ci && npm run build:railway"
+
+[phases.start]
+cmd = "npm run start:railway"
+
+[variables]
+NODE_ENV = "production"
+NPM_CONFIG_PRODUCTION = "false"
