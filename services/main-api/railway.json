@@ -4,9 +4,7 @@
         "builder": "NIXPACKS"
     },
     "deploy": {
-        "startCommand": "python add_missing_columns.py; python -u main.py",
-        "healthcheckPath": "/health",
-        "healthcheckTimeout": 300,
+        "startCommand": "python -u main.py",
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
     }
