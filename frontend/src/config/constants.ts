@@ -38,8 +38,8 @@ export const getQNameApiUrl = (): string => {
 
     if (!isDevelopmentMode || useProductionAPI) {
       // 프로덕션 환경 또는 프로덕션 API 강제 사용
-      // QName 서비스 별도 Railway URL 사용
-      return process.env.REACT_APP_QNAME_API_URL || 'https://qname-service-production.up.railway.app';
+      // QName 서비스 별도 Railway URL 사용 (실제 배포 완료!)
+      return process.env.REACT_APP_QNAME_API_URL || 'https://qname-production.up.railway.app';
     }
 
     // 개발 환경 - 로컬 큐네임 서버
