@@ -61,6 +61,48 @@ from models import Base
 Base.metadata.create_all(bind=engine)
 logger.info("데이터베이스 테이블 초기화 완료")
 
+# 관리자 계정 자동 생성
+def create_admin_if_not_exists():
+    """시작 시 관리자 계정이 없으면 자동으로 생성합니다."""
+    try:
+        from models.user import User
+        from sqlalchemy.orm import Session
+        
+        db = Session(engine)
+        
+        # 기존 관리자 계정 확인
+        existing_admin = db.query(User).filter(
+            (User.email == "admin@qclick.com") | (User.id == "admin")
+        ).first()
+        
+        if not existing_admin:
+            # 관리자 계정 생성
+            admin_user = User(
+                id="admin",
+                email="admin@qclick.com",
+                hashed_password=User.get_password_hash("admin"),
+                name="관리자",
+                role="admin",
+                balance=100000.0,
+                is_active=True
+            )
+            
+            db.add(admin_user)
+            db.commit()
+            db.refresh(admin_user)
+            
+            logger.info(f"✅ 관리자 계정 자동 생성 완료: {admin_user.id}")
+        else:
+            logger.info(f"✅ 관리자 계정 이미 존재: {existing_admin.id}")
+            
+        db.close()
+        
+    except Exception as e:
+        logger.error(f"❌ 관리자 계정 생성 실패: {str(e)}")
+
+# 관리자 계정 자동 생성 실행
+create_admin_if_not_exists()
+
 app = FastAPI(
     title="QClick Main API", 
     description="QClick 메인 API 서버 (인증, 사용자 관리, 결제 등)",
