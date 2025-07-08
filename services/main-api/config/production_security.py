@@ -49,6 +49,7 @@ def setup_production_security(app: FastAPI):
             "https://www.xn--h32b11jwwbvvm.kr",  # 한글 도메인 Punycode
             "https://xn--h32b11jwwbvvm.kr",  # Apex Punycode
             "https://nadaeri-250629.vercel.app",  # 기존 Vercel 도메인
+            "https://nadaeri-250629-git-main-choihj4989-3469s-projects.vercel.app",  # 새 Vercel 도메인
             "https://qclick.vercel.app",
             "https://qclick-admin.vercel.app",
             "https://api.qclick.com"

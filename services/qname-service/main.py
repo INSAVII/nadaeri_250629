@@ -75,6 +75,7 @@ cors_origins = os.getenv("CORS_ORIGINS",
     "https://qclick-app.vercel.app,"
     "https://qclick-app-git-main-nadaeri.vercel.app,"
     "https://qclick-app-nadaeri.vercel.app,"
+    "https://nadaeri-250629-git-main-choihj4989-3469s-projects.vercel.app,"
     "https://www.나대리.kr,"
     "https://나대리.kr,"
     "https://www.xn--h32b11jwwbvvm.kr,"
