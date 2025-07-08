@@ -1,6 +1,73 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* QCLICK 프론트엔드 - 빠른 디자인 복구 */
+
+/* 기본 프로젝트 스타일 */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+}
+
+/* 프로젝트 핵심 요구사항 */
+.max-w-\[1080px\] {
+  max-width: 1080px;
+}
+
+.font-light {
+  font-weight: 300;
+}
+
+/* 기본 버튼 안전성 보장 */
+button {
+  font-family: inherit;
+}
+
+/* 입력 필드 안전성 보장 */
+input, select, textarea {
+  font-family: inherit;
+}
+
+/* 기본 스타일로 임시 대체 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f9fafb;
+}
+
+/* 기본 버튼 스타일 */
+button {
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background-color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+button:hover {
+  background-color: #f3f4f6;
+}
+
+/* 기본 입력 필드 스타일 */
+input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+/* 기본 컨테이너 스타일 */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
 
 /* =============================================================================
    스타일 우선순위 체계 및 충돌 방지 가이드
@@ -21,7 +88,7 @@
    ============================================================================= */
 
 /* 1. 프로젝트 기본 스타일 - Tailwind base 확장 */
-@layer base {
+/* @layer base { */
 
   /* CSS Reset 보완 */
   *,
@@ -77,10 +144,10 @@
     color: #2563eb;
     /* primary-600 */
   }
-}
+/* } */
 
 /* 2. 프로젝트 컴포넌트 스타일 - Tailwind components 확장 */
-@layer components {
+/* @layer components { */
 
   /* === 프로젝트 표준 컨테이너 === */
   .qc-container {
@@ -289,10 +356,10 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-}
+/* } */
 
 /* 3. 프로젝트 유틸리티 확장 - Tailwind utilities 보완 */
-@layer utilities {
+/* @layer utilities { */
 
   /* === 프로젝트 표준 폭 유틸리티 === */
   .qc-w-content {
@@ -347,7 +414,7 @@
   .qc-gap-xl {
     gap: 1.5rem;
   }
-}
+/* } */
 
 /* 4. 커스텀 컴포넌트 스타일 (Tailwind 이후 적용) */
 
