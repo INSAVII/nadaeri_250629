@@ -25,21 +25,21 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.26.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "parcel": "^2.12.0",
+    "serve": "^14.2.4",
+    "@parcel/transformer-react-refresh-wrap": "^2.15.2",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.0.0"
   },
   "devDependencies": {
-    "@parcel/transformer-react-refresh-wrap": "^2.15.2",
     "@types/jwt-decode": "^2.2.1",
     "@types/node": "^20",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "buffer": "^6.0.3",
-    "parcel": "^2.12.0",
-    "postcss": "^8.5.6",
     "process": "^0.11.10",
-    "rimraf": "^5.0.10",
-    "serve": "^14.2.4",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.0.0"
+    "rimraf": "^5.0.10"
   }
 }
