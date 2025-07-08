@@ -7,15 +7,15 @@ WORKDIR /app
 # package.json 및 package-lock.json 복사
 COPY package*.json ./
 
-# 의존성 설치
-RUN npm ci --only=production
+# 모든 의존성 설치 (devDependencies 포함)
+RUN npm ci
 
 # 소스 코드 복사
 COPY . .
 
 # 프로덕션 빌드
 ENV NODE_ENV=production
-RUN npm run build
+RUN npm run build || (echo "빌드 로그:" && cat npm-debug.log && exit 1)
 
 # Nginx 프로덕션 이미지
 FROM nginx:alpine
