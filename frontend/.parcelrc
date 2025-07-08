@@ -9,5 +9,13 @@
     "*.css": "@parcel/packager-css",
     "*.js": "@parcel/packager-js"
   },
-  "namers": ["@parcel/namer-default"]
+  "namers": ["@parcel/namer-default"],
+  "optimizers": {
+    "*.js": ["@parcel/optimizer-terser"]
+  },
+  "reporters": ["@parcel/reporter-cli"],
+  "node-resolver": {
+    "extensions": [".js", ".json", ".node", ".ts", ".tsx"],
+    "moduleDirectories": ["node_modules"]
+  }
 }

@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "source": "src/index.html",
+  "targets": {
+    "browser": {
+      "context": "browser",
+      "publicUrl": "/"
+    }
+  },
+  "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
     "build": "parcel build src/index.html --no-source-maps --no-cache",
     "start": "node static-server.js",
@@ -45,9 +52,7 @@
     "process": "^0.11.10",
     "rimraf": "^5.0.10"
   },
-  "targets": {
-    "default": {
-      "distDir": "dist"
-    }
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
