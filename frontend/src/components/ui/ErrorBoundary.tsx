@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { fixAllSvgViewBoxes, blockExternalScripts } from '../../utils/svgUtils';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -8,11 +9,11 @@ interface ErrorBoundaryState {
 }
 
 interface ErrorBoundaryProps {
-  children: React.ReactNode;
-  fallback?: React.ComponentType<{ error?: Error; retry?: () => void; errorId?: string }>;
+  children: ReactNode;
+  fallback?: ReactNode;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -32,6 +33,20 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     this.setState({ errorInfo });
 
+    // SVG 관련 에러인지 확인
+    if (error.message.includes('viewBox') || error.message.includes('SVG')) {
+      console.log('🔧 SVG 에러 감지, 자동 수정 시도...');
+      try {
+        fixAllSvgViewBoxes();
+        blockExternalScripts();
+        // 에러 상태 리셋 시도
+        this.setState({ hasError: false, error: undefined });
+        return;
+      } catch (fixError) {
+        console.error('SVG 수정 실패:', fixError);
+      }
+    }
+
     // 🚨 프로덕션 오류 로깅 강화
     if (process.env.NODE_ENV === 'production') {
       this.logProductionError(error, errorInfo);
@@ -45,6 +60,16 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         userAgent: navigator.userAgent,
         url: window.location.href
       });
+    }
+  }
+
+  componentDidMount() {
+    // 컴포넌트 마운트 시 SVG 보호 시스템 초기화
+    try {
+      fixAllSvgViewBoxes();
+      blockExternalScripts();
+    } catch (error) {
+      console.warn('SVG 보호 시스템 초기화 실패:', error);
     }
   }
 
@@ -131,12 +156,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
-        const FallbackComponent = this.props.fallback;
-        return <FallbackComponent
-          error={this.state.error}
-          retry={this.handleRetry}
-          errorId={this.state.errorId}
-        />;
+        return this.props.fallback;
       }
 
       // 🎨 프로덕션 친화적인 오류 페이지

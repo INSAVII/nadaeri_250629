@@ -1,18 +1,14 @@
-[phases.setup]
-nixPkgs = ["nodejs-16_x", "nodejs-default"]
-
-[phases.install]
-cmds = [
-    "npm install"
-]
-
-[phases.build]
-cmds = [
-    "npm run build"
-]
-
-[start]
-cmd = "node server.js"
-
 [variables]
 NODE_ENV = "production"
+
+[phases.setup]
+nixPkgs = ["nodejs_18", "npm"]
+
+[phases.install]
+cmds = ["npm ci --only=production"]
+
+[phases.build]
+cmds = ["npm run build:railway"]
+
+[start]
+cmd = "npm run start:railway"

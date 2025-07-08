@@ -2,20 +2,5 @@
   "extends": "@parcel/config-default",
   "transformers": {
     "*.{css,scss,sass,less,styl}": ["@parcel/transformer-css", "@parcel/transformer-postcss"]
-  },
-  "resolvers": ["@parcel/resolver-default"],
-  "packagers": {
-    "*.html": "@parcel/packager-html",
-    "*.css": "@parcel/packager-css",
-    "*.js": "@parcel/packager-js"
-  },
-  "namers": ["@parcel/namer-default"],
-  "optimizers": {
-    "*.js": ["@parcel/optimizer-terser"]
-  },
-  "reporters": ["@parcel/reporter-cli"],
-  "node-resolver": {
-    "extensions": [".js", ".json", ".node", ".ts", ".tsx"],
-    "moduleDirectories": ["node_modules"]
   }
 }

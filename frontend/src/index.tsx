@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './styles.css';
+import { initializeSvgProtection } from './utils/svgUtils';
+
+// SVG 보호 시스템 초기화
+initializeSvgProtection();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
