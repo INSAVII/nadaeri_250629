@@ -47,7 +47,6 @@ logger.info("서버 초기화 시작")
 from api.auth import router as auth_router
 from api.payments import router as payments_router
 from api.deposits import router as deposits_router
-#from api.manuals import router as manuals_router  # 삭제
 from api.promotions import router as promotions_router
 from api.boards import router as boards_router
 from api.programs import router as programs_router
@@ -61,9 +60,17 @@ from models import Base
 Base.metadata.create_all(bind=engine)
 logger.info("데이터베이스 테이블 초기화 완료")
 
-# 관리자 계정 자동 생성
+# 관리자 계정 자동 생성 (환경변수로 제어)
 def create_admin_if_not_exists():
     """시작 시 관리자 계정이 없으면 자동으로 생성합니다."""
+    
+    # 환경변수로 관리자 계정 자동 생성 제어
+    auto_create_admin = os.getenv("AUTO_CREATE_ADMIN", "true").lower() == "true"
+    
+    if not auto_create_admin:
+        logger.info("AUTO_CREATE_ADMIN=false이므로 관리자 계정 자동 생성을 건너뜁니다.")
+        return
+    
     try:
         from models.user import User
         from sqlalchemy.orm import Session
@@ -76,11 +83,16 @@ def create_admin_if_not_exists():
         ).first()
         
         if not existing_admin:
+            # 환경변수에서 관리자 정보 읽기
+            admin_id = os.getenv("ADMIN_ID", "admin")
+            admin_email = os.getenv("ADMIN_EMAIL", "admin@qclick.com")
+            admin_password = os.getenv("ADMIN_PASSWORD", "admin")
+            
             # 관리자 계정 생성
             admin_user = User(
-                id="admin",
-                email="admin@qclick.com",
-                hashed_password=User.get_password_hash("admin"),
+                id=admin_id,
+                email=admin_email,
+                hashed_password=User.get_password_hash(admin_password),
                 name="관리자",
                 role="admin",
                 balance=100000.0,
@@ -137,7 +149,6 @@ else:
 app.include_router(auth_router, prefix="/api/auth", tags=["인증"])
 app.include_router(payments_router, prefix="/api/payments", tags=["결제"])
 app.include_router(deposits_router, prefix="/api/deposits", tags=["예치금"])
-#app.include_router(manuals_router, prefix="/api/manuals", tags=["사용설명서"])  # 삭제
 app.include_router(promotions_router, prefix="/api/promotion", tags=["홍보문구"])
 app.include_router(boards_router, tags=["게시판"])
 app.include_router(programs_router, prefix="/api/programs", tags=["프로그램"])
@@ -145,46 +156,11 @@ app.include_router(qtext_router, tags=["QText"])
 
 @app.get("/", tags=["루트"])
 async def root():
-    return {"message": "QClick 메인 API 서버에 오신 것을 환영합니다.", "port": "production", "version": "2.1", "timestamp": "2025-01-07"}
+    return {"message": "QClick 메인 API 서버에 오신 것을 환영합니다.", "port": "production", "version": "2.2", "timestamp": "2025-01-08"}
 
 @app.get("/health", tags=["상태"])
 async def health_check():
-    return {"status": "ok", "message": "메인 API 서버가 정상 작동 중입니다.", "port": "production", "version": "2.1"}
-
-@app.get("/debug/users", tags=["디버그"])
-async def debug_users(db: Session = Depends(get_db)):
-    """디버깅용: 모든 사용자 목록을 조회합니다."""
-    try:
-        from models.user import User
-        users = db.query(User).all()
-        return {
-            "status": "success", 
-            "count": len(users), 
-            "users": [{"id": user.id, "email": user.email, "name": user.name, "role": user.role} for user in users]
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-@app.post("/debug/test-login", tags=["디버그"])
-async def debug_login(
-    username: str = Form(...), 
-    password: str = Form(...), 
-    db: Session = Depends(get_db)
-):
-    """디버깅용: 로그인을 테스트합니다."""
-    try:
-        from api.auth import authenticate_user
-        user = authenticate_user(db, username, password)
-        if user:
-            return {
-                "status": "success", 
-                "message": "로그인 성공", 
-                "user": {"id": user.id, "email": user.email, "name": user.name, "role": user.role}
-            }
-        else:
-            return {"status": "error", "message": "로그인 실패: 사용자 인증 실패"}
-    except Exception as e:
-        return {"status": "error", "message": f"로그인 처리 중 오류 발생: {str(e)}"}
+    return {"status": "ok", "message": "메인 API 서버가 정상 작동 중입니다.", "port": "production", "version": "2.2"}
 
 # 서버 실행 (Railway 배포용)
 if __name__ == "__main__":

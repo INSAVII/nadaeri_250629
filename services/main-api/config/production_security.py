@@ -14,6 +14,10 @@ def setup_production_security(app: FastAPI):
     
     # 1. 신뢰할 수 있는 호스트만 허용
     trusted_hosts = [
+        "nadaeri250629-production.up.railway.app",  # Railway 실제 도메인
+        "nadaeri-250629.vercel.app",  # Vercel 실제 도메인
+        "*.vercel.app",  # Vercel 서브도메인
+        "*.up.railway.app",  # Railway 서브도메인
         "qclick.com",
         "*.qclick.com",
         "qclick.vercel.app",
