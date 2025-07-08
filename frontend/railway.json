@@ -1,0 +1,13 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm run build:vercel",
+    "watchPatterns": ["frontend/**"]
+  },
+  "deploy": {
+    "startCommand": "npx serve dist -s -p $PORT",
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 100
+  }
+}
