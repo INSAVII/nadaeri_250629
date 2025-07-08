@@ -22,8 +22,29 @@ def recreate_database():
     try:
         logger.info("기존 테이블 삭제 시작...")
         
-        # 모든 테이블 삭제
-        Base.metadata.drop_all(bind=engine)
+        # 외래키 제약조건을 무시하고 모든 테이블 삭제 (CASCADE)
+        from sqlalchemy import text
+        
+        # PostgreSQL에서 CASCADE로 모든 테이블 삭제
+        with engine.connect() as conn:
+            # 모든 테이블 목록 가져오기
+            result = conn.execute(text("""
+                SELECT tablename FROM pg_tables 
+                WHERE schemaname = 'public'
+            """))
+            tables = [row[0] for row in result]
+            
+            # 각 테이블을 CASCADE로 삭제
+            for table in tables:
+                try:
+                    conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
+                    logger.info(f"테이블 삭제 완료: {table}")
+                except Exception as e:
+                    logger.warning(f"테이블 삭제 실패 (무시): {table} - {e}")
+            
+            # 트랜잭션 커밋
+            conn.commit()
+        
         logger.info("기존 테이블 삭제 완료")
         
         # 새 테이블 생성
