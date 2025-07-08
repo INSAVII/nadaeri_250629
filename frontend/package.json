@@ -11,20 +11,11 @@
   },
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
-    "build": "parcel build src/index.html --no-source-maps",
-    "start": "npx serve dist -s",
-    "dev": "parcel src/index.html --port 3003 --no-cache",
-    "dev-clean": "rimraf .parcel-cache dist && parcel src/index.html --port 3003 --no-cache",
-    "dev-force": "rimraf .parcel-cache dist node_modules/.cache && parcel src/index.html --port 3003 --no-cache --no-source-maps",
-    "build:win": "set NODE_ENV=production && parcel build src/index.html --public-url / --no-cache",
-    "build:github": "parcel build src/index.html --public-url /nadaeri_250629/ --no-cache --no-source-maps",
+    "build": "echo 'Starting build...' && parcel build src/index.html --no-source-maps --no-optimize",
+    "start": "node server.js",
+    "dev": "parcel src/index.html --port 3003",
     "clean": "rimraf dist .parcel-cache",
-    "clean-all": "rimraf dist .parcel-cache node_modules/.cache",
-    "preview": "serve dist",
-    "analyze": "parcel build src/index.html --reporter @parcel/reporter-bundle-analyzer",
-    "type-check": "tsc --noEmit",
-    "install-fast": "npm install --prefer-offline --no-audit --no-fund --no-optional",
-    "install-clean": "rimraf node_modules package-lock.json && npm install --prefer-offline --no-audit --no-fund"
+    "postinstall": "echo 'Dependencies installed successfully'"
   },
   "dependencies": {
     "@parcel/transformer-react-refresh-wrap": "^2.15.2",
