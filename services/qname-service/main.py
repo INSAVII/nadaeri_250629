@@ -80,6 +80,37 @@ async def root():
 async def health_check():
     return {"status": "ok", "message": "QName 서비스가 정상 작동 중입니다.", "version": "2.0.0"}
 
+@app.get("/api/qname/status", tags=["상태"])
+async def service_status():
+    """QName 서비스 상태 및 환경 정보 확인"""
+    try:
+        # API 키 확인
+        api_status = check_api_keys()
+        
+        return {
+            "service": "QName Service",
+            "status": "active",
+            "version": "2.0.0",
+            "timestamp": datetime.now().isoformat(),
+            "environment": os.getenv("ENVIRONMENT", "development"),
+            "cors_origins": len(cors_origins),
+            "api_keys_status": api_status,
+            "endpoints": [
+                "/",
+                "/health", 
+                "/api/qname/status",
+                "/api/qname/process-file"
+            ]
+        }
+    except Exception as e:
+        logger.error(f"상태 확인 중 오류: {str(e)}")
+        return {
+            "service": "QName Service", 
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
 @app.post("/api/qname/process-file", tags=["큐네임"])
 async def process_excel_file(
     file: UploadFile = File(...)
