@@ -10,7 +10,7 @@
     "dev-force": "rimraf .parcel-cache dist node_modules/.cache && parcel src/index.html --port 3003 --no-cache --no-source-maps",
     "build": "parcel build src/index.html --public-url / --no-cache --no-source-maps",
     "build:railway": "parcel build src/index.html --dist-dir dist --no-source-maps",
-    "start:railway": "serve dist -s -p $PORT",
+    "start:railway": "npx serve dist -s -p $PORT",
     "build:win": "set NODE_ENV=production && parcel build src/index.html --public-url / --no-cache",
     "build:github": "parcel build src/index.html --public-url /nadaeri_250629/ --no-cache --no-source-maps",
     "clean": "rimraf dist .parcel-cache",
