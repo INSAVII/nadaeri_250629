@@ -4,13 +4,13 @@
   "private": true,
   "source": "src/index.html",
   "scripts": {
-    "build": "parcel build src/index.html --dist-dir dist --no-source-maps --no-cache",
-    "start": "node server.js",
+    "build": "parcel build src/index.html --no-source-maps --no-cache",
+    "start": "node static-server.js",
     "dev": "parcel src/index.html --port 3003 --no-cache",
     "dev-clean": "rimraf .parcel-cache dist && parcel src/index.html --port 3003 --no-cache",
     "dev-force": "rimraf .parcel-cache dist node_modules/.cache && parcel src/index.html --port 3003 --no-cache --no-source-maps",
     "build:railway": "parcel build src/index.html --dist-dir dist --no-source-maps",
-    "start:railway": "node server.js",
+    "start:railway": "node static-server.js",
     "build:win": "set NODE_ENV=production && parcel build src/index.html --public-url / --no-cache",
     "build:github": "parcel build src/index.html --public-url /nadaeri_250629/ --no-cache --no-source-maps",
     "clean": "rimraf dist .parcel-cache",
@@ -44,5 +44,10 @@
     "buffer": "^6.0.3",
     "process": "^0.11.10",
     "rimraf": "^5.0.10"
+  },
+  "targets": {
+    "default": {
+      "distDir": "dist"
+    }
   }
 }
