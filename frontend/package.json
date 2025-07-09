@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "source": "src/index.html",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "parcel src/index.html --port 3003 --no-cache",
