@@ -1,18 +1,11 @@
 /**
- * 🔥 중요: 로그인 무한반복 문제 해결 기록 🔥
- * 
- * 문제: 로그아웃 후 재로그인 시 무한반복 발생
- * 원인: localStorage의 사용자 데이터가 완전히 제거되지 않아서 발생
- * 
- * 해결책: clearUserData 함수에서 모든 관련 localStorage 데이터를 완전히 제거
- * - localStorage.removeItem('mockUsers') 추가
- * - localStorage.removeItem('USER_DATA') 추가  
- * - localStorage.removeItem('currentUser') 추가
- * - localStorage.removeItem('authUser') 추가
- * - setIsLoading(false) 추가로 로딩 상태 초기화
- * 
- * ⚠️ 주의: 이 수정사항을 변경하지 마세요! 로그인 무한반복 문제가 다시 발생할 수 있습니다.
- * 
+ * 🔥 중요: 백화현상 해결을 위한 AuthContext 단순화 🔥
+ *
+ * 문제: 복잡한 초기화 로직으로 인한 백화현상 발생
+ * 원인: 중복된 useEffect와 무한루프 방지 로직이 충돌
+ *
+ * 해결책: 초기화 로직을 단순화하고 안정적인 구조로 변경
+ *
  * 작성일: 2024년 12월
  * 문제 해결자: AI Assistant
  */
@@ -43,10 +36,10 @@ interface AuthContextType {
   debugAuthState?: () => void;
   forceReset?: () => void;
   refreshBalance?: () => Promise<boolean>;
-  updateBalance?: (user: AuthUser, newBalance: number) => Promise<boolean>; // 새로운 단순 예치금 업데이트
-  updateUserBalance: (newBalance: number) => Promise<boolean>; // 큐네임 페이지용 예치금 업데이트
-  refreshUserData?: () => Promise<boolean>; // 사용자 정보 완전 새로고침
-  // 프로그램 권한 관리 함수 (새로 추가)
+  updateBalance?: (user: AuthUser, newBalance: number) => Promise<boolean>;
+  updateUserBalance: (newBalance: number) => Promise<boolean>;
+  refreshUserData?: () => Promise<boolean>;
+  // 프로그램 권한 관리 함수
   fetchProgramPermissions?: () => Promise<{ free: boolean; month1: boolean; month3: boolean } | null>;
   updateProgramPermissions?: (permissions: { free: boolean; month1: boolean; month3: boolean }) => Promise<boolean>;
   // 관리자 권한 체크 함수
@@ -58,136 +51,65 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
 
-  // 🛡️ 무한루프 재발 방지: 초기화 횟수 제한
-  const initCountRef = useRef(0);
-  const MAX_INIT_ATTEMPTS = 3;
-
-  // 🚫 자동 로그인 완전 비활성화
+  // 🛡️ 단순화된 초기화 로직
   useEffect(() => {
-    if (isInitialized) return;
+    console.log('🔄 AuthContext - 단순화된 초기화 시작');
 
-    console.log('🔄 AuthContext - 인증 초기화 시작');
+    try {
+      // 강제 초기화 플래그 확인
+      const forceInit = sessionStorage.getItem('forceInit');
+      if (forceInit === 'true') {
+        console.log('🧹 강제 초기화 플래그 감지, 모든 데이터 삭제');
+        sessionStorage.removeItem('forceInit');
+        localStorage.clear();
+        sessionStorage.clear();
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
 
-    // 강제 초기화 플래그 확인
-    const forceInit = sessionStorage.getItem('forceInit');
-    if (forceInit === 'true') {
-      console.log('🧹 강제 초기화 플래그 감지, 모든 데이터 삭제');
-      sessionStorage.removeItem('forceInit');
-      localStorage.clear();
-      sessionStorage.clear();
-      setUser(null);
-    } else {
-      // ✅ localStorage에서 사용자 데이터 복원 시도
+      // 로그아웃 플래그 확인
+      const logoutFlag = sessionStorage.getItem('forceLogout');
+      if (logoutFlag === 'true') {
+        console.log('🚪 강제 로그아웃 플래그 감지');
+        sessionStorage.removeItem('forceLogout');
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // localStorage에서 사용자 데이터 복원
       const savedUser = localStorage.getItem(STORAGE_KEYS.USER_DATA);
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser);
           if (parsed && parsed.token) {
-            console.log('✅ AuthContext - localStorage에서 사용자 데이터 복원:', parsed);
-            // 🆕 userId를 id와 동일하게 설정하여 통일
+            console.log('✅ AuthContext - 사용자 데이터 복원 성공');
+            // userId를 id와 동일하게 설정
             if (parsed.id && !parsed.userId) {
               parsed.userId = parsed.id;
             }
             setUser(parsed);
           } else {
-            console.log('❌ AuthContext - localStorage에 유효한 토큰이 없음');
+            console.log('❌ AuthContext - 유효한 토큰 없음');
             setUser(null);
           }
         } catch (error) {
-          console.error('❌ AuthContext - localStorage 파싱 오류:', error);
+          console.error('❌ AuthContext - 데이터 파싱 오류:', error);
           setUser(null);
         }
       } else {
-        console.log('ℹ️ AuthContext - localStorage에 사용자 데이터 없음, 로그인 필요');
+        console.log('ℹ️ AuthContext - 저장된 사용자 데이터 없음');
         setUser(null);
       }
-    }
-
-    setIsInitialized(true);
-    setIsLoading(false);
-  }, [isInitialized]);
-
-  // 🚨 무한루프 방지: 초기화 횟수 체크
-  useEffect(() => {
-    if (isInitialized) return;
-
-    initCountRef.current += 1;
-    if (initCountRef.current > MAX_INIT_ATTEMPTS) {
-      console.error('🚨 AuthContext - 초기화 횟수 초과, 강제 중단');
+    } catch (error) {
+      console.error('❌ AuthContext - 초기화 중 오류:', error);
+      setUser(null);
+    } finally {
       setIsLoading(false);
-      setIsInitialized(true);
-      return;
     }
-
-    const initializeAuth = () => {
-      try {
-        console.log('AuthContext - 초기화 시작');
-
-        // 🧹 강제 초기화 플래그 확인 (새로 추가)
-        const forceInit = sessionStorage.getItem('forceInit');
-        if (forceInit === 'true') {
-          console.log('AuthContext - 강제 초기화 플래그 감지, 모든 데이터 삭제');
-          sessionStorage.removeItem('forceInit');
-          localStorage.clear();
-          sessionStorage.clear();
-          setUser(null);
-          setIsLoading(false);
-          setIsInitialized(true);
-          return;
-        }
-
-        // 로그아웃 플래그 확인
-        const logoutFlag = sessionStorage.getItem('forceLogout');
-        if (logoutFlag === 'true') {
-          console.log('AuthContext - 강제 로그아웃 플래그 감지, 초기화 생략');
-          sessionStorage.removeItem('forceLogout');
-          setUser(null);
-          setIsLoading(false);
-          setIsInitialized(true);
-          return;
-        }
-
-        // ✅ localStorage에서 사용자 데이터 복원 (토큰 저장을 위해 필요)
-        const savedUser = localStorage.getItem(STORAGE_KEYS.USER_DATA);
-        if (savedUser) {
-          try {
-            const parsed = JSON.parse(savedUser);
-            if (parsed && parsed.token) {
-              console.log('AuthContext - localStorage에서 사용자 데이터 복원:', parsed);
-              // 🆕 userId를 id와 동일하게 설정하여 통일
-              if (parsed.id && !parsed.userId) {
-                parsed.userId = parsed.id;
-              }
-              setUser(parsed);
-            } else {
-              console.log('AuthContext - localStorage에 유효한 토큰이 없음');
-              setUser(null);
-            }
-          } catch (error) {
-            console.error('AuthContext - localStorage 파싱 오류:', error);
-            setUser(null);
-          }
-        } else {
-          console.log('AuthContext - localStorage에 사용자 데이터 없음');
-          setUser(null);
-        }
-
-        console.log('AuthContext - 일반 초기화 완료');
-      } catch (error) {
-        console.error('AuthContext - 초기화 중 오류:', error);
-        setUser(null);
-      } finally {
-        console.log('AuthContext - 초기화 완료 (로그인 필요)');
-        setIsLoading(false);
-        setIsInitialized(true);
-      }
-    };
-
-    // 즉시 실행
-    initializeAuth();
-  }, [isInitialized]);
+  }, []); // 의존성 배열을 비워서 한 번만 실행
 
   // 사용자 데이터 저장 함수 (단순화) - 예치금과 분리
   const saveUserData = useCallback((userData: AuthUser) => {
@@ -672,7 +594,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('현재 사용자:', user);
     console.log('인증 상태:', !!user);
     console.log('로딩 상태:', isLoading);
-    console.log('초기화 상태:', isInitialized);
     console.log('localStorage USER_DATA:', localStorage.getItem(STORAGE_KEYS.USER_DATA));
     console.log('sessionStorage forceLogout:', sessionStorage.getItem('forceLogout'));
     console.log('==============================');
@@ -687,8 +608,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem('forceInit', 'true'); // clear 후 다시 설정
     setUser(null);
     setIsLoading(false);
-    setIsInitialized(false);
-    initCountRef.current = 0;
     console.log('🧹 AuthContext - 강제 초기화 완료 (개발 전용)');
   };
 

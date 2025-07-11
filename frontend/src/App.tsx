@@ -907,316 +907,329 @@ const NotFound: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <PriceProvider>
-        <div className="App min-h-screen bg-gray-50">
-          <Header />
-          <main className="flex-1">
-            <Routes>
-              {/* Public routes - accessible without login */}
-              <Route
-                path="/"
-                element={<Home />}
-              />
-              <Route
-                path="/login"
-                element={
-                  <PublicOnlyRoute>
-                    <Login />
-                  </PublicOnlyRoute>
-                }
-              />
-              <Route
-                path="/forgot-password"
-                element={
-                  <PublicOnlyRoute>
-                    <ForgotPassword />
-                  </PublicOnlyRoute>
-                }
-              />
-              <Route
-                path="/signup"
-                element={
-                  <PublicOnlyRoute>
-                    <Signup />
-                  </PublicOnlyRoute>
-                }
-              />
+    <ErrorBoundary>
+      <AuthProvider>
+        <PriceProvider>
+          <div className="App min-h-screen bg-gray-50">
+            <Header />
+            <main className="flex-1">
+              <Routes>
+                {/* Public routes - accessible without login */}
+                <Route
+                  path="/"
+                  element={<Home />}
+                />
+                <Route
+                  path="/login"
+                  element={
+                    <PublicOnlyRoute>
+                      <Login />
+                    </PublicOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/forgot-password"
+                  element={
+                    <PublicOnlyRoute>
+                      <ForgotPassword />
+                    </PublicOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/signup"
+                  element={
+                    <PublicOnlyRoute>
+                      <Signup />
+                    </PublicOnlyRoute>
+                  }
+                />
 
-              {/* Mock data initialization route */}
-              <Route
-                path="/init_mock_data"
-                element={<MockDataInitializer />}
-              />
+                {/* Debug routes for troubleshooting */}
+                <Route
+                  path="/debug"
+                  element={<div style={{ padding: '50px', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                    <h1 style={{ color: '#333' }}>🔧 디버그 페이지</h1>
+                    <p style={{ fontSize: '18px', margin: '20px 0' }}>라우팅이 정상 작동합니다!</p>
+                    <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', margin: '20px auto', maxWidth: '500px' }}>
+                      <h3>현재 시간: {new Date().toLocaleString()}</h3>
+                      <p>이 페이지가 보이면 React 라우팅이 정상 작동합니다.</p>
+                      <button onClick={() => {
+                        localStorage.clear();
+                        sessionStorage.clear();
+                        alert('캐시가 삭제되었습니다!');
+                      }} style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        margin: '10px'
+                      }}>
+                        캐시 삭제
+                      </button>
+                    </div>
+                  </div>}
+                />
 
-              {/* Cache clear route */}
-              <Route
-                path="/clear-cache"
-                element={<CacheClearPage />}
-              />
+                <Route
+                  path="/test-cleanup"
+                  element={<div style={{ padding: '20px', textAlign: 'center' }}>
+                    <h1>🧹 테스트 청소 페이지</h1>
+                    <p>이 페이지가 보이면 라우팅이 정상 작동합니다!</p>
+                    <button onClick={() => {
+                      localStorage.clear();
+                      sessionStorage.clear();
+                      alert('캐시가 삭제되었습니다!');
+                    }} style={{
+                      padding: '10px 20px',
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '5px',
+                      cursor: 'pointer'
+                    }}>
+                      간단한 캐시 삭제
+                    </button>
+                  </div>}
+                />
 
-              {/* Force cache clear route */}
-              <Route
-                path="/force-clear-cache"
-                element={<ForceCacheClearPage />}
-              />
+                {/* Mock data initialization route */}
+                <Route
+                  path="/init_mock_data"
+                  element={<MockDataInitializer />}
+                />
 
-              {/* Enhanced cache clear route */}
-              <Route
-                path="/enhanced-cache-clear"
-                element={<EnhancedCacheClearPage />}
-              />
+                {/* Cache clear routes */}
+                <Route
+                  path="/clear-cache"
+                  element={<CacheClearPage />}
+                />
 
-              {/* Force cleanup route */}
-              <Route
-                path="/force-cleanup"
-                element={<ForceCleanupPage />}
-              />
+                <Route
+                  path="/force-clear-cache"
+                  element={<ForceCacheClearPage />}
+                />
 
-              {/* Test route */}
-              <Route
-                path="/test-cleanup"
-                element={<div style={{ padding: '20px', textAlign: 'center' }}>
-                  <h1>🧹 테스트 청소 페이지</h1>
-                  <p>이 페이지가 보이면 라우팅이 정상 작동합니다!</p>
-                  <button onClick={() => {
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    alert('캐시가 삭제되었습니다!');
-                  }} style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}>
-                    간단한 캐시 삭제
-                  </button>
-                </div>}
-              />
+                <Route
+                  path="/enhanced-cache-clear"
+                  element={<EnhancedCacheClearPage />}
+                />
 
-              {/* Simple debug route */}
-              <Route
-                path="/debug"
-                element={<div style={{ padding: '50px', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
-                  <h1 style={{ color: '#333' }}>🔧 디버그 페이지</h1>
-                  <p style={{ fontSize: '18px', margin: '20px 0' }}>라우팅이 정상 작동합니다!</p>
-                  <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', margin: '20px auto', maxWidth: '500px' }}>
-                    <h3>현재 시간: {new Date().toLocaleString()}</h3>
-                    <p>이 페이지가 보이면 React 라우팅이 정상 작동합니다.</p>
-                  </div>
-                </div>}
-              />
+                <Route
+                  path="/force-cleanup"
+                  element={<ForceCleanupPage />}
+                />
 
-              {/* App routes - protected, require login */}
-              <Route
-                path="/app/profile"
-                element={
+                {/* App routes - protected, require login */}
+                <Route
+                  path="/app/profile"
+                  element={
+                    <ProtectedRoute>
+                      <UserProfile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/app/payment-history"
+                  element={
+                    <ProtectedRoute>
+                      <PaymentHistory />
+                    </ProtectedRoute>
+                  }
+                />
+
+
+                {/* Service routes for regular users */}
+                <Route
+                  path="/app/qcapture"
+                  element={
+                    <ProtectedRoute>
+                      <QCapture />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/app/qtext"
+                  element={
+                    <ProtectedRoute>
+                      <QText />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/app/qname"
+                  element={
+                    <ProtectedRoute>
+                      <QName />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Direct service routes for easier access */}
+                <Route
+                  path="/qcapture"
+                  element={
+                    <ProtectedRoute>
+                      <QCapture />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/qtext"
+                  element={
+                    <ProtectedRoute>
+                      <QText />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/qtext/process"
+                  element={
+                    <ProtectedRoute>
+                      <QTextProcess />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/qname"
+                  element={
+                    <ProtectedRoute>
+                      <QName />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Board route - accessible to logged in users */}
+                <Route
+                  path="/board"
+                  element={
+                    <ProtectedRoute>
+                      <BoardAPI />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/board-legacy"
+                  element={
+                    <ProtectedRoute>
+                      <Board />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Admin routes - protected, require admin role */}
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/cms"
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <CMS />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/jobs"
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <AdminJobs />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/programs"
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <AdminPrograms />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/program-permissions"
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <ProgramPermissionManager />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/bank-transfer"
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <BankTransferManager />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/promotion-manager"
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <PromotionManager />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Admin service routes - same components as user routes but under /admin */}
+                <Route
+                  path="/admin/qcapture"
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <QCapture />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/qname"
+                  element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <QName />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Legacy route redirects */}
+                <Route path="/profile" element={<Navigate to="/app/profile" replace />} />
+                <Route path="/payment-history" element={<Navigate to="/app/payment-history" replace />} />
+
+
+                {/* 기존 회원관리/예치금관리 페이지를 CMS로 리다이렉트 */}
+                <Route path="/admin/users" element={<Navigate to="/admin/cms" replace />} />
+                <Route path="/admin/deposits" element={<Navigate to="/admin/cms" replace />} />
+
+                {/* 무통장 입금 신청 페이지 */}
+                <Route path="/bank-transfer" element={
                   <ProtectedRoute>
-                    <UserProfile />
+                    <BankTransfer />
                   </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/app/payment-history"
-                element={
-                  <ProtectedRoute>
-                    <PaymentHistory />
-                  </ProtectedRoute>
-                }
-              />
+                } />
 
+                {/* Catch-all route for unmatched paths */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+          </div>
+          {/* 개발 환경에서만 디버깅 정보 표시 */}
+          <AdminMenuDebugger />
 
-              {/* Service routes for regular users */}
-              <Route
-                path="/app/qcapture"
-                element={
-                  <ProtectedRoute>
-                    <QCapture />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/app/qtext"
-                element={
-                  <ProtectedRoute>
-                    <QText />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/app/qname"
-                element={
-                  <ProtectedRoute>
-                    <QName />
-                  </ProtectedRoute>
-                }
-              />
+          {/* 네트워크 상태 모니터링 */}
+          <NetworkStatusMonitor>
+            <div></div>
+          </NetworkStatusMonitor>
 
-              {/* Direct service routes for easier access */}
-              <Route
-                path="/qcapture"
-                element={
-                  <ProtectedRoute>
-                    <QCapture />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/qtext"
-                element={
-                  <ProtectedRoute>
-                    <QText />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/qtext/process"
-                element={
-                  <ProtectedRoute>
-                    <QTextProcess />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/qname"
-                element={
-                  <ProtectedRoute>
-                    <QName />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Board route - accessible to logged in users */}
-              <Route
-                path="/board"
-                element={
-                  <ProtectedRoute>
-                    <BoardAPI />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/board-legacy"
-                element={
-                  <ProtectedRoute>
-                    <Board />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Admin routes - protected, require admin role */}
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/cms"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <CMS />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/jobs"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <AdminJobs />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/programs"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <AdminPrograms />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/program-permissions"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <ProgramPermissionManager />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/bank-transfer"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <BankTransferManager />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/promotion-manager"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <PromotionManager />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Admin service routes - same components as user routes but under /admin */}
-              <Route
-                path="/admin/qcapture"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <QCapture />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/qname"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <QName />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Legacy route redirects */}
-              <Route path="/profile" element={<Navigate to="/app/profile" replace />} />
-              <Route path="/payment-history" element={<Navigate to="/app/payment-history" replace />} />
-
-
-              {/* 기존 회원관리/예치금관리 페이지를 CMS로 리다이렉트 */}
-              <Route path="/admin/users" element={<Navigate to="/admin/cms" replace />} />
-              <Route path="/admin/deposits" element={<Navigate to="/admin/cms" replace />} />
-
-              {/* �� 무통장 입금 신청 페이지 */}
-              <Route path="/bank-transfer" element={
-                <ProtectedRoute>
-                  <BankTransfer />
-                </ProtectedRoute>
-              } />
-
-              {/* Catch-all route for unmatched paths */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </main>
-        </div>
-        {/* 개발 환경에서만 디버깅 정보 표시 */}
-        <AdminMenuDebugger />
-
-        {/* 네트워크 상태 모니터링 */}
-        <NetworkStatusMonitor>
-          <div></div>
-        </NetworkStatusMonitor>
-
-        {/* 개발환경 오류 로그 뷰어 */}
-        <ErrorLogViewer />
-      </PriceProvider>
-    </AuthProvider>
+          {/* 개발환경 오류 로그 뷰어 */}
+          <ErrorLogViewer />
+        </PriceProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 };
 
