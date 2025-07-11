@@ -2,6 +2,7 @@
   "name": "qclick-frontend",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "source": "src/index.html",
   "engines": {
     "node": "18.x",
@@ -9,15 +10,15 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "parcel src/index.html --port 3003 --no-cache",
+    "dev": "vite --port 3003",
     "dev-clean": "rimraf .parcel-cache dist && parcel src/index.html --port 3003 --no-cache",
     "dev-force": "rimraf .parcel-cache dist node_modules/.cache && parcel src/index.html --port 3003 --no-cache --no-source-maps",
-    "build": "NODE_ENV=production parcel build src/index.html --public-url ./ --no-cache",
+    "build": "vite build",
     "build:win": "set NODE_ENV=production && parcel build src/index.html --public-url ./ --no-cache",
     "build:vercel": "NODE_ENV=production parcel build src/index.html --public-url ./ --no-cache",
-    "clean": "rimraf dist .parcel-cache",
-    "clean-all": "rimraf dist .parcel-cache node_modules/.cache",
-    "preview": "serve dist",
+    "clean": "rimraf dist",
+    "clean-all": "rimraf dist node_modules/.cache",
+    "preview": "vite preview",
     "analyze": "parcel build src/index.html --reporter @parcel/reporter-bundle-analyzer",
     "type-check": "tsc --noEmit",
     "install-fast": "npm install --prefer-offline --no-audit --no-fund --no-optional",
@@ -44,6 +45,7 @@
     "@types/node": "^20",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
     "rimraf": "^5.0.10"
   }
 }
