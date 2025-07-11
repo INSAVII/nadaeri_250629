@@ -19,7 +19,8 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    service: 'qclick-frontend'
+    service: 'qclick-frontend',
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
@@ -45,4 +46,5 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 QClick Frontend Server running on port ${port}`);
   console.log(`📁 Serving static files from: ${path.join(__dirname, 'dist')}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Health check available at: http://localhost:${port}/health`);
 });
