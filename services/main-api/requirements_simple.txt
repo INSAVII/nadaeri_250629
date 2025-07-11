@@ -1,0 +1,4 @@
+# 최소 의존성 (Health Check 테스트용)
+fastapi==0.105.0
+uvicorn[standard]==0.24.0
+python-multipart==0.0.7
