@@ -24,15 +24,15 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 정적 파일 서빙 (dist 폴더)
-app.use(express.static(path.join(__dirname, 'dist')));
+// 정적 파일 서빙 (public 폴더)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // API 프록시 (필요한 경우)
 // app.use('/api', proxy('http://localhost:8000'));
 
 // SPA를 위한 catch-all 핸들러
 app.get('*', (req, res) => {
-  const indexPath = path.join(__dirname, 'dist', 'index.html');
+  const indexPath = path.join(__dirname, 'public', 'index.html');
   res.sendFile(indexPath, (err) => {
     if (err) {
       console.error('Error serving index.html:', err);
@@ -44,7 +44,7 @@ app.get('*', (req, res) => {
 const port = process.env.PORT || 3000;
 app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 QClick Frontend Server running on port ${port}`);
-  console.log(`📁 Serving static files from: ${path.join(__dirname, 'dist')}`);
+  console.log(`📁 Serving static files from: ${path.join(__dirname, 'public')}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check available at: http://localhost:${port}/health`);
 });

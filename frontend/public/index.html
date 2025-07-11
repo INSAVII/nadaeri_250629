@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- 외부 스크립트 차단을 위한 CSP -->
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'; object-src 'none';">
+  <title>QClick - 큐클릭 서비스 v2.1</title>
+  <link rel="stylesheet" href="./styles.css">
+
+  <!-- 외부 스크립트 차단 -->
+  <script>
+    // 외부 분석 스크립트 차단
+    const blockedScripts = [
+      'rrweb',
+      'osano',
+      'analytics',
+      'tracking',
+      'recording'
+    ];
+
+    // 스크립트 차단 함수
+    function blockExternalScripts() {
+      const scripts = document.querySelectorAll('script[src]');
+      scripts.forEach(script => {
+        const src = script.src.toLowerCase();
+        if (blockedScripts.some(blocked => src.includes(blocked))) {
+          console.log('🚫 외부 스크립트 차단:', src);
+          script.remove();
+        }
+      });
+    }
+
+    // DOM 변경 감지하여 동적으로 삽입되는 스크립트 차단
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.tagName === 'SCRIPT') {
+              const src = node.src?.toLowerCase();
+              if (src && blockedScripts.some(blocked => src.includes(blocked))) {
+                console.log('🚫 동적 외부 스크립트 차단:', src);
+                node.remove();
+              }
+            }
+            // SVG 요소의 잘못된 viewBox 수정
+            const svgs = node.querySelectorAll ? node.querySelectorAll('svg') : [];
+            svgs.forEach(svg => {
+              const viewBox = svg.getAttribute('viewBox');
+              if (viewBox && (viewBox.includes('%') || viewBox.includes('px'))) {
+                console.log('🔧 SVG viewBox 수정:', viewBox);
+                // 기본값으로 수정
+                svg.setAttribute('viewBox', '0 0 24 24');
+              }
+            });
+          }
+        });
+      });
+    });
+
+    // 페이지 로드 시 실행
+    document.addEventListener('DOMContentLoaded', () => {
+      blockExternalScripts();
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="./index.tsx"></script>
+</body>
+
+</html>

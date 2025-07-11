@@ -14,8 +14,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback,
 import { STORAGE_KEYS, getApiUrl, IS_DEVELOPMENT } from '../config/constants';
 import { validateUserData } from '../utils/authHelpers';
 import { AuthUser, convertToAuthUser, convertFromAuthUser } from '../types/user';
-import * as jwt_decode_ns from 'jwt-decode';
-const jwt_decode: any = (jwt_decode_ns as any).default || jwt_decode_ns;
+import { jwtDecode } from 'jwt-decode';
 
 interface AuthContextType {
   user: AuthUser | null;
