@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "source": "src/index.html",
   "engines": {
     "node": "18.x",
     "npm": "8.x"
