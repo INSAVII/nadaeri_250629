@@ -17,6 +17,16 @@ app.use((req, res, next) => {
   }
 });
 
+// 헬스 체크 엔드포인트 (정적 파일 서빙보다 먼저)
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'QClick Frontend Server running',
+    timestamp: new Date().toISOString(),
+    port: PORT
+  });
+});
+
 // 정적 파일 서빙 (실제 파일 존재 여부 확인)
 app.use((req, res, next) => {
   const filePath = path.join(__dirname, 'dist', req.path);
@@ -44,16 +54,6 @@ app.use((req, res, next) => {
       timestamp: new Date().toISOString()
     });
   }
-});
-
-// 헬스 체크 엔드포인트
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    message: 'QClick Frontend Server running',
-    timestamp: new Date().toISOString(),
-    port: PORT
-  });
 });
 
 // SPA 라우팅 - 나머지 모든 요청을 index.html로
