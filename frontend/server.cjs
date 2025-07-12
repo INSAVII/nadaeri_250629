@@ -17,7 +17,7 @@ app.use((req, res, next) => {
   }
 });
 
-// 정적 파일 서빙 (MIME 타입 명시적 설정)
+// 정적 파일 서빙 (실제 파일 존재 여부 확인)
 app.use((req, res, next) => {
   const filePath = path.join(__dirname, 'dist', req.path);
 
@@ -37,7 +37,12 @@ app.use((req, res, next) => {
     // 파일 전송
     res.sendFile(filePath);
   } else {
-    next();
+    // 파일이 없으면 404 반환 (index.html로 리다이렉트하지 않음)
+    res.status(404).json({
+      error: 'File not found',
+      path: req.path,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
