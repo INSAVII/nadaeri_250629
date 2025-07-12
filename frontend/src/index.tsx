@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './styles.css';
 import { initializeSvgProtection } from './utils/svgUtils';
@@ -26,13 +25,4 @@ const root = ReactDOM.createRoot(
 );
 
 // 백화면 방지: React.StrictMode 제거하고 안정적인 렌더링
-root.render(
-  <BrowserRouter
-    future={{
-      v7_startTransition: true,
-      v7_relativeSplatPath: true
-    }}
-  >
-    <App />
-  </BrowserRouter>
-);
+root.render(<App />);
