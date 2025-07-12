@@ -20,7 +20,7 @@ except Exception as e:
 # 프로덕션 보안 설정 임포트
 try:
     from config.production_security import (
-        setup_production_security, 
+        setup_production_security,
         setup_production_logging,
         validate_production_env
     )
@@ -63,31 +63,31 @@ logger.info("데이터베이스 테이블 초기화 완료")
 # 관리자 계정 자동 생성 (환경변수로 제어)
 def create_admin_if_not_exists():
     """시작 시 관리자 계정이 없으면 자동으로 생성합니다."""
-    
+
     # 환경변수로 관리자 계정 자동 생성 제어
     auto_create_admin = os.getenv("AUTO_CREATE_ADMIN", "true").lower() == "true"
-    
+
     if not auto_create_admin:
         logger.info("AUTO_CREATE_ADMIN=false이므로 관리자 계정 자동 생성을 건너뜁니다.")
         return
-    
+
     try:
         from models.user import User
         from sqlalchemy.orm import Session
-        
+
         db = Session(engine)
-        
+
         # 기존 관리자 계정 확인
         existing_admin = db.query(User).filter(
             (User.email == "admin@qclick.com") | (User.id == "admin")
         ).first()
-        
+
         if not existing_admin:
             # 환경변수에서 관리자 정보 읽기
             admin_id = os.getenv("ADMIN_ID", "admin")
             admin_email = os.getenv("ADMIN_EMAIL", "admin@qclick.com")
             admin_password = os.getenv("ADMIN_PASSWORD", "admin")
-            
+
             # 관리자 계정 생성
             admin_user = User(
                 id=admin_id,
@@ -98,17 +98,17 @@ def create_admin_if_not_exists():
                 balance=100000.0,
                 is_active=True
             )
-            
+
             db.add(admin_user)
             db.commit()
             db.refresh(admin_user)
-            
+
             logger.info(f"✅ 관리자 계정 자동 생성 완료: {admin_user.id}")
         else:
             logger.info(f"✅ 관리자 계정 이미 존재: {existing_admin.id}")
-            
+
         db.close()
-        
+
     except Exception as e:
         logger.error(f"❌ 관리자 계정 생성 실패: {str(e)}")
 
@@ -116,7 +116,7 @@ def create_admin_if_not_exists():
 create_admin_if_not_exists()
 
 app = FastAPI(
-    title="QClick Main API", 
+    title="QClick Main API",
     description="QClick 메인 API 서버 (인증, 사용자 관리, 결제 등)",
     version="1.0.0"
 )
@@ -166,12 +166,15 @@ async def health_check():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))  # Railway $PORT 환경변수를 정수로 변환
     host = os.getenv("HOST", "0.0.0.0")
-    
+
     logger.info(f"서버 시작: {host}:{port}")
-    logger.info(f"환경: {os.getenv('ENVIRONMENT', 'development')}")
+    # Railway 환경변수 우선 확인, 없으면 일반 ENVIRONMENT 변수 사용
+    railway_env = os.getenv('RAILWAY_ENVIRONMENT')
+    env = os.getenv('ENVIRONMENT', railway_env or 'development')
+    logger.info(f"환경: {env}")
     logger.info(f"데이터베이스: {os.getenv('DATABASE_URL', 'sqlite:///./qclick.db')[:50]}...")
     logger.info(f"PORT 환경변수 원본: {os.getenv('PORT', '기본값8000')}")
-    
+
     try:
         # reload=False로 설정하여 자동 재시작 비활성화
         # log_level을 warning으로 설정하여 INFO 레벨 경고 숨김

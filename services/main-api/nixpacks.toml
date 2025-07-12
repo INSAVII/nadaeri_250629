@@ -1,13 +1,14 @@
 [phases.setup]
-nixPkgs = ["python312"]
+nixPkgs = ["python311", "python311Packages.pip", "python311Packages.setuptools"]
 
 [phases.install]
 cmds = [
-    "pip install --no-cache-dir -r requirements_simple.txt"
+    "python3 -m ensurepip --upgrade",
+    "python3 -m pip install --no-cache-dir -r requirements.txt"
 ]
 
 [phases.build]
 cmds = []
 
 [start]
-cmd = "python main_simple.py"
+cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"

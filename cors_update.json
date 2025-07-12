@@ -1,0 +1,3 @@
+{
+  "CORS_ORIGINS": "[\"http://localhost:3000\",\"http://localhost:3001\",\"http://localhost:3002\",\"http://localhost:3003\",\"http://localhost:3004\",\"http://localhost:3005\",\"http://localhost:3006\",\"http://localhost:3007\",\"http://localhost:3008\",\"http://localhost:3009\",\"http://localhost:3010\",\"https://qclick-app.vercel.app\",\"https://qclick-app-git-main-nadaeri.vercel.app\",\"https://qclick-app-nadaeri.vercel.app\",\"https://www.나대리.kr\",\"https://나대리.kr\",\"https://www.xn--h32b11jwwbvvm.kr\",\"https://xn--h32b11jwwbvvm.kr\",\"https://nadaeri-250629.vercel.app\",\"https://nadaeri-250629-git-main-insaviis-projects.vercel.app\",\"https://nadaeri-250629-insaviis-projects.vercel.app\",\"https://frontendnew-production.up.railway.app\"]"
+}
