@@ -27,7 +27,7 @@ const developmentConfig: EnvConfig = {
   IS_DEVELOPMENT: true,
   IS_PRODUCTION: false,
   ENABLE_DEBUG_LOGS: true,
-  API_ENABLED: false, // 1단계: API 비활성화
+  API_ENABLED: true, // API 활성화
 };
 
 const productionConfig: EnvConfig = {
@@ -37,7 +37,7 @@ const productionConfig: EnvConfig = {
   IS_DEVELOPMENT: false,
   IS_PRODUCTION: true,
   ENABLE_DEBUG_LOGS: false,
-  API_ENABLED: false, // 1단계: API 비활성화
+  API_ENABLED: true, // API 활성화
 };
 
 // 🎯 현재 환경 설정 내보내기
