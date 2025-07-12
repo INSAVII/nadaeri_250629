@@ -10,7 +10,78 @@
   <!-- 외부 스크립트 차단을 위한 CSP -->
   <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'; object-src 'none';">
   <title>QClick - 큐클릭 서비스 v2.1</title>
-  <link rel="stylesheet" href="./styles.css">
+
+  <!-- 백화면 방지: 초기 스타일 -->
+  <style>
+    /* 백화면 방지 초기 스타일 */
+    html,
+    body {
+      background-color: #f9fafb !important;
+      color: #374151 !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif !important;
+      font-weight: 300 !important;
+      line-height: 1.6 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      min-height: 100vh !important;
+    }
+
+    #root {
+      min-height: 100vh !important;
+      display: flex !important;
+      flex-direction: column !important;
+      background-color: #f9fafb !important;
+    }
+
+    /* 초기 로딩 화면 */
+    .initial-loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #f9fafb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.3s ease-out;
+    }
+
+    .initial-loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e5e7eb;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loading-text {
+      margin-top: 16px;
+      color: #6b7280;
+      font-size: 14px;
+      font-weight: 300;
+    }
+  </style>
+
+  <!-- Vite가 자동으로 빌드된 CSS를 주입하도록 설정 -->
+  <!-- CSS는 Vite가 자동으로 주입합니다 -->
 
   <!-- 외부 스크립트 차단 -->
   <script>
@@ -62,6 +133,17 @@
       });
     });
 
+    // 백화면 방지: 초기 로딩 화면 제거
+    function hideInitialLoading() {
+      const loadingElement = document.querySelector('.initial-loading');
+      if (loadingElement) {
+        loadingElement.classList.add('hidden');
+        setTimeout(() => {
+          loadingElement.remove();
+        }, 300);
+      }
+    }
+
     // 페이지 로드 시 실행
     document.addEventListener('DOMContentLoaded', () => {
       blockExternalScripts();
@@ -69,13 +151,30 @@
         childList: true,
         subtree: true
       });
+
+      // React 앱이 로드되면 초기 로딩 화면 제거
+      setTimeout(hideInitialLoading, 1000);
+    });
+
+    // React 앱 로드 완료 감지
+    window.addEventListener('load', () => {
+      setTimeout(hideInitialLoading, 500);
     });
   </script>
 </head>
 
 <body>
+  <!-- 백화면 방지: 초기 로딩 화면 -->
+  <div class="initial-loading">
+    <div style="text-align: center;">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">나대리que 로딩 중...</div>
+    </div>
+  </div>
+
   <div id="root"></div>
-  <script type="module" src="./index.tsx"></script>
+  <!-- Vite가 자동으로 빌드된 JS를 주입하도록 설정 -->
+  <script type="module" src="/src/index.tsx"></script>
 </body>
 
 </html>

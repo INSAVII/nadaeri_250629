@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ServiceCard, TextButton } from "../components/ui";
+import { ServiceCard, TextButton, Loading } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import Footer from '../components/Footer';
 
@@ -71,9 +71,10 @@ export default function Home() {
   };
 
   useEffect(() => {
+    // 백화면 방지: 즉시 mounted 상태를 true로 설정
     setMounted(true);
     loadPromotionText();
-  }, [isAuthenticated, user, isLoading]);
+  }, []);
 
   // localStorage 변경 감지 (다른 탭/페이지에서 홍보문구 변경 시)
   useEffect(() => {
@@ -135,6 +136,7 @@ export default function Home() {
 
     return classes;
   };
+
   // 서비스 카드 데이터 - 모든 링크를 로그인으로 유도  // 로그인 상태에 따른 서비스 링크 생성
   const getServicePath = (serviceId: string) => {
     if (!isAuthenticated) {
@@ -171,6 +173,19 @@ export default function Home() {
       color: "border-rose-100 hover:border-rose-300 bg-rose-50 hover:bg-rose-100"
     }
   ];
+
+  // 백화면 방지: 로딩 중에도 기본 레이아웃 표시
+  if (!mounted) {
+    return (
+      <div className="w-full">
+        <div className="qc-container py-4">
+          <div className="flex items-center justify-center py-8">
+            <Loading size="md" text="페이지 로딩 중..." />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">

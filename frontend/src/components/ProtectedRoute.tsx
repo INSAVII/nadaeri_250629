@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Loading from './ui/Loading';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -23,14 +24,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     requireAdmin
   });
 
-  // 로딩 중일 때는 로딩 화면 표시
+  // 로딩 중일 때는 인라인 로딩 표시 (백화면 방지)
   if (isLoading) {
     console.log('ProtectedRoute: 로딩 중...');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">인증 확인 중...</p>
+          <Loading size="lg" text="인증 확인 중..." />
         </div>
       </div>
     );
@@ -58,13 +58,25 @@ interface PublicOnlyRouteProps {
 }
 
 export const PublicOnlyRoute: React.FC<PublicOnlyRouteProps> = ({ children }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
 
   // 디버깅 로그 추가
   console.log('PublicOnlyRoute 상태:', {
     isAuthenticated,
-    user: user ? { userId: user.id, role: user.role } : null
-  });  // 로그인된 경우 역할별로 리다이렉트
+    user: user ? { userId: user.id, role: user.role } : null,
+    isLoading
+  });
+
+  // 로딩 중일 때는 기본 레이아웃 유지하면서 인라인 로딩
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loading size="md" text="확인 중..." />
+      </div>
+    );
+  }
+
+  // 로그인된 경우 역할별로 리다이렉트
   if (isAuthenticated) {
     if (user?.role === 'admin') {
       console.log('PublicOnlyRoute: 관리자 로그인됨, 관리자 홈으로 리다이렉트');

@@ -8,10 +8,11 @@ export interface EnvConfig {
   IS_DEVELOPMENT: boolean;
   IS_PRODUCTION: boolean;
   ENABLE_DEBUG_LOGS: boolean;
+  API_ENABLED: boolean; // API 연결 활성화/비활성화 플래그
 }
 
 // 환경 감지
-const isDevelopment = 
+const isDevelopment =
   process.env.NODE_ENV === 'development' ||
   window.location.hostname === 'localhost' ||
   window.location.hostname === '127.0.0.1';
@@ -26,6 +27,7 @@ const developmentConfig: EnvConfig = {
   IS_DEVELOPMENT: true,
   IS_PRODUCTION: false,
   ENABLE_DEBUG_LOGS: true,
+  API_ENABLED: false, // 1단계: API 비활성화
 };
 
 const productionConfig: EnvConfig = {
@@ -35,6 +37,7 @@ const productionConfig: EnvConfig = {
   IS_DEVELOPMENT: false,
   IS_PRODUCTION: true,
   ENABLE_DEBUG_LOGS: false,
+  API_ENABLED: false, // 1단계: API 비활성화
 };
 
 // 🎯 현재 환경 설정 내보내기
@@ -47,6 +50,7 @@ export const authAPI = {
   getLogoutUrl: () => `${config.API_BASE_URL}/api/auth/logout`,
   getProfileUrl: () => `${config.API_BASE_URL}/api/auth/profile`,
   isDebugEnabled: () => config.ENABLE_DEBUG_LOGS,
+  isEnabled: () => config.API_ENABLED, // API 활성화 상태 확인
 };
 
 // 🌐 서비스별 API 함수들
@@ -54,10 +58,12 @@ export const serviceAPI = {
   qname: {
     getBaseUrl: () => config.QNAME_API_URL,
     getProcessUrl: () => `${config.QNAME_API_URL}/api/process`,
+    isEnabled: () => config.API_ENABLED,
   },
   qtext: {
     getBaseUrl: () => config.QTEXT_API_URL,
     getProcessUrl: () => `${config.QTEXT_API_URL}/api/process`,
+    isEnabled: () => config.API_ENABLED,
   },
 };
 
@@ -68,5 +74,6 @@ if (config.ENABLE_DEBUG_LOGS) {
     API_BASE_URL: config.API_BASE_URL,
     QNAME_API_URL: config.QNAME_API_URL,
     QTEXT_API_URL: config.QTEXT_API_URL,
+    API_ENABLED: config.API_ENABLED,
   });
 }

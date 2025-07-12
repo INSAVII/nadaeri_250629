@@ -47,6 +47,25 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       }
     }
 
+    // API 연결 오류 감지
+    if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('API')) {
+      console.error('🌐 API 연결 오류 감지:', {
+        error: error.message,
+        url: window.location.href,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // 환경 변수 오류 감지
+    if (error.message.includes('REACT_APP_') || error.message.includes('process.env')) {
+      console.error('⚙️ 환경 변수 오류 감지:', {
+        error: error.message,
+        nodeEnv: process.env.NODE_ENV,
+        apiUrl: process.env.REACT_APP_API_URL,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // 🚨 프로덕션 오류 로깅 강화
     if (process.env.NODE_ENV === 'production') {
       this.logProductionError(error, errorInfo);
@@ -58,7 +77,9 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         componentStack: errorInfo.componentStack,
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent,
-        url: window.location.href
+        url: window.location.href,
+        apiUrl: process.env.REACT_APP_API_URL,
+        nodeEnv: process.env.NODE_ENV
       });
     }
   }
@@ -159,9 +180,9 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         return this.props.fallback;
       }
 
-      // 🎨 프로덕션 친화적인 오류 페이지
+      // 🎨 백화면 방지: 프로덕션 친화적인 오류 페이지
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="max-w-md w-full bg-white shadow-xl rounded-xl p-8 mx-4">
             <div className="text-center">
               {/* 오류 아이콘 */}
@@ -198,52 +219,46 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               {/* 개발환경 상세 정보 */}
               {process.env.NODE_ENV === 'development' && this.state.error && (
                 <details className="mb-6 text-left">
-                  <summary className="cursor-pointer font-medium text-sm text-gray-700 mb-2">
+                  <summary className="cursor-pointer text-sm font-medium text-gray-700 mb-2">
                     🔍 개발자 정보 (클릭하여 확장)
                   </summary>
-                  <div className="bg-gray-100 rounded-lg p-3">
-                    <pre className="text-xs overflow-auto whitespace-pre-wrap">
-                      {this.state.error.toString()}
-                      {'\n\n'}
-                      {this.state.errorInfo?.componentStack}
-                    </pre>
+                  <div className="bg-gray-50 rounded-lg p-3 text-xs">
+                    <p className="font-mono text-red-600 mb-2">{this.state.error.message}</p>
+                    {this.state.errorInfo && (
+                      <pre className="text-gray-600 whitespace-pre-wrap overflow-x-auto">
+                        {this.state.errorInfo.componentStack}
+                      </pre>
+                    )}
                   </div>
                 </details>
               )}
 
               {/* 액션 버튼들 */}
-              <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button
                   onClick={this.handleRetry}
-                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   🔄 다시 시도
                 </button>
-
                 <button
                   onClick={this.handleGoHome}
-                  className="w-full bg-gray-200 text-gray-700 px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                  className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
                 >
                   🏠 홈으로 이동
                 </button>
-
                 <button
                   onClick={this.handleReload}
-                  className="w-full bg-orange-500 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+                  className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                 >
                   🔄 페이지 새로고침
                 </button>
               </div>
 
-              {/* 프로덕션 추가 안내 */}
-              {process.env.NODE_ENV === 'production' && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">
-                    문제가 지속될 경우 고객센터로 문의해주세요.<br />
-                    오류 ID를 함께 전달해주시면 더 빠른 해결이 가능합니다.
-                  </p>
-                </div>
-              )}
+              {/* 추가 도움말 */}
+              <div className="mt-6 text-xs text-gray-500">
+                <p>문제가 지속되면 브라우저 캐시를 삭제하거나 다른 브라우저로 시도해보세요.</p>
+              </div>
             </div>
           </div>
         </div>

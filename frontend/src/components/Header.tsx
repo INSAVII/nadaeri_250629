@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Loading from './ui/Loading';
 
 export default function Header() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, isLoading } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  // 백화면 방지: 즉시 mounted 상태 설정
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 🔍 강화된 디버깅: 인증 상태 로그 출력
   console.log('🔍 Header.tsx - 현재 인증 상태:', {
@@ -172,6 +179,24 @@ export default function Header() {
       }));
     }
   }, [user]);
+
+  // 백화면 방지: 로딩 중에도 기본 헤더 구조 표시
+  if (!mounted) {
+    return (
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-[1080px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-4">
+            <div className="flex items-center">
+              <div className="text-2xl text-blue-600 font-light">나대리que</div>
+            </div>
+            <div className="flex items-center">
+              <Loading size="sm" text="" />
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
