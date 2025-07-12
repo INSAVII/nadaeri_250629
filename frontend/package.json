@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node server.cjs",
     "dev": "parcel src/index.html --port 3003",
-    "build": "parcel build src/index.html --public-url ./",
+    "build": "parcel build src/index.html --public-url /",
     "preview": "parcel serve dist/index.html --port 3003",
     "type-check": "tsc --noEmit",
     "install-fast": "npm install --prefer-offline --no-audit --no-fund --no-optional",
